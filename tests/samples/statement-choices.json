@@ -1,0 +1,66 @@
+{
+    "actor": {
+        "mbox": "mailto:learner@example.com",
+        "name": "John Doe"
+    },
+    "verb": {
+        "id": "http://adlnet.gov/expapi/verbs/answered",
+        "display": { "en-US": "answered" }
+    },
+    "object": {
+        "id": "https://example.com/activities/example-activity",
+        "definition": {
+            "name": { "en-US": "Example Activity" },
+            "description": { "en-US": "This is an example activity for xAPI 2.0.0." },
+            "type": "http://adlnet.gov/expapi/activities/cmi.interaction",
+            "interactionType": "choice",
+            "correctResponsesPattern": [ "A1", "B2" ],
+            "choices": [
+                {
+                    "id": "A",
+                    "description": { "en-US": "Choice A" },
+                    "options": [
+                        { "id": "A1", "description": { "en-US": "Option A1" } },
+                        { "id": "A2", "description": { "en-US": "Option A2" } },
+                        { "id": "A3", "description": { "en-US": "Option A3" } }
+                    ]
+                },
+                {
+                    "id": "B",
+                    "description": { "en-US": "Choice B" },
+                    "options": [
+                        { "id": "B1", "description": { "en-US": "Option B1" } },
+                        { "id": "B2", "description": { "en-US": "Option B2" } },
+                        { "id": "B3", "description": { "en-US": "Option B3" } }
+                    ]
+                }
+            ]
+        }
+    },
+    "result": {
+        "response": "A1",
+        "success": true,
+        "completion": true,
+        "duration": { "value": 60, "unit": "second" },
+        "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 }
+    },
+    "context": {
+        "contextActivities": {
+            "category": [
+                {
+                    "id": "https://example.com/activities/example-category",
+                    "definition": { "name": { "en-US": "Example Category" } }
+                }
+            ]
+        }
+    },
+    "stored": "2022-06-01T12:00:00.000Z",
+    "authority": {
+        "objectType": "Agent",
+        "name": "Example LMS",
+        "account": {
+            "homePage": "https://example.com/accounts/",
+            "name": "learner@example.com"
+        }
+    }
+}

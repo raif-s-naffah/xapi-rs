@@ -1,0 +1,30 @@
+## https://github.com/rwf2/Rocket/blob/v0.5.1/examples/config/Rocket.toml
+
+[default.limits]
+forms = "2 MiB"
+json = "2 MiB"
+msgpack = "1 MiB"
+"file/jpg" = "5 MiB"
+"file/multipart" = "10 MiB"
+
+[default]
+address = "127.0.0.1"
+port = 8000
+key = "default xapi key"
+ident = "LaRS"
+ip_header = "X-Forwarded-For"
+secret_key = "secret-key"
+extra = false
+cli_colors = false
+
+[debug]
+workers = 1
+keep_alive = 0
+log_level = "normal"
+
+[release]
+workers = 12
+keep_alive = 5
+log_level = "critical"
+key = "Release app-key"
+extra = false
