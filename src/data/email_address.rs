@@ -77,7 +77,7 @@ impl AsRef<EmailAddress> for MyEmailAddress {
 /// whether or not they are prefixed w/ the `mailto` scheme.
 struct EmailAddressVisitor;
 
-impl<'de> Visitor<'de> for EmailAddressVisitor {
+impl Visitor<'_> for EmailAddressVisitor {
     type Value = EmailAddress;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

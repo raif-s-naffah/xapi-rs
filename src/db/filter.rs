@@ -8,12 +8,12 @@ use crate::{
     db::{activity::find_activity_id, actor::find_actor_id, verb::find_verb_id},
     MyError,
 };
-use chrono::{DateTime, SecondsFormat, Utc};
+use chrono::{DateTime, Local, SecondsFormat, Utc};
 use core::fmt;
 use iri_string::types::IriStr;
-use sqlx::PgPool;
+use sqlx::{Executor, FromRow, PgPool};
 use std::str::FromStr;
-use tracing::error;
+use tracing::{debug, error};
 use uuid::Uuid;
 
 /// _Statement_ resource selection filter.
@@ -240,5 +240,98 @@ impl fmt::Display for Filter {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "Filter{{ {} }}", res)
+    }
+}
+
+/// Structure to use when SQL is RETURNING a BIGSERIAL row ID.
+#[derive(Debug, FromRow)]
+struct BigSerial(i64);
+
+/// Structure to use when SQL is RETURNING a view name.
+#[derive(Debug, FromRow)]
+struct Name(String);
+
+/// Insert new row in `filter` table + return the row ID as a u64 for use
+/// in constructing filter view names.
+pub(crate) async fn register_new_filter(conn: &PgPool) -> Result<u64, MyError> {
+    match sqlx::query_as::<_, BigSerial>("INSERT INTO filter DEFAULT VALUES RETURNING id")
+        .fetch_one(conn)
+        .await
+    {
+        Ok(x) => {
+            Ok(u64::try_from(x.0).unwrap_or_else(|_| panic!("Failed converting {} to u64", x.0)))
+        }
+        Err(x) => {
+            error!("Failed registering new filter: {}", x);
+            Err(MyError::DB(x))
+        }
+    }
+}
+
+/// Remove all views associated with `filter` rows w/ a `created` timestamp
+/// earlier than _cutoff timestamp_ --computed as NOW - TTL...
+pub(crate) async fn drop_stale_filters(conn: &PgPool) {
+    let cutoff_ts = Local::now()
+        .checked_sub_signed(config().ttl)
+        .expect("Failed computing cutoff timestamp")
+        .timestamp();
+    let as_string = DateTime::from_timestamp(cutoff_ts, 0)
+        .expect("Failed converting cutoff timestamp to DateTime")
+        .to_rfc3339_opts(SecondsFormat::Secs, false);
+    let limit = config().ttl_batch_len;
+    let sql = format!(
+        r#"DELETE FROM filter WHERE id IN
+(SELECT id FROM filter WHERE created < '{}' LIMIT {}) RETURNING id"#,
+        as_string, limit
+    );
+    match sqlx::query_as::<_, BigSerial>(&sql).fetch_all(conn).await {
+        Ok(rows) => {
+            for id in rows {
+                drop_views(conn, id.0).await;
+            }
+        }
+        Err(x) => error!("Failed fetching stale filter view IDs: {}", x),
+    }
+}
+
+/// Remove all views w/ names matching the pattern we use when creating
+/// intermediate views to process GET /statements requests w/ filter.
+async fn drop_views(conn: &PgPool, id: i64) {
+    let sql = format!(
+        "SELECT viewname FROM pg_views WHERE viewname ~ '^v{}[a-e]?$'",
+        id
+    );
+    match sqlx::query_as::<_, Name>(&sql).fetch_all(conn).await {
+        Ok(rows) => {
+            for name in rows {
+                let v = &name.0;
+                // IMPORTANT (rsn) 20241204 - we use CASCADE instead of RESTRICT
+                // (the default) to ensure we do not leave any orphaned view
+                // --whhich may happen if we try to remove for example `v9`
+                // _before_ `v9a`...
+                match conn.execute(format!("DROP VIEW {} CASCADE", v).as_str()).await {
+                    Ok(_) => debug!("Dropped view '{}'", v),
+                    Err(x) => error!("Failed dropping view '{}': {}", v, x),
+                }
+            }
+        }
+        Err(x) => error!("Failed finding views 'v{}?': {}", id, x),
+    }
+}
+
+pub(crate) async fn drop_all_filters(conn: &PgPool) {
+    match sqlx::query_as::<_, BigSerial>("DELETE FROM filter RETURNING id")
+        .fetch_all(conn)
+        .await
+    {
+        Ok(rows) => {
+            for id in rows {
+                drop_views(conn, id.0).await;
+            }
+        }
+        Err(x) => error!(
+            "Failed draining filter table. Manual intevention may be required: {}",
+            x
+        ),
     }
 }

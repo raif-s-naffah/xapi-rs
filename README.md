@@ -85,21 +85,21 @@ This project passes the LRS Conformance Tests Suite (CTS) found [here][4] w/ cav
 }
 ```
 
-Those CTS when run locally require the [following patch](doc/helper_js.patch) (to the `helper.js` file) and adjustment to the server's configuration. The patch for the `helper.js` eliminate the TIME_MARGIN constraint.
+The CTS when run locally requires the [following patch](doc/helper_js.patch) (to the `helper.js` file) and adjustment to the server's configuration. The patch for the `helper.js` eliminates the `TIME_MARGIN` constraint.
 
 The server configuration adjustments deal with modifying the `.env` parameters to run the server locally. These modifications are:
 
 ```toml
 DB_STATEMENTS_PAGE_LEN = 2
 LRS_EXTERNAL_URL="http://localhost:9000/"
-RUST_LOG="info,xapi=debug"
+RUST_LOG="info,xapi_rs=debug"
 ```
 
-The first limits the number of _Statements_ to include in a _StatementResult_ to only 2. Given that the tests rely on a setup preamble of one or two known _Statemens_ the limit of 2 for `DB_STATEMENTS_PAGE_LEN` ensures that no more than 2 calls are made to **_LaRS_** before the test receives the exapected result.
+The first limits the number of _Statements_ to include in a _StatementResult_ to only 2. Given that the tests rely on a setup preamble of one or two known _Statements_ the limit of 2 for `DB_STATEMENTS_PAGE_LEN` ensures that no more than 2 calls are made to **_LaRS_** before the test receives the expected result.
 
-The second is used by **_LaRS_** for populating the `more` property of a _StatementResult_ which the test may invoke when an earlier _StatementResult_ response did not contain the expected _Statement_.
+The second is used by **_LaRS_** for populating the `more` property of a _StatementResult_ which the test may invoke when an earlier response did not contain the expected _Statement_.
 
-The last parameter ensures maximum verbosity in the logs which should help tracking what **_LaRS_** is emitting in response the CTS requests.
+The last parameter ensures maximum verbosity in the logs which should help tracking what **_LaRS_** is emitting in response to CTS requests.
 
 Finally to run the CTS, on **_LaRS_** side, open a command line console and enter:
 

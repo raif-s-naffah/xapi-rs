@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::Agent;
+use chrono::TimeDelta;
 use dotenvy::var;
 use std::{
     path::{self, Path, PathBuf},
     sync::OnceLock,
     time::Duration,
 };
+
+// NOTE (rsn) 20241204 - if these values change make sure the documentation
+// in `.env.template` matches...
+const DEFAULT_TTL_BATCH_LEN: &str = "50";
+const DEFAULT_TTL_SECS: &str = "30";
+const DEFAULT_TTL_INTERVAL_SECS: &str = "60";
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
 /// This LRS server configuration Singleton.
@@ -34,6 +41,10 @@ pub struct Config {
     pub(crate) static_dir: PathBuf,
     pub(crate) port: String,
     pub(crate) authority_mbox: String,
+
+    pub(crate) ttl_batch_len: i32,
+    pub(crate) ttl: TimeDelta,
+    pub(crate) ttl_interval: u64
 }
 
 impl Default for Config {
@@ -88,6 +99,28 @@ impl Default for Config {
         let port = var("LRS_PORT").expect("Missing LRS_PORT");
         let authority_mbox = var("LRS_AUTHORITY_IFI").expect("Missing LRS_AUTHORITY_IFI");
 
+        // query filter views cache parameters...
+        let ttl_batch_len = i32::try_from(var("TTL_BATCH_LEN")
+            .unwrap_or(DEFAULT_TTL_BATCH_LEN.to_string())
+            .parse::<u32>()
+            .expect("Failed parsing TTL_BATCH_LEN"))
+            .expect("Failed converting TTL_BATCH_LEN to i32");
+
+        let ttl_secs: usize = var("TTL_SECS")
+            .unwrap_or(DEFAULT_TTL_SECS.to_string())
+            .parse()
+            .expect("Failed parsing TTL_SECS");
+        let ttl = TimeDelta::new(
+            i64::try_from(ttl_secs).expect("Failed converting TTL_SECS to i64"),
+            0,
+        )
+        .expect("Failed converting TTL_SECS to TimeDelta");
+
+        let ttl_interval: u64 = var("TTL_INTERVAL_SECS")
+            .unwrap_or(DEFAULT_TTL_INTERVAL_SECS.to_string())
+            .parse()
+            .expect("Failed parsing TTL_INTERVAL_SECS");
+
         Self {
             db_server_url,
             db_name,
@@ -103,6 +136,9 @@ impl Default for Config {
             static_dir,
             port,
             authority_mbox,
+            ttl_batch_len,
+            ttl,
+            ttl_interval
         }
     }
 }

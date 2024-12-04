@@ -48,7 +48,7 @@ const JWS_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
 pub struct Signature(u64);
 
 impl Signature {
-    /// A JWS Signature is (RFC-7515) is...
+    /// A JWS Signature (RFC-7515) is...
     ///   BASE64URL(UTF8(JWS Protected Header)) || '.' ||
     ///   BASE64URL(JWS Payload) || '.' ||
     ///   BASE64URL(JWS Token)

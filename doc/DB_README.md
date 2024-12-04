@@ -31,7 +31,7 @@ Those `mbox`, `mbox_sha1sum`, `openid`, and `account` properties are also referr
 * 0 -> email address (or `mbox` in xAPI parlance). Note we only store the email address proper w/o the `mailto` scheme.
 * 1 -> hex-encoded SHA1 hash of a mailto IRI; i.e. 40-character string.
 * 2 -> OpenID URI identifying the owner.
-* 3 -> account on an existing system stored as a single string by catenating the `home_page` URL, a ':' symbol followed by a `name` (the username of the account holder).
+* 3 -> account on an existing system stored as a single string by catenating the `home_page` URL, a '~' symbol followed by a `name` (the username of the account holder).
 
 We store this information in two tables: one for the IFI data proper, and another for the association of Actors to their IFIs.
 

@@ -21,7 +21,7 @@ impl Fairing for StopWatch {
         }
     }
 
-    /// Store start time of in request-local state.
+    /// Store start time in request-local state.
     async fn on_request(&self, request: &mut Request<'_>, _: &mut Data<'_>) {
         request.local_cache(|| TimerStart(Some(Utc::now())));
     }

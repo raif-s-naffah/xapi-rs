@@ -585,10 +585,10 @@ ORDER BY stored {}"#,
         // all subordinate views by now are successfully created.  create the main one now...
         let v = views.remove(views.len() - 1);
         let mut sql = format!(
-            r#"SELECT {0}.id, {0}.fp, {0}.uuid, {0}.voided, {0}.actor_id, {0}.verb_id,
-  {0}.object_kind, {0}.result_id, {0}.context_id, {0}.timestamp, {0}.stored,
-  {0}.authority_id, {0}.version, {0}.exact
-FROM (SELECT * FROM {0} WHERE voided = FALSE AND exact IS NOT NULL) {0} "#,
+            r#"SELECT x.id, x.fp, x.uuid, x.voided, x.actor_id, x.verb_id,
+  x.object_kind, x.result_id, x.context_id, x.timestamp, x.stored,
+  x.authority_id, x.version, x.exact
+FROM (SELECT * FROM {} WHERE voided = FALSE AND exact IS NOT NULL) x "#,
             v
         );
         while !views.is_empty() {

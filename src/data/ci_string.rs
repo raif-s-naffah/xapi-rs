@@ -101,7 +101,7 @@ impl Fingerprint for CIString {
 /// JSON deserialization visitor for correctly parsing case insensitive strings.
 struct UnicaseVisitor;
 
-impl<'de> Visitor<'de> for UnicaseVisitor {
+impl Visitor<'_> for UnicaseVisitor {
     type Value = UniCase<String>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

@@ -8,7 +8,7 @@ use crate::{
     config,
     data::{statement_type::StatementType, Actor, Attachment, Format, Statement, StatementIDs},
     db::{
-        filter::Filter,
+        filter::{register_new_filter, Filter},
         statement::{
             find_more_statements, find_statement_by_uuid, find_statement_to_void,
             find_statements_by_filter, insert_statement, statement_exists, void_statement,
@@ -31,7 +31,6 @@ use base64::{
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use mime::{Mime, APPLICATION_JSON};
-use rand::RngCore;
 use rocket::{
     futures::Stream,
     get,
@@ -478,7 +477,7 @@ async fn get_some<'r>(
     debug!("----- get_some -----");
     debug!("q = {:?}", q);
     // NOTE (rsn) 20241003 - `extras` will capture *all* query string parameters
-    // including those that are already captured ass fields of `QueryParams`.
+    // including those that are already captured as fields of `QueryParams`.
     // we need to remove those to see if Clients sent us more than they should.
     extras.retain(|k, _| !VALID_GET_PARAMS.contains(k));
     debug!("extras = {:?}", extras);
@@ -1259,7 +1258,13 @@ async fn get_many(
     debug!("filter = {}", filter);
     debug!("format = {}", format);
 
-    let sid = rand::thread_rng().next_u64();
+    let sid = match register_new_filter(conn).await {
+        Ok(x) => x,
+        Err(x) => {
+            error!("Failed registering new filter ID: {}", x);
+            return Err(Status::InternalServerError)
+        }
+    };
     debug!("sid = {}", sid);
 
     match find_statements_by_filter(conn, filter, format, sid).await {

@@ -3,14 +3,21 @@
 //! Data structure and logic to allow wiring a Mock DB while testing as well as
 //! the real DB when in production.
 
-use crate::{config, db::MockDB};
+use crate::{
+    config,
+    db::{
+        filter::{drop_all_filters, drop_stale_filters},
+        MockDB,
+    },
+};
 use rocket::{
     fairing::{self, Fairing, Info, Kind},
     tokio::runtime::Runtime,
-    Build, Rocket,
+    Build, Orbit, Rocket,
 };
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::thread;
+use tokio::time::Duration;
 use tracing::{debug, info};
 
 /// Rocket managed state accessible to handlers referencing it in their signature.
@@ -88,12 +95,34 @@ impl Fairing for DBFairing {
     fn info(&self) -> Info {
         Info {
             name: "DB Connections Pool",
-            kind: Kind::Singleton | Kind::Ignite,
+            kind: Kind::Singleton | Kind::Ignite | Kind::Liftoff | Kind::Shutdown,
         }
     }
 
     async fn on_ignite(&self, r: Rocket<Build>) -> fairing::Result {
         let db = DB::init(self);
         Ok(r.manage(db))
+    }
+
+    async fn on_liftoff(&self, r: &Rocket<Orbit>) {
+        let conn = r
+            .state::<DB>()
+            .expect("Failed accessing DB on liftoff :(")
+            .pool()
+            .clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(config().ttl_interval)).await;
+                drop_stale_filters(&conn).await;
+            }
+        });
+    }
+
+    async fn on_shutdown(&self, r: &Rocket<Orbit>) {
+        let conn = r
+            .state::<DB>()
+            .expect("Failed accessing DB on shutdown :(")
+            .pool();
+        drop_all_filters(conn).await;
     }
 }

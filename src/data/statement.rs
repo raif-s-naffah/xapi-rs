@@ -460,7 +460,6 @@ impl Validate for Statement {
         if self.version.is_some() {
             vec.extend(self.version.as_ref().unwrap().validate())
         }
-        // no need to validate version...
         if self.attachments.is_some() {
             for att in self.attachments.as_ref().unwrap().iter() {
                 vec.extend(att.validate())
@@ -508,7 +507,7 @@ impl TryFrom<StatementType> for StatementId {
     }
 }
 
-/// A Type that knows how to construct  [Statement].
+/// A Type that knows how to construct [Statement].
 #[derive(Debug, Default)]
 pub struct StatementBuilder {
     _id: Option<Uuid>,
@@ -541,8 +540,8 @@ impl StatementBuilder {
 
     /// Set the `id` field from given UUID.
     ///
-    /// Raise [DataError] if argument is empty, cannot be parsed into a
-    /// valid UUID, or is all zeroes (`nil` UUID) or ones (`max` UUID).
+    /// Raise [DataError] if argument is empty, or is all zeroes (`nil` UUID)
+    /// or ones (`max` UUID).
     pub fn id_as_uuid(mut self, uuid: Uuid) -> Result<Self, DataError> {
         if uuid.is_nil() || uuid.is_max() {
             emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
@@ -599,7 +598,7 @@ impl StatementBuilder {
         Ok(self)
     }
 
-    /// Set the `timestamp` field.
+    /// Set the `timestamp` field from a string.
     ///
     /// Raise [DataError] if the argument is empty or invalid.
     pub fn timestamp(mut self, val: &str) -> Result<Self, DataError> {
@@ -614,13 +613,13 @@ impl StatementBuilder {
         Ok(self)
     }
 
-    /// Set the `timestamp` field w/ `val`.
+    /// Set the `timestamp` field from a [DateTime] value.
     pub fn with_timestamp(mut self, val: DateTime<Utc>) -> Self {
         self._timestamp = Some(MyTimestamp::from(val));
         self
     }
 
-    /// Set the `stored` field.
+    /// Set the `stored` field from a string.
     ///
     /// Raise [DataError] if the argument is empty or invalid.
     pub fn stored(mut self, val: &str) -> Result<Self, DataError> {
@@ -635,7 +634,7 @@ impl StatementBuilder {
         Ok(self)
     }
 
-    /// Set the `stored` field w/ `val`.
+    /// Set the `stored` field from a [DateTime] value.
     pub fn with_stored(mut self, val: DateTime<Utc>) -> Self {
         self._stored = Some(val);
         self

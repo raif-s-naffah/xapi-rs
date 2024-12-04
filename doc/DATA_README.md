@@ -53,7 +53,7 @@ Note though that even when they yield the same result, the implementations take 
 
 xAPI requires LRS implementations to sometimes produce results in _canonical_ form --See [Language Filtering Requirements for Canonical Format Statements][109] for example.
 
-This trait definees a method to be implemented by types required to produce such format
+This trait defines a method implemented by types required to produce such format.
 
 ## Getters, Builders and Setters
 
