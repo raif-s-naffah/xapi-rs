@@ -121,10 +121,10 @@ The `DB_SERVER_URL`, `DB_NAME`, and `LRS_EXTERNAL_URL` should be the same as set
 In no particular order...
 
 - [x] Pass the [conformance tests][4].  Done 2024-11-21.
+- [x] Implement a Job scheduler to clean temporary database Views created when a GET request leads to more results that can fit into a page.  Done 2024-12-04.
 - [ ] Remove `speedate` and re-write using `chrono`.
 - [ ] If the JWS header (of a signed Statement) includes an X.509 certificate, we should validate the signature against that certificate as defined in JWS. We don't do that yet.
 - [ ] Clean up residual temporary files that are created while processing multipart requests for Statements and Attachments which end up being rejected.
-- [ ] Implement a Job scheduler to clean temporary database Views created when a GET request leads to more results that can fit into a page.
 - [ ] Introduce a configuration option to allow setting either a time or size limits on assets stored in `static`.
 - [ ] Optimize Pg SQL queries --may be using CTEs.
 - [ ] Minimize memory allocation by reducing the use of `String` types especially in custom deserializer implementations --e.g. consider using `DeserializeSeed`.
