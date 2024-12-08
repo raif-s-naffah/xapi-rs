@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::data::DataError;
-use std::borrow::Cow;
+use std::{borrow::Cow, io};
 use thiserror::Error;
 use tracing::error;
 
@@ -68,4 +68,12 @@ pub enum MyError {
     /// Unexpected runtime error.
     #[error("{0}")]
     Runtime(#[doc(hidden)] Cow<'static, str>),
+
+    /// I/O error.
+    #[error("I/O error: {0}")]
+    IO(
+        #[doc(hidden)]
+        #[from]
+        io::Error,
+    ),
 }

@@ -15,6 +15,8 @@ const DEFAULT_TTL_BATCH_LEN: &str = "50";
 const DEFAULT_TTL_SECS: &str = "30";
 const DEFAULT_TTL_INTERVAL_SECS: &str = "60";
 
+const DEFAULT_MFC_INTERVAL_SECS: &str = "10";
+
 static CONFIG: OnceLock<Config> = OnceLock::new();
 /// This LRS server configuration Singleton.
 pub fn config() -> &'static Config {
@@ -44,7 +46,9 @@ pub struct Config {
 
     pub(crate) ttl_batch_len: i32,
     pub(crate) ttl: TimeDelta,
-    pub(crate) ttl_interval: u64
+    pub(crate) ttl_interval: u64,
+
+    pub(crate) mfc_interval: u64
 }
 
 impl Default for Config {
@@ -121,6 +125,12 @@ impl Default for Config {
             .parse()
             .expect("Failed parsing TTL_INTERVAL_SECS");
 
+
+        let mfc_interval: u64 = var("MFC_INTERVAL_SECS")
+            .unwrap_or(DEFAULT_MFC_INTERVAL_SECS.to_string())
+            .parse()
+            .expect("Failed parsing MFC_INTERVAL_SECS");
+
         Self {
             db_server_url,
             db_name,
@@ -138,7 +148,8 @@ impl Default for Config {
             authority_mbox,
             ttl_batch_len,
             ttl,
-            ttl_interval
+            ttl_interval,
+            mfc_interval
         }
     }
 }

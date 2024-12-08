@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    config,
     lrs::{resources, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB, VERSION_HDR},
-    V200,
+    MyError, V200,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use rocket::{
@@ -16,8 +17,12 @@ use rocket::{
     time::{format_description::well_known::Rfc2822, OffsetDateTime},
     Build, Request, Rocket,
 };
-use std::{fs, mem, sync::LazyLock, time::SystemTime};
-use tracing::{debug, error, info};
+use std::{
+    fs, mem,
+    sync::LazyLock,
+    time::{Duration, SystemTime},
+};
+use tracing::{debug, error, info, warn};
 
 /// Server Singleton of timestamp when this LaRS persistent storage was
 /// likely altered --i.e. received a PUT, POST or DELETE requests.
@@ -66,6 +71,17 @@ pub fn build(testing: bool) -> Rocket<Build> {
                     env!("CARGO_PKG_VERSION"),
                     now.format(&Rfc2822).unwrap()
                 );
+
+                info!("Starting multipart temp file cleaner...");
+                tokio::spawn(async move {
+                    loop {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(config().mfc_interval))
+                            .await;
+                        if let Err(x) = clean_multipart_files() {
+                            warn!("Failed: {}", x);
+                        }
+                    }
+                });
             })
         }))
         // hook to update last-altered singleton...
@@ -106,6 +122,10 @@ pub fn build(testing: bool) -> Rocket<Build> {
         // shutdown hook
         .attach(AdHoc::on_shutdown("Shutdown Hook", |_| {
             Box::pin(async move {
+                info!("Removing multipart temp file folder...");
+                let s_dir = config().static_dir.join("s");
+                let _ = fs::remove_dir_all(s_dir);
+
                 let now: OffsetDateTime = SystemTime::now().into();
                 info!(
                     "LaRS {} shutting down on {:?}",
@@ -154,4 +174,31 @@ fn unknown_route(req: &Request) -> status::BadRequest<String> {
     error!("----- 422 -----");
     debug!("req = {:?}", req);
     status::BadRequest(req.uri().to_string())
+}
+
+fn clean_multipart_files() -> Result<(), MyError> {
+    let s_dir = config().static_dir.join("s");
+    for obj in fs::read_dir(s_dir)? {
+        let obj = obj?;
+        let md = obj.metadata()?;
+        if md.is_file() {
+            if let Ok(created) = md.created() {
+                match created.elapsed() {
+                    Ok(elapsed) => {
+                        if elapsed > Duration::new(config().mfc_interval, 0) {
+                            debug!("About to delete {:?}", obj.path());
+                            fs::remove_file(obj.path())?;
+                        }
+                    }
+                    Err(x) => warn!(
+                        "Failed computing elapsed time since object's creation: {}",
+                        x
+                    ),
+                }
+            } else {
+                warn!("Unable to access file system object's creattion timestamp :(")
+            }
+        }
+    }
+    Ok(())
 }

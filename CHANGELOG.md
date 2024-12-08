@@ -1,3 +1,9 @@
+# Version 0.1.2 (2024-12-xx)
+
+* Refactored GET /statements handlers + reduced code duplications.
+* Fixed Issue #2.
+* Updated TODO list.
+
 # Version 0.1.1 (2024-12-04)
 
 * Removed duplicate license fie.

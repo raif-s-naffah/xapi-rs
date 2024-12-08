@@ -556,43 +556,47 @@ async fn get_some<'r>(
 
     let resource = resource?;
     debug!("resource = {:?}", resource);
-    let server_last_modified = get_consistent_thru().await;
-    let stored = resource.stored();
     if !with_attachments {
+        let stored = resource.stored();
         match emit_response!(c, resource => StatementType, stored) {
             Ok(x) => Ok(EitherOr::JsonX(GetResponse { inner: x })),
             Err(x) => Err(x),
         }
     } else {
-        // multipart/mixed;
-        // 1st part is always the application/json Statement or StatementResult...
-        // persist it...
-        let first_part = save_statements(&resource).await?;
-        let mut parts = vec![];
-        for att in resource.attachments() {
-            if let Some(y) = OutPartInfo::from(&att) {
-                parts.push(y);
-            }
-        }
-        debug!("parts = {:?}", parts);
-        Ok(EitherOr::Mixed(MultipartStream::new_random(stream! {
-            let ar = File::open(&first_part).await.expect("Failed re-opening");
-            // FIXME (rsn) 20241024 - do we really need to emit the last two
-            // headers in the 1st (Statement(s)) part?
-            yield MultipartSection::new(ar)
-                .add_header(ContentType::JSON)
-                .add_header(last_modified(stored))
-                .add_header(consistent_through(server_last_modified));
-            // the rest are the attachments proper...
-            for p in parts {
-                let ar = File::open(p.path).await.expect("Failed re-opening");
-                yield MultipartSection::new(ar)
-                    .add_header(p.content_type)
-                    .add_header(Header::new(header::CONTENT_LENGTH.as_str(), p.len.to_string()))
-                    .add_header(Header::new(HASH_HDR, p.sha2.unwrap()))
-            }
-        })))
+        send_multipart(&resource).await
     }
+}
+
+async fn send_multipart(
+    resource: &StatementType,
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>>>, Status> {
+    let mut server_last_modified = get_consistent_thru().await;
+    let stored = resource.stored();
+    if stored > server_last_modified {
+        server_last_modified = stored
+    }
+
+    let first_part = save_statements(resource).await?;
+    let mut parts = vec![];
+    for att in resource.attachments() {
+        if let Some(y) = OutPartInfo::from(&att) {
+            parts.push(y);
+        }
+    }
+    Ok(EitherOr::Mixed(MultipartStream::new_random(stream! {
+        let ar = File::open(&first_part).await.expect("Failed re-opening");
+        yield MultipartSection::new(ar)
+            .add_header(ContentType::JSON)
+            .add_header(last_modified(stored))
+            .add_header(consistent_through(server_last_modified));
+        for p in parts {
+            let ar = File::open(p.path).await.expect("Failed re-opening");
+            yield MultipartSection::new(ar)
+                .add_header(p.content_type)
+                .add_header(Header::new(header::CONTENT_LENGTH.as_str(), p.len.to_string()))
+                .add_header(Header::new(HASH_HDR, p.sha2.unwrap()))
+        }
+    })))
 }
 
 #[get("/more?<sid>&<count>&<offset>&<limit>&<format>&<attachments>")]
@@ -646,35 +650,10 @@ async fn get_more(
         }
     };
 
-    let mut last_modified = get_consistent_thru().await;
-    let stored = resource.stored();
-    if stored > last_modified {
-        last_modified = stored
-    }
     if attachments {
-        // multipart/mixed;
-        let first_part = save_statements(&resource).await?;
-        let mut parts = vec![];
-        for att in resource.attachments() {
-            if let Some(y) = OutPartInfo::from(&att) {
-                parts.push(y)
-            }
-        }
-        debug!("parts = {:?}", parts);
-        Ok(EitherOr::Mixed(MultipartStream::new_random(stream! {
-            let ar = File::open(&first_part).await.expect("Failed re-opening");
-            yield MultipartSection::new(ar)
-                .add_header(ContentType::JSON)
-                .add_header(consistent_through(last_modified));
-            for p in parts {
-                    let ar = File::open(&p.path).await.expect("Failed re-opening");
-                    yield MultipartSection::new(ar)
-                        .add_header(p.content_type)
-                        .add_header(Header::new(header::CONTENT_LENGTH.as_str(), p.len.to_string()))
-                        .add_header(Header::new(HASH_HDR, p.sha2.unwrap()))
-                }
-        })))
+        send_multipart(&resource).await
     } else {
+        let last_modified = get_consistent_thru().await;
         match emit_response!(c, resource => StatementType, last_modified) {
             Ok(x) => Ok(EitherOr::JsonX(GetResponse { inner: x })),
             Err(x) => Err(x),
