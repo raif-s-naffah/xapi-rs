@@ -1,4 +1,4 @@
-# Version 0.1.2 (2024-12-xx)
+# Version 0.1.2 (2024-12-09)
 
 * Refactored GET /statements handlers + reduced code duplications.
 * Fixed Issue #2.
