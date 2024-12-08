@@ -217,16 +217,7 @@ struct OutPartInfo {
 }
 
 impl OutPartInfo {
-    fn from(path: PathBuf) -> Self {
-        OutPartInfo {
-            path,
-            content_type: ContentType::JSON,
-            len: 0,
-            sha2: None,
-        }
-    }
-
-    fn from_attachment(att: &Attachment) -> Option<Self> {
+    fn from(att: &Attachment) -> Option<Self> {
         let path = sha2_path(att.sha2());
         if !path.exists() {
             None
@@ -574,25 +565,18 @@ async fn get_some<'r>(
         }
     } else {
         // multipart/mixed;
-        let mut parts = vec![];
         // 1st part is always the application/json Statement or StatementResult...
-        // persist it and push its OutPartInfo to parts...
-        let z_name = &format!("_{}", MY_ENGINE.encode(Uuid::now_v7()));
-        save_statements(&resource, z_name).await?;
-        let z_path = config().static_dir.join("s").join(z_name);
-        parts.push(OutPartInfo::from(z_path));
-
+        // persist it...
+        let first_part = save_statements(&resource).await?;
+        let mut parts = vec![];
         for att in resource.attachments() {
-            if let Some(y) = OutPartInfo::from_attachment(&att) {
+            if let Some(y) = OutPartInfo::from(&att) {
                 parts.push(y);
             }
         }
-
         debug!("parts = {:?}", parts);
         Ok(EitherOr::Mixed(MultipartStream::new_random(stream! {
-            // 1st part is the Statement(s)...
-            let first = parts.remove(0);
-            let ar = File::open(first.path).await.expect("Failed re-opening");
+            let ar = File::open(&first_part).await.expect("Failed re-opening");
             // FIXME (rsn) 20241024 - do we really need to emit the last two
             // headers in the 1st (Statement(s)) part?
             yield MultipartSection::new(ar)
@@ -669,22 +653,16 @@ async fn get_more(
     }
     if attachments {
         // multipart/mixed;
+        let first_part = save_statements(&resource).await?;
         let mut parts = vec![];
-        let z_name = &format!("_{}", MY_ENGINE.encode(Uuid::now_v7()));
-        save_statement_result(&resource, z_name).await?;
-        let z_path = config().static_dir.join("s").join(z_name);
-        parts.push(OutPartInfo::from(z_path));
-
         for att in resource.attachments() {
-            if let Some(y) = OutPartInfo::from_attachment(&att) {
+            if let Some(y) = OutPartInfo::from(&att) {
                 parts.push(y)
             }
         }
-
         debug!("parts = {:?}", parts);
         Ok(EitherOr::Mixed(MultipartStream::new_random(stream! {
-            let first = parts.remove(0);
-            let ar = File::open(first.path).await.expect("Failed re-opening");
+            let ar = File::open(&first_part).await.expect("Failed re-opening");
             yield MultipartSection::new(ar)
                 .add_header(ContentType::JSON)
                 .add_header(consistent_through(last_modified));
@@ -1262,7 +1240,7 @@ async fn get_many(
         Ok(x) => x,
         Err(x) => {
             error!("Failed registering new filter ID: {}", x);
-            return Err(Status::InternalServerError)
+            return Err(Status::InternalServerError);
         }
     };
     debug!("sid = {}", sid);
@@ -1293,17 +1271,18 @@ async fn get_many(
 
 /// Write the JSON serialized form of the given Statement array to a named local
 /// file inside 'static/s' folder path rooted at this project's home dir.
-async fn save_statements(res: &StatementType, name: &str) -> Result<(), Status> {
-    // create the temp file in 'static' dir
+/// Return the file's path if/when successful.
+async fn save_statements(res: &StatementType) -> Result<PathBuf, Status> {
+    let name = &format!("_{}", MY_ENGINE.encode(Uuid::now_v7()));
+    // create the temp file in 'static' dir, under a folder named 's'...
     let path = config().static_dir.join("s").join(name);
-
     let parent = path.parent().unwrap();
     if let Err(x) = DirBuilder::new().recursive(true).create(parent).await {
         error!("Failed creating {}'s parent(s): {}", name, x);
         return Err(Status::InternalServerError);
     }
 
-    if let Ok(mut file) = File::create(path).await {
+    if let Ok(mut file) = File::create(&path).await {
         let json = match res {
             StatementType::S(x) => {
                 serde_json::to_string(x).expect("Failed serializing S to temp file")
@@ -1323,38 +1302,7 @@ async fn save_statements(res: &StatementType, name: &str) -> Result<(), Status> 
                 error!("Failed flushing {}: {}", name, x);
                 Err(Status::InternalServerError)
             } else {
-                Ok(())
-            }
-        } else {
-            error!("Failed writing {}", name);
-            Err(Status::InternalServerError)
-        }
-    } else {
-        error!("Failed creating {}", name);
-        Err(Status::InternalServerError)
-    }
-}
-
-/// Write the JSON serialized form of the given StatementResult to a named local
-/// file inside 'static/s' folder path rooted at this project's home dir.
-async fn save_statement_result(res: &StatementType, name: &str) -> Result<(), Status> {
-    // create the temp file in 'static' dir
-    let path = config().static_dir.join("s").join(name);
-
-    let parent = path.parent().unwrap();
-    if let Err(x) = DirBuilder::new().recursive(true).create(parent).await {
-        error!("Failed creating {}'s parent(s): {}", name, x);
-        return Err(Status::InternalServerError);
-    }
-
-    if let Ok(mut file) = File::create(path).await {
-        let json = serde_json::to_string(res).expect("Failed serializing SR | SRId to temp file");
-        if (file.write_all(json.as_bytes()).await).is_ok() {
-            if let Err(x) = file.flush().await {
-                error!("Failed flushing {}: {}", name, x);
-                Err(Status::InternalServerError)
-            } else {
-                Ok(())
+                Ok(path)
             }
         } else {
             error!("Failed writing {}", name);
