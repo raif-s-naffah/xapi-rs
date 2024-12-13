@@ -328,7 +328,6 @@ impl Headers {
         }
     }
 
-    // #[allow(dead_code)]
     pub(crate) fn languages(&self) -> &[MyLanguageTag] {
         self.languages.as_slice()
     }

@@ -5,6 +5,7 @@ use rocket::{
     fairing::{Fairing, Info, Kind},
     Data, Request, Response,
 };
+use tracing::debug;
 
 /// Record time when a request arrives.
 pub(crate) struct StopWatch;
@@ -41,12 +42,13 @@ impl Fairing for StopWatch {
             };
             format!(
                 "{}; {} ms",
-                arrival_time.to_rfc3339_opts(SecondsFormat::Nanos, true),
+                arrival_time.to_rfc3339_opts(SecondsFormat::Micros, true),
                 duration_str
             )
         } else {
             "---".into()
         };
+        debug!("X-Stop-Watch: {}", value);
         res.set_raw_header("X-Stop-Watch", value);
     }
 }

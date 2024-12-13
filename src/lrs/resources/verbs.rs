@@ -14,7 +14,7 @@ use crate::{
 };
 use iri_string::types::IriStr;
 use rocket::{get, http::Status, routes, State};
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, warn};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -25,7 +25,6 @@ pub fn routes() -> Vec<rocket::Route> {
 /// i call an `alias` when the [Verb] is a _standard_ Vocabulary term; e.g.
 /// `voided' can be used instead of '<http://adlnet.gov/expapi/verbs/voided>'
 /// to identify the same [Verb].
-#[instrument]
 #[get("/", data = "<id>")]
 async fn get(c: Headers, id: &str, db: &State<DB>) -> Result<WithResource<Verb>, Status> {
     debug!("...");

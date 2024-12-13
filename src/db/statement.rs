@@ -25,7 +25,7 @@ use chrono::{SecondsFormat, Utc};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, PgPool};
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 const EXISTS: &str = r#"SELECT * FROM statement WHERE uuid = $1"#;
@@ -519,7 +519,6 @@ impl fmt::Display for PagingInfo {
 /// [1]: crate::Filter
 /// [2]: xapi::Statement
 /// [3]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#filter-conditions-for-statementrefs
-#[instrument(skip(conn, filter, format))]
 pub(crate) async fn find_statements_by_filter(
     conn: &PgPool,
     filter: Filter,

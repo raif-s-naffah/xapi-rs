@@ -7,7 +7,7 @@ use crate::{
 };
 use iri_string::types::IriStr;
 use sqlx::PgPool;
-use tracing::{debug, instrument};
+use tracing::debug;
 
 const FIND_BY_IRI: &str = r#"SELECT * FROM verb WHERE iri = $1"#;
 
@@ -111,7 +111,6 @@ pub(crate) async fn find_verb_id(conn: &PgPool, iri: &IriStr) -> Result<Option<i
 
 const FIND: &str = r#"SELECT * FROM verb WHERE id = $1"#;
 
-#[instrument(skip(conn, format))]
 pub(crate) async fn find_verb(conn: &PgPool, id: i32, format: &Format) -> Result<Verb, MyError> {
     match sqlx::query_as::<_, TVerb>(FIND)
         .bind(id)

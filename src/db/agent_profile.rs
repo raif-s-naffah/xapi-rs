@@ -3,7 +3,7 @@
 use crate::{db::schema::TAgentProfile, emit_db_error, handle_db_error, MyError};
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use tracing::{error, instrument};
+use tracing::error;
 
 const UPSERT: &str = r#"
 INSERT INTO agent_profile (agent_id, profile_id, document)
@@ -13,7 +13,6 @@ DO UPDATE SET document = $3"#;
 
 /// Insert or update an xAPI Agent Profile `document` given an `agent_id` (row
 /// ID of an Agent in the 'actor' table), and a `profile_id`.
-#[instrument(skip(conn))]
 pub(crate) async fn upsert(
     conn: &PgPool,
     agent_id: i32,
@@ -40,7 +39,6 @@ WHERE agent_id = $1 AND profile_id = $2"#;
 /// it was last modified --meaningful only when document is found.
 ///
 /// Raise [MyError] if an error occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn find(
     conn: &PgPool,
     agent_id: i32,
@@ -71,7 +69,6 @@ const FIND_IDS: &str = r#"SELECT * FROM agent_profile WHERE agent_id = $1"#;
 /// optionally _updated_ since the given timestamp.
 ///
 /// Raise [MyError] if an exception occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn find_ids(
     conn: &PgPool,
     agent_id: i32,
@@ -117,7 +114,6 @@ WHERE agent_id = $1 AND profile_id = $2"#;
 /// Delete the `agent_profile` record w/ the given parameters.
 ///
 /// Raise [MyError] if an error occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn remove(conn: &PgPool, agent_id: i32, profile_id: &str) -> Result<(), MyError> {
     match sqlx::query(DELETE_PROFILE)
         .bind(agent_id)

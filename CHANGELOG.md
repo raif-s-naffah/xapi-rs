@@ -1,3 +1,13 @@
+# Version 0.1.3 (2024-12-14)
+
+* Fixed Issue #3.
+* Log @debug stop-watch metric.
+* .gitignore: Include perf command output files.
+* lrs/db.rs: Use std::time::Duration instead of tokio's.
+* lrs/server.rs: Likewise.
+* lrs/headers.rs: Remove commented out annotations.
+* lrs/stop_watch.rs: Use micro-sec resolution + log @debug.
+
 # Version 0.1.2 (2024-12-09)
 
 * Refactored GET /statements handlers + reduced code duplications.

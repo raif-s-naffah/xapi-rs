@@ -9,7 +9,7 @@ use crate::{
     emit_db_error, MyError,
 };
 use sqlx::PgPool;
-use tracing::{debug, instrument};
+use tracing::debug;
 
 impl TryFrom<TAttachment> for Attachment {
     type Error = MyError;
@@ -96,7 +96,6 @@ pub(crate) async fn link_attachment(
 
 const FIND: &str = r#"SELECT * FROM attachment WHERE id = $1"#;
 
-#[instrument(skip(conn))]
 pub(crate) async fn find_attachment(conn: &PgPool, id: i32) -> Result<Attachment, MyError> {
     debug!("id = {}", id);
     match sqlx::query_as::<_, TAttachment>(FIND)
@@ -111,7 +110,6 @@ pub(crate) async fn find_attachment(conn: &PgPool, id: i32) -> Result<Attachment
 
 const FIND_ATTACHMENTS: &str = r#"SELECT * FROM attachments WHERE statement_id = $1"#;
 
-#[instrument(skip(conn))]
 pub(crate) async fn find_attachments(conn: &PgPool, sid: i32) -> Result<Vec<Attachment>, MyError> {
     debug!("sid = {}", sid);
     match sqlx::query_as::<_, TAttachments>(FIND_ATTACHMENTS)

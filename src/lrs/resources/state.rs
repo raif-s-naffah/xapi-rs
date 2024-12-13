@@ -44,7 +44,7 @@ use sqlx::{
     PgPool,
 };
 use std::mem;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -257,7 +257,6 @@ async fn post(
     }
 }
 
-#[instrument(skip(db))]
 #[get("/?<activityId>&<agent>&<registration>&<stateId>&<since>")]
 async fn get(
     activityId: &str,
@@ -303,7 +302,6 @@ async fn get(
     emit_doc_response(resource.0, resource.1).await
 }
 
-#[instrument(skip(db))]
 #[delete("/?<activityId>&<agent>&<registration>&<stateId>")]
 async fn delete(
     c: Headers,

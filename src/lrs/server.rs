@@ -75,7 +75,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
                 info!("Starting multipart temp file cleaner...");
                 tokio::spawn(async move {
                     loop {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(config().mfc_interval))
+                        tokio::time::sleep(Duration::from_secs(config().mfc_interval))
                             .await;
                         if let Err(x) = clean_multipart_files() {
                             warn!("Failed: {}", x);

@@ -27,3 +27,4 @@ Cargo.lock
 Cargo.tree
 Rocket.toml
 perf.data
+perf.data.old

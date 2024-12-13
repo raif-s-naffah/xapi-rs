@@ -16,8 +16,7 @@ use rocket::{
     Build, Orbit, Rocket,
 };
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::thread;
-use tokio::time::Duration;
+use std::{thread, time::Duration};
 use tracing::{debug, info};
 
 /// Rocket managed state accessible to handlers referencing it in their signature.

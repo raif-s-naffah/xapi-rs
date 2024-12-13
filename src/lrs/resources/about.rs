@@ -13,13 +13,10 @@
 use crate::{
     data::About,
     emit_response,
-    lrs::{
-        resources::{Headers, WithResource},
-        DB,
-    },
+    lrs::resources::{Headers, WithResource},
 };
-use rocket::{get, http::Status, routes, State};
-use tracing::{debug, instrument};
+use rocket::{get, http::Status, routes};
+use tracing::debug;
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -28,9 +25,8 @@ pub fn routes() -> Vec<rocket::Route> {
 
 // NOTE (rsn) 2024097 - removed the Headers guard to allow /about calls w/o an
 // xapi version header...
-#[instrument]
 #[get("/")]
-async fn get(db: &State<DB>) -> Result<WithResource<About>, Status> {
+async fn get() -> Result<WithResource<About>, Status> {
     debug!("...");
 
     let resource = About::default();

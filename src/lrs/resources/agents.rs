@@ -23,14 +23,13 @@ use crate::{
 use rocket::{get, http::Status, routes, State};
 use sqlx::PgPool;
 use std::str::FromStr;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
     routes![get]
 }
 
-#[instrument]
 #[get("/?<agent>")]
 async fn get(c: Headers, agent: &str, db: &State<DB>) -> Result<WithResource<Person>, Status> {
     debug!("----- get -----");

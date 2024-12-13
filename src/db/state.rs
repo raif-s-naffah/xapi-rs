@@ -8,7 +8,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use core::fmt;
 use sqlx::PgPool;
-use tracing::{debug, error, instrument};
+use tracing::{debug, error};
 use uuid::Uuid;
 
 /// Structure encapsulating query paramters for targeting a single
@@ -101,7 +101,6 @@ WHERE activity_id = $1 AND agent_id = $2 AND registration = $3 AND state_id = $4
 /// information is only relevant when the document is found.
 ///
 /// Raise [MyError] if an error occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn find(
     conn: &PgPool,
     s: &SingleResourceParams<'_>,
@@ -134,7 +133,6 @@ WHERE activity_id = $1 AND agent_id = $2 AND registration = $3"#;
 /// since the given (`since`) timestamp.
 ///
 /// Raise [MyError] if an exception occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn find_ids(
     conn: &PgPool,
     s: &MultiResourceParams,
@@ -172,7 +170,6 @@ WHERE activity_id = $1 AND agent_id = $2 AND registration = $3 AND state_id = $4
 /// Delete the `state` record w/ the given parameters.
 ///
 /// Raise [MyError] if an error occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn remove(conn: &PgPool, s: &SingleResourceParams<'_>) -> Result<(), MyError> {
     match sqlx::query(DELETE)
         .bind(s.activity_id)
@@ -193,7 +190,6 @@ WHERE activity_id = $1 AND agent_id = $2 AND registration = $3"#;
 /// Delete all `state` records w/ the given parameters.
 ///
 /// Raise [MyError] if an error occurs in the process.
-#[instrument(skip(conn))]
 pub(crate) async fn remove_many(
     conn: &PgPool,
     s: &SingleResourceParams<'_>,

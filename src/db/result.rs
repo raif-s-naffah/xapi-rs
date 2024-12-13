@@ -6,7 +6,7 @@ use crate::{
     MyError,
 };
 use sqlx::PgPool;
-use tracing::{error, instrument};
+use tracing::error;
 
 impl TryFrom<TResult> for XResult {
     type Error = MyError;
@@ -111,7 +111,6 @@ pub(crate) async fn insert_result(
 
 const FIND: &str = r#"SELECT * FROM result WHERE id = $1"#;
 
-#[instrument(skip(conn))]
 pub(crate) async fn find_result(conn: &PgPool, id: i32) -> Result<XResult, MyError> {
     match sqlx::query_as::<_, TResult>(FIND)
         .bind(id)
