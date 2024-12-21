@@ -11,12 +11,15 @@
 //! [1]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#4167-about-resource-about
 
 use crate::{
-    data::About,
+    config::config,
     emit_response,
     lrs::resources::{Headers, WithResource},
+    About, DataError, Extensions, MyVersion, EXT_STATS, EXT_VERBS, V200,
 };
 use rocket::{get, http::Status, routes};
-use tracing::debug;
+use serde_json::Value;
+use std::str::FromStr;
+use tracing::{debug, error};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -27,8 +30,25 @@ pub fn routes() -> Vec<rocket::Route> {
 // xapi version header...
 #[get("/")]
 async fn get() -> Result<WithResource<About>, Status> {
-    debug!("...");
+    debug!("----- get -----");
 
-    let resource = About::default();
-    emit_response!(Headers::default(), resource => About)
+    match build_about() {
+        Ok(x) => emit_response!(Headers::default(), x => About),
+        Err(x) => {
+            error!("Failed instantiating About: {}", x);
+            Err(Status::InternalServerError)
+        }
+    }
+}
+
+fn build_about() -> Result<About, DataError> {
+    let versions = vec![MyVersion::from_str(V200)?];
+    let mut extensions = Extensions::default();
+    extensions.add(EXT_VERBS, &Value::Null)?;
+    extensions.add(
+        EXT_STATS,
+        &Value::String(config().to_external_url("extensions/stats")),
+    )?;
+
+    Ok(About::new(versions, extensions))
 }

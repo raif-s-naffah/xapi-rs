@@ -2,7 +2,10 @@
 
 use crate::{
     config,
-    lrs::{resources, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB, VERSION_HDR},
+    lrs::{
+        resources, stats, stats::StatsFairing, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB,
+        VERSION_HDR,
+    },
     MyError, V200,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -18,7 +21,9 @@ use rocket::{
     Build, Request, Rocket,
 };
 use std::{
-    fs, mem,
+    fs,
+    io::ErrorKind,
+    mem,
     sync::LazyLock,
     time::{Duration, SystemTime},
 };
@@ -59,6 +64,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
         .mount("/statements", resources::statement::routes())
         // extensions...
         .mount("/extensions/verbs", resources::verbs::routes())
+        .mount("/extensions/stats", stats::routes())
         // assets...
         .mount("/static", FileServer::from(relative!("static")))
         .attach(DB::fairing(testing))
@@ -75,8 +81,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
                 info!("Starting multipart temp file cleaner...");
                 tokio::spawn(async move {
                     loop {
-                        tokio::time::sleep(Duration::from_secs(config().mfc_interval))
-                            .await;
+                        tokio::time::sleep(Duration::from_secs(config().mfc_interval)).await;
                         if let Err(x) = clean_multipart_files() {
                             warn!("Failed: {}", x);
                         }
@@ -119,7 +124,6 @@ pub fn build(testing: bool) -> Rocket<Build> {
                 }
             })
         }))
-        // shutdown hook
         .attach(AdHoc::on_shutdown("Shutdown Hook", |_| {
             Box::pin(async move {
                 info!("Removing multipart temp file folder...");
@@ -134,7 +138,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
                 );
             })
         }))
-        // stop-watch fairing
+        .attach(StatsFairing)
         .attach(StopWatch)
         // wire the catchers...
         .register("/", catchers![bad_request, not_found, unknown_route])
@@ -178,25 +182,34 @@ fn unknown_route(req: &Request) -> status::BadRequest<String> {
 
 fn clean_multipart_files() -> Result<(), MyError> {
     let s_dir = config().static_dir.join("s");
-    for obj in fs::read_dir(s_dir)? {
-        let obj = obj?;
-        let md = obj.metadata()?;
-        if md.is_file() {
-            if let Ok(created) = md.created() {
-                match created.elapsed() {
-                    Ok(elapsed) => {
-                        if elapsed > Duration::new(config().mfc_interval, 0) {
-                            debug!("About to delete {:?}", obj.path());
-                            fs::remove_file(obj.path())?;
+    match fs::read_dir(s_dir) {
+        Ok(objects) => {
+            for obj in objects {
+                let obj = obj?;
+                let md = obj.metadata()?;
+                if md.is_file() {
+                    if let Ok(created) = md.created() {
+                        match created.elapsed() {
+                            Ok(elapsed) => {
+                                if elapsed > Duration::new(config().mfc_interval, 0) {
+                                    debug!("About to delete {:?}", obj.path());
+                                    fs::remove_file(obj.path())?;
+                                }
+                            }
+                            Err(x) => warn!(
+                                "Failed computing elapsed time since object's creation: {}",
+                                x
+                            ),
                         }
+                    } else {
+                        warn!("Unable to access file system object's creattion timestamp :(")
                     }
-                    Err(x) => warn!(
-                        "Failed computing elapsed time since object's creation: {}",
-                        x
-                    ),
                 }
-            } else {
-                warn!("Unable to access file system object's creattion timestamp :(")
+            }
+        }
+        Err(x) => {
+            if x.kind() != ErrorKind::NotFound {
+                return Err(MyError::IO(x));
             }
         }
     }

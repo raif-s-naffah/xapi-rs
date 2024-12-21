@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{data::Extensions, MyError, MyVersion, V200};
+use crate::{data::Extensions, MyError, MyVersion};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -18,16 +18,6 @@ pub struct About {
     #[serde(rename = "version")]
     versions: Vec<String>,
     extensions: Option<Extensions>,
-}
-
-impl Default for About {
-    fn default() -> Self {
-        Self {
-            versions: vec![V200.to_string()],
-            // FIXME (rsn) 20241112 - add the Verbs resource extension...
-            extensions: None,
-        }
-    }
 }
 
 impl About {

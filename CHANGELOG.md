@@ -1,3 +1,11 @@
+# Version 0.1.4 (2024-12-22)
+
+* Fixed Issue #4.
+* Added basic support for server metrics.
+* Added statistics extension endpoint for grabbing metrics.
+* Updated About resource to include current Extensions + amended tests accordingly.
+* Updated documentation + added blurb about Extensions.
+
 # Version 0.1.3 (2024-12-14)
 
 * Fixed Issue #3.

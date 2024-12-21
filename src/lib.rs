@@ -84,6 +84,7 @@
 #![doc = include_str!("../doc/DATA_README.md")]
 #![doc = include_str!("../doc/DB_README.md")]
 #![doc = include_str!("../doc/LRS_README.md")]
+#![doc = include_str!("../doc/EXTENSIONS.md")]
 
 mod config;
 mod data;
@@ -100,6 +101,10 @@ pub use lrs::{
 
 /// The xAPI version this project supports by default.
 pub const V200: &str = "2.0.0";
+/// Verbs Extension IRI
+pub const EXT_VERBS: &str = "http://crates.io/xapi-rs/ext/verbs";
+/// Statistics/Metrics Extension IRI
+pub const EXT_STATS: &str = "http://crates.io/xapi-rs/ext/stats";
 
 /// Generate a message (in the style of `format!` macro), log it at level
 /// _error_ and raise a [runtime error][crate::MyError#variant.Runtime].

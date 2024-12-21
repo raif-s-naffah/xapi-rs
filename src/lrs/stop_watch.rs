@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::lrs::stats::update_stats;
 use chrono::{DateTime, SecondsFormat, Utc};
 use rocket::{
     fairing::{Fairing, Info, Kind},
     Data, Request, Response,
 };
-use tracing::debug;
+use tracing::{debug, error};
 
 /// Record time when a request arrives.
 pub(crate) struct StopWatch;
@@ -36,9 +37,24 @@ impl Fairing for StopWatch {
             let duration = Utc::now()
                 .signed_duration_since(arrival_time)
                 .num_nanoseconds();
+            // generate stop-watch response header...
             let duration_str = match duration {
-                Some(ns) => format!("{:.3}", ns as f64 / 1_000_000.0),
-                None => "---".to_string(),
+                Some(ns) => {
+                    // update server statistics...
+                    if let Some(route) = req.route() {
+                        match u64::try_from(ns) {
+                            Ok(x) => update_stats(route, x),
+                            Err(_) => error!("Failed converting duration to u64"),
+                        }
+                    } else {
+                        error!("Failed finding route of {}", req);
+                    }
+                    format!("{:.3}", ns as f64 / 1_000_000.0)
+                }
+                None => {
+                    error!("Failed computing request duration");
+                    "---".to_string()
+                }
             };
             format!(
                 "{}; {} ms",
@@ -46,6 +62,7 @@ impl Fairing for StopWatch {
                 duration_str
             )
         } else {
+            error!("No Timer guard in request local cache");
             "---".into()
         };
         debug!("X-Stop-Watch: {}", value);

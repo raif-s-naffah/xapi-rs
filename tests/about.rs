@@ -2,11 +2,12 @@
 
 mod utils;
 
+use iri_string::types::IriStr;
 use rocket::http::{hyper::header, ContentType, Status};
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{accept_json, MyTestContext};
-use xapi_rs::{About, MyError};
+use xapi_rs::{About, MyError, EXT_STATS, EXT_VERBS};
 
 #[test_context(MyTestContext)]
 #[traced_test]
@@ -26,10 +27,24 @@ fn test_get(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .headers()
         .get_one(header::ETAG.as_str())
         .expect("Missing Etag header");
-    assert_eq!(etag, "\"39-250840991601689337143225649976460874973\"");
-    let actual = resp.into_json::<About>().unwrap();
-    let expected = About::default();
-    assert_eq!(actual, expected);
+    assert_eq!(etag, "\"156-238318435813655325987467964163567453397\"");
+    let about = resp.into_json::<About>().unwrap();
+
+    // should contain 1 version: 2.0.0
+    assert!(about.versions().is_ok());
+    let versions = about.versions().unwrap();
+    assert_eq!(versions.len(), 1);
+    assert_eq!(versions[0].major(), 2);
+    assert_eq!(versions[0].minor(), 0);
+    assert_eq!(versions[0].patch(), 0);
+
+    // should contain 2 extensions
+    assert!(about.extensions().is_some());
+    let extensions = about.extensions().unwrap();
+    assert_eq!(extensions.len(), 2);
+    // one should be 'verbs', the other 'stats
+    assert!(extensions.contains_key(&IriStr::new(EXT_VERBS).unwrap()));
+    assert!(extensions.contains_key(&IriStr::new(EXT_STATS).unwrap()));
 
     Ok(())
 }
@@ -51,8 +66,7 @@ fn test_head(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .headers()
         .get_one(header::ETAG.as_str())
         .expect("Missing Etag header");
-    tracing::debug!("etag = {}", etag);
-    assert_eq!(etag, "\"39-250840991601689337143225649976460874973\"");
+    assert_eq!(etag, "\"156-238318435813655325987467964163567453397\"");
 
     Ok(())
 }

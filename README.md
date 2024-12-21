@@ -123,7 +123,8 @@ In no particular order...
 - [x] Pass the [conformance tests][4].  Done 2024-11-21.
 - [x] Implement a Job scheduler to clean temporary database Views created when a GET request leads to more results that can fit into a page.  Done 2024-12-04.
 - [x] Clean up temporary files created when generating multipart response.  Done 2024-12-09.
-- [ ] Remove `speedate` and re-write using `chrono`.
+- ~~[ ] Remove `speedate` and re-write using `chrono`.~~<br/>
+NOTE (rsn) 20241220 - I'm not sure anymore about this. The amount of work to correctly parse an ISO Duration, and the total space savings of 33KB from a binary that's around 46MB, is IMO not worth it.
 - [ ] If the JWS header (of a signed Statement) includes an X.509 certificate, we should validate the signature against that certificate as defined in JWS. We don't do that yet.
 - [ ] Introduce a configuration option to allow setting either a time or size limits on assets stored in `static`.
 - [ ] Optimize Pg SQL queries --may be using CTEs.

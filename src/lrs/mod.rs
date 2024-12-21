@@ -8,6 +8,7 @@ mod headers;
 pub mod resources;
 mod server;
 mod signature;
+mod stats;
 mod stop_watch;
 
 pub(crate) use db::DB;
