@@ -11,7 +11,7 @@ use rocket::{
 };
 use test_context::test_context;
 use tracing_test::traced_test;
-use utils::{accept_json, if_match, if_none_match, v2, MyTestContext};
+use utils::{accept_json, authorization, if_match, if_none_match, v2, MyTestContext};
 use xapi_rs::MyError;
 
 #[test_context(MyTestContext)]
@@ -33,7 +33,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(r#"{"msg": "hello"}"#)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -57,7 +58,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .header(ContentType::JSON)
         .header(accept_json())
         .header(v2())
-        .header(if_none_match(etag));
+        .header(if_none_match(etag))
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::PreconditionFailed);
@@ -75,7 +77,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(r#"{"foo": "baz"}"#)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -93,7 +96,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -117,7 +121,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .header(ContentType::JSON)
         .header(accept_json())
         .header(if_match(etag))
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -134,7 +139,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -151,7 +157,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -182,9 +189,10 @@ fn test_put_non_json_w_json_ct_err(ctx: &mut MyTestContext) -> Result<(), MyErro
         .body(r#"/ foo / bar"#)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     // try again w/ something that's almost JSON but really isn't
@@ -199,9 +207,10 @@ fn test_put_non_json_w_json_ct_err(ctx: &mut MyTestContext) -> Result<(), MyErro
         .body(r#"{"name":"foo","location":{"name":"bar"},"harry":"sally"}["#)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -224,9 +233,10 @@ fn test_put_non_json_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .body(r#"/ foo / bar"#)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
 
     // make sure we stored it...
@@ -241,7 +251,8 @@ fn test_put_non_json_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -270,7 +281,8 @@ fn test_post_non_json_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .body(r#"/ foo / bar"#)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -294,7 +306,8 @@ fn test_delete_404_is_204(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);

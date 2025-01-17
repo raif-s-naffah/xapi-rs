@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments)]
 
 //! State Resource (/activities/state)
 //! -----------------------------------
@@ -34,7 +35,7 @@ use crate::{
         headers::Headers,
         no_content,
         resources::{WithDocumentOrIDs, WithETag},
-        DB,
+        User, DB,
     },
 };
 use rocket::{delete, get, http::Status, post, put, routes, State};
@@ -62,8 +63,9 @@ async fn put(
     stateId: &str,
     doc: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithETag, Status> {
-    debug!("----- put -----");
+    debug!("----- put ----- {}", user);
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -155,8 +157,9 @@ async fn post(
     stateId: &str,
     doc: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithETag, Status> {
-    debug!("----- post -----");
+    debug!("----- post ----- {}", user);
 
     // it's an error if the document is an empty string
     if doc.is_empty() {
@@ -265,8 +268,9 @@ async fn get(
     stateId: Option<&str>,
     since: Option<&str>,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithDocumentOrIDs, Status> {
-    debug!("----- get -----");
+    debug!("----- get ----- {}", user);
 
     let conn = db.pool();
     let resource = if stateId.is_some() {
@@ -310,8 +314,9 @@ async fn delete(
     registration: Option<&str>,
     stateId: Option<&str>,
     db: &State<DB>,
+    user: User,
 ) -> Status {
-    debug!("----- delete -----");
+    debug!("----- delete ----- {}", user);
 
     let conn = db.pool();
     if stateId.is_some() {

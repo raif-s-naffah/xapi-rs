@@ -2,9 +2,10 @@
 
 #![allow(dead_code)]
 
+use base64::{prelude::BASE64_STANDARD, Engine};
 use rocket::http::{hyper::header, ContentType, Header};
 use std::{fs, path::PathBuf};
-use xapi_rs::{V200, VERSION_HDR};
+use xapi_rs::{TEST_USER_PLAIN_TOKEN, V200, VERSION_HDR};
 
 pub(crate) const BOUNDARY: &str = "MP_/xq.2QWbNf.dRrz_w=FAz9Dd";
 pub(crate) const CR_LF: &[u8] = b"\r\n";
@@ -84,6 +85,19 @@ pub(crate) fn if_match(etag: &str) -> Header<'static> {
 
 pub(crate) fn content_type(mime: &ContentType) -> Header<'static> {
     Header::new(header::CONTENT_TYPE.as_str(), mime.to_string())
+}
+
+/// Create and return an _Authorization_ HTTP header w/ the _Basic_ scheme
+/// for a 'test' user token. The `user_id` part is a value added in a
+/// conditional migration and is usually 'test@my.xapi.net' while the
+/// `password` part is left empty.
+pub(crate) fn authorization() -> Header<'static> {
+    // same as in lrs::user and users migration
+    let b64_encoded = BASE64_STANDARD.encode(TEST_USER_PLAIN_TOKEN);
+    Header::new(
+        header::AUTHORIZATION.as_str(),
+        format!("Basic {}", b64_encoded),
+    )
 }
 
 // given a `boundary` string, generate and return a pair consisting of

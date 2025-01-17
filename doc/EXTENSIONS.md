@@ -1,6 +1,6 @@
 # **LaRS** Extensions
 
-xAPI allows a conformant **`LRS`** implementation to support additional _Resources_ through an _Extensions_ mechanism.  So far **LaRS** offers the followings:
+So far **LaRS** offers the following extensions:
 
 ## Verbs Extensions (`/extensions/verbs/`) &ndash; Since Version 0.1.0
 
@@ -62,3 +62,8 @@ As an example, at the end of a CTS run and after a graceful shutdown, **`LaRS`**
 | GET    | /statements/more    | N/A                 | -10  | 2     | 2299285 | 2601713  | 2904141  |
 
 [401]: https://rocket.rs/guide/v0.5/requests/#default-ranking
+
+
+## User Management Extension (`/extensions/users/`) &ndash; Since Version 0.1.5
+
+Work In Progress

@@ -10,8 +10,8 @@ use std::str::FromStr;
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{
-    accept_json, boundary_delimiter_line, content_type, multipart, read_to_string, v2,
-    MyTestContext, BOUNDARY, CR_LF,
+    accept_json, authorization, boundary_delimiter_line, content_type, multipart, read_to_string,
+    v2, MyTestContext, BOUNDARY, CR_LF,
 };
 use uuid::{uuid, Uuid};
 use xapi_rs::{
@@ -683,7 +683,8 @@ fn test_signed_statement(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);

@@ -14,8 +14,8 @@ use std::str::FromStr;
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{
-    accept_json, boundary_delimiter_line, content_type, multipart, read_to_string, v2,
-    MyTestContext, BOUNDARY, CR_LF,
+    accept_json, authorization, boundary_delimiter_line, content_type, multipart, read_to_string,
+    v2, MyTestContext, BOUNDARY, CR_LF,
 };
 use uuid::{uuid, Uuid};
 use xapi_rs::{
@@ -295,7 +295,8 @@ fn test_non_matching_uuid(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
@@ -303,6 +304,9 @@ fn test_non_matching_uuid(ctx: &mut MyTestContext) -> Result<(), MyError> {
     Ok(())
 }
 
+// NOTE (rsn) 20250113 - i changed the Statement JSON data to include an
+// `authority` property.  this was done to ensure the resulting ETag becomes
+// an invariant whatever the mode is in use or not.
 #[test_context(MyTestContext)]
 #[traced_test]
 #[test]
@@ -312,6 +316,7 @@ fn test_etag(ctx: &mut MyTestContext) -> Result<(), MyError> {
 "timestamp":"2015-11-18T12:17:00+00:00",
 "actor":{"objectType":"Agent","name":"Project Tin Can API","mbox":"mailto:user@example.com"},
 "verb":{"id":"http://example.com/xapi/verbs#sent-a-statement","display":{"en-US":"sent"}},
+"authority":{"objectType":"Agent", "mbox":"mailto:bob_authority@example.com"},
 "object":{
     "id":"http://example.com/xapi/activity/simplestatement",
     "definition":{
@@ -331,14 +336,15 @@ fn test_etag(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp1 = req1.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp1 = req1.dispatch();
     assert_eq!(resp1.status(), Status::NoContent);
     let etag_hdr = resp1.headers().get_one(header::ETAG.as_str());
     assert!(etag_hdr.is_some());
     let etag = etag_hdr.unwrap();
-    assert_eq!(etag, "\"494-305631713512956521113376524258155248550\"");
+    assert_eq!(etag, "\"523-254282048567927318730551152372839811817\"");
 
     Ok(())
 }
@@ -431,7 +437,8 @@ fn test_missing_cte(ctx: &mut MyTestContext) -> Result<(), MyError> {
             header.to_string(),
         ))
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     // should fail b/c of missing Content-Type-Encoding
@@ -478,9 +485,10 @@ fn test_bad_cte(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should fail b/c of Content-Type-Encoding MUST be binary
     assert_eq!(resp.status(), Status::BadRequest);
 
@@ -534,9 +542,10 @@ fn test_missing_cl(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should succeed even if actual bytes count of 2nd attachment is not
     // equal to its corresponding Attachment's 'length' property value.
     assert_eq!(resp.status(), Status::NoContent);
@@ -617,9 +626,10 @@ fn test_get_json(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return OK w/ the ID(s) of the now persisted Statement(s) and
     // a Consistent-Through xAPI header...
     assert_eq!(resp.status(), Status::Ok);
@@ -640,9 +650,10 @@ fn test_get_json(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements/?attachments=false")
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return OK w/ the ID(s) of the now persisted Statement(s) and
     // a Last-Modified header that is the same as the 'stored' of the
     // returned Statement
@@ -673,9 +684,10 @@ fn test_get_json(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements/?attachments=true")
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     let multipart = resp.into_string().unwrap();
@@ -742,9 +754,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(SV1)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return OK w/ the ID(s) of the now persisted Statement(s) and
     // a Consistent-Through xAPI header...
     assert_eq!(resp.status(), Status::Ok);
@@ -767,9 +780,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements/?statementId=1dc85813a33448ccb1964c6e798599b8")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let s1 = resp
         .into_json::<Statement>()
@@ -783,9 +797,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(BAD_S1)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     // 4. to be sure, to be sure... GET UUID1 as voidedStatementId should return
@@ -794,7 +809,8 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements/?voidedStatementId=1dc85813a33448ccb1964c6e798599b8")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NotFound);
@@ -805,9 +821,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(SV2)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     // 6. GET w/ statementId = UUID1 should now fail...
@@ -815,9 +832,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements/?statementId=1dc85813a33448ccb1964c6e798599b8")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NotFound);
 
     // 7. but GET w/ voidedStatementId = UUID1 should now succeed...
@@ -825,9 +843,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements/?voidedStatementId=1dc85813a33448ccb1964c6e798599b8")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     // 8. finally voiding SV2 (a voiding statement) should fail...
@@ -836,9 +855,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(BAD_S2)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -878,9 +898,10 @@ fn test_more(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return OK w/ the ID(s) of the now persisted Statement(s) and
     // a Consistent-Through xAPI header...
     assert_eq!(resp.status(), Status::Ok);
@@ -904,9 +925,10 @@ fn test_more(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get("/statements/?limit=1")
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return OK w/ a StatementResult w/ non-null more...
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().unwrap();
@@ -927,7 +949,11 @@ fn test_more(ctx: &mut MyTestContext) -> Result<(), MyError> {
     // 3. GET using the returned 'more' URL; should fetch another Statement...
     // translate `more_url` to a local URL...
     let url = more_url.as_str().replace(&config().external_url, "");
-    let req = client.get(&url).header(accept_json()).header(v2());
+    let req = client
+        .get(&url)
+        .header(accept_json())
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     // should return something simiar to the previous call...
@@ -947,7 +973,11 @@ fn test_more(ctx: &mut MyTestContext) -> Result<(), MyError> {
 
     // 4. finally GET the last Statement.  should be ok w/ no `more` URL...
     let url = more_url.as_str().replace(&config().external_url, "");
-    let req = client.get(&url).header(accept_json()).header(v2());
+    let req = client
+        .get(&url)
+        .header(accept_json())
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -973,9 +1003,10 @@ fn test_get_params(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get("/statements/")
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().unwrap();
     let sr: StatementResult = serde_json::from_str(&json).unwrap();
@@ -985,9 +1016,10 @@ fn test_get_params(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get("/statements/?attachments=false")
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().unwrap();
     let sr: StatementResult = serde_json::from_str(&json).unwrap();
@@ -997,18 +1029,20 @@ fn test_get_params(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get("/statements/?Attachments=false&foo=bar")
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     // so is one that includes valid and invalid parameters...
     let req = client
         .get("/statements/?format=canonical&Ascending=false")
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -1040,7 +1074,7 @@ fn test_missing_attachment(ctx: &mut MyTestContext) -> Result<(), MyError> {
 
     let client = &ctx.client;
 
-    // POST a Statement w/ 2 Attachments but w/ include contents of only one...
+    // POST a Statement w/ 2 Attachments but include contents of only one...
     let (header, delimiter) = boundary_delimiter_line(BOUNDARY);
     let body = multipart(&delimiter, S, Some(att_ok1()), None);
     let req = client
@@ -1048,9 +1082,10 @@ fn test_missing_attachment(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -1083,9 +1118,10 @@ fn test_wrong_attachment(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -1120,9 +1156,10 @@ fn test_invalid_statement(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -1168,9 +1205,10 @@ fn test_canonical_fmt(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     // 2. GET w/ canonical format + an Accept-Language header should be honored...
@@ -1179,9 +1217,10 @@ fn test_canonical_fmt(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .header(ContentType::JSON)
         .header(accept_json())
         .header(v2())
-        .header(Header::new(header::ACCEPT_LANGUAGE.as_str(), "en-US"));
-    let resp = req.dispatch();
+        .header(Header::new(header::ACCEPT_LANGUAGE.as_str(), "en-US"))
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return OK w/ the ID(s) of the now persisted Statement(s) and
     // a Consistent-Through xAPI header...
     assert_eq!(resp.status(), Status::Ok);
@@ -1225,7 +1264,8 @@ fn test_multipart_wo_boundary(ctx: &mut MyTestContext) -> Result<(), MyError> {
             header::CONTENT_TYPE.as_str(),
             "multipart/mixed",
         ))
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
@@ -1251,7 +1291,8 @@ fn test_multipart_w_invalid_multipart_ct(ctx: &mut MyTestContext) -> Result<(), 
             header::CONTENT_TYPE.as_str(),
             "multipart/mixed;", // notice ';'
         ))
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
@@ -1287,7 +1328,8 @@ fn test_attachment_w_file_url(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);

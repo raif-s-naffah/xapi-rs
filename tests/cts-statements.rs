@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use std::str::FromStr;
 use test_context::test_context;
 use tracing_test::traced_test;
-use utils::{accept_json, v2, MyTestContext};
+use utils::{accept_json, authorization, v2, MyTestContext};
 use uuid::{uuid, Uuid};
 use xapi_rs::{MyError, ObjectType, Statement, StatementIDs, StatementResult, CONSISTENT_THRU_HDR};
 
@@ -66,9 +66,10 @@ fn test_stmt_w_ver_10_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     Ok(())
@@ -101,9 +102,10 @@ fn test_stmt_res_scaled_w_1_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     Ok(())
@@ -187,9 +189,10 @@ fn test_substmt_w_group_obj_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     Ok(())
@@ -212,9 +215,10 @@ fn test_stmt_actor_wo_object_type_ok(ctx: &mut MyTestContext) -> Result<(), MyEr
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     Ok(())
@@ -253,17 +257,22 @@ fn test_no_substmt_object_type_duplicates(ctx: &mut MyTestContext) -> Result<(),
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     let ids: Vec<String> = resp.into_json().unwrap();
-
     let uri = format!("/statements/?statementId={}", ids[0]);
-    let req = client.get(uri).header(accept_json()).header(v2());
-    let resp = req.dispatch();
 
+    let req = client
+        .get(uri)
+        .header(accept_json())
+        .header(v2())
+        .header(authorization());
+
+    let resp = req.dispatch();
     let json = resp.into_string().unwrap();
     // verfiy that "objectType=SubStatement" occurs only once...
     let res: Vec<_> = json
@@ -296,18 +305,20 @@ fn test_get_since(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     let req = client
         .get("/statements/?verb=http://test.org/tests/100&since=2024-11-02T02:56:50.207Z")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().unwrap();
     let sr: StatementResult = serde_json::from_str(&json).unwrap();
@@ -353,9 +364,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S1)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return Ok + ID of the now persisted S1 + Consistent-Through header...
     assert_eq!(resp.status(), Status::Ok);
     let consistent_thru_hdr = resp.headers().get_one(CONSISTENT_THRU_HDR);
@@ -376,9 +388,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get(format!("/statements?statementId={}", ID1))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return Ok + an exact (format) representation of S1 but may not
     // be literally the same --e.g. properties in different order, collections
     // differently sorted, etc...
@@ -394,9 +407,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S2)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return Ok + ID of the now persisted S2...
     assert_eq!(resp.status(), Status::Ok);
     let uuids = resp
@@ -411,9 +425,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get(format!("/statements?statementId={}", ID2))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().expect("#4 - Failed fetching response");
     let s2: Statement = serde_json::from_str(&json).expect("#4 - Failed deserializing Statement");
@@ -426,9 +441,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S3)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let uuids = resp
         .into_json::<StatementIDs>()
@@ -442,9 +458,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get(format!("/statements?statementId={}", ID3))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().expect("#6 - Failed fetching response");
     let s3: Statement = serde_json::from_str(&json).expect("#6 - Failed deserializing Statement");
@@ -456,9 +473,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return 2 Statements: S2 and S3; voided S1 is excluded...
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().expect("#7 - Failed fetching response");
@@ -484,9 +502,10 @@ fn test_voiding(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     // should return only S3 and S2 but not S1.  this is b/c S1 by now is voided
     // however S2 which voids S1 references S1 and hence matches the VERB where
     // clause and itself is not (and never will be) voided.  S3 fits b/c it's
@@ -550,9 +569,10 @@ fn test_format_ids(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
 
     // 2. fetch it back + ensure it's the same...
@@ -560,9 +580,10 @@ fn test_format_ids(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements?statementId=01932d1e-a584-79d2-b83a-6b380546b21c")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().unwrap();
     let persisted: Map<String, Value> =
@@ -588,9 +609,10 @@ fn test_format_ids(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/statements?format=ids")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let json = resp.into_string().unwrap();
 

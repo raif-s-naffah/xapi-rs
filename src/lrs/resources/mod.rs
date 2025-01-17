@@ -9,6 +9,7 @@ pub mod agent_profile;
 pub mod agents;
 pub mod state;
 pub mod statement;
+pub(crate) mod users;
 pub(crate) mod verbs;
 
 use crate::{

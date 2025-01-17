@@ -1,3 +1,13 @@
+# Version 0.1.5 (2025-01-17)
+
+* Fixed Issue #5.
+* Added new environment variables to '.env.template'.
+* Deprecated 'LRS_AUTHORITY_IFI' now replaced by 'LRS_ROOT_EMAIL'.
+* Updated documentation.
+* Added new migration to create users table and insert test user.
+* Added User Guard to all xAPI resource handlers, except /about.
+* Amended handlers and tests accordingly.
+
 # Version 0.1.4 (2024-12-22)
 
 * Fixed Issue #4.

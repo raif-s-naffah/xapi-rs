@@ -590,7 +590,7 @@ pub(crate) async fn find_person(conn: &PgPool, agent: &Agent) -> Result<Option<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config, db::MockDB, MyEmailAddress};
+    use crate::{db::MockDB, lrs::User, MyEmailAddress};
     use std::str::FromStr;
     use tracing_test::traced_test;
 
@@ -626,7 +626,12 @@ mod tests {
         let mdb = MockDB::new();
         let conn = &mdb.pool().await;
 
-        let agent = config().my_authority();
+        // IMPORTANT (rsn) 2025116 - MUST match same values used in
+        // 'init' migration...
+        const LARS_MBOX: &str = "admin@my.xapi.net";
+        const LARS_NAME: &str = "lars";
+
+        let agent = User::with_email(LARS_MBOX).as_agent();
 
         let result = find_person(conn, &agent).await;
         assert!(result.is_ok());
@@ -634,12 +639,11 @@ mod tests {
         let maybe_person = result.unwrap();
         assert!(maybe_person.is_some());
 
-        // NOTE (rsn) 20241024 - should match root user from 'migrations'
         let person = maybe_person.unwrap();
         assert_eq!(person.names().len(), 1);
-        assert!(person.names().iter().any(|x| *x == "lars"));
+        assert!(person.names().iter().any(|x| *x == LARS_NAME));
         assert_eq!(person.mboxes().len(), 1);
-        let email = MyEmailAddress::from_str(&config().authority_mbox)?;
+        let email = MyEmailAddress::from_str(LARS_MBOX)?;
         assert!(person.mboxes().iter().any(|x| *x == email));
 
         Ok(())

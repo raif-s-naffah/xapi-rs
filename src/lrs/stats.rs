@@ -134,7 +134,7 @@ struct StatsRecord {
 }
 
 #[get("/")]
-async fn stats<'r>() -> Result<Json<Vec<StatsRecord>>, Status> {
+async fn stats() -> Result<Json<Vec<StatsRecord>>, Status> {
     let result = endpoints()
         .iter()
         .filter(|x| x.count.load(Ordering::Relaxed) > 0)

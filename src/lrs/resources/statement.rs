@@ -20,7 +20,7 @@ use crate::{
         headers::{Headers, CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR},
         resources::{WithETag, WithResource},
         server::{get_consistent_thru, qp},
-        Signature, DB,
+        Signature, User, DB,
     },
     MyError,
 };
@@ -262,8 +262,9 @@ async fn put_mixed(
     statementId: &str,
     data: MultipartReader<'_>,
     db: &State<DB>,
+    user: User,
 ) -> Result<PutResponse, Status> {
-    debug!("----- put_mixed -----");
+    debug!("----- put_mixed ----- {}", user);
 
     let uuid = match Uuid::parse_str(statementId) {
         Err(x) => {
@@ -286,7 +287,7 @@ async fn put_mixed(
         return Err(Status::BadRequest);
     }
 
-    persist_one(db.pool(), c, statement).await
+    persist_one(db.pool(), c, statement, &user).await
 }
 
 #[put("/?<statementId>", data = "<json>", format = "application/json")]
@@ -295,8 +296,9 @@ async fn put_json(
     statementId: &str,
     json: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<PutResponse, Status> {
-    debug!("----- put_json -----");
+    debug!("----- put_json ----- {}", user);
 
     let uuid = match Uuid::parse_str(statementId) {
         Err(x) => {
@@ -337,7 +339,7 @@ async fn put_json(
         return Err(Status::BadRequest);
     }
 
-    persist_one(db.pool(), c, &mut statement).await
+    persist_one(db.pool(), c, &mut statement, &user).await
 }
 
 /// From section 4.1.6.1 Statement Resource (/statements) [POST Request][1]:
@@ -366,12 +368,13 @@ async fn post_mixed(
     c: Headers,
     data: MultipartReader<'_>,
     db: &State<DB>,
+    user: User,
 ) -> Result<PostResponse, Status> {
-    debug!("----- post_mixed -----");
+    debug!("----- post_mixed ----- {}", user);
     debug!("c = {:?}", c);
     let statements = ingest_multipart(data, true).await?;
 
-    persist_many(db.pool(), c, statements).await
+    persist_many(db.pool(), c, statements, &user).await
 }
 
 #[post("/", data = "<json>", format = "application/json")]
@@ -379,8 +382,9 @@ async fn post_json(
     c: Headers,
     json: Json<Statements>,
     db: &State<DB>,
+    user: User,
 ) -> Result<PostResponse, Status> {
-    debug!("----- post_json -----");
+    debug!("----- post_json ----- {}", user);
     debug!("c = {:?}", c);
 
     let mut statements = vec![];
@@ -411,7 +415,7 @@ async fn post_json(
         return Err(Status::BadRequest);
     }
 
-    persist_many(db.pool(), c, statements).await
+    persist_many(db.pool(), c, statements, &user).await
 }
 
 // IMPORTANT (rsn) 20241111 - CTS runs show that requests w/ malformed CT headers
@@ -464,8 +468,9 @@ async fn get_some<'r>(
     q: QueryParams<'_>,
     mut extras: HashMap<&'r str, &'r str>,
     db: &State<DB>,
+    user: User,
 ) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>>>, Status> {
-    debug!("----- get_some -----");
+    debug!("----- get_some ----- {}", user);
     debug!("q = {:?}", q);
     // NOTE (rsn) 20241003 - `extras` will capture *all* query string parameters
     // including those that are already captured as fields of `QueryParams`.
@@ -609,8 +614,9 @@ async fn get_more(
     format: &str,
     attachments: bool,
     db: &State<DB>,
+    user: User,
 ) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>>>, Status> {
-    debug!("----- get_more -----");
+    debug!("----- get_more ----- {}", user);
     debug!("c = {:?}", c);
     debug!("sid = {}", sid);
     debug!("count = {}", count);
@@ -664,8 +670,8 @@ async fn get_more(
 /// In a multipart Request, check if the Part has `application/json` content-type,
 /// consume the part's contents into a byte array in memory, then try deserializing
 /// it from JSON into the given type `T`.
-async fn as_json<'r, T: DeserializeOwned>(
-    part: &mut MultipartReadSection<'r, '_>,
+async fn as_json<T: DeserializeOwned>(
+    part: &mut MultipartReadSection<'_, '_>,
 ) -> Result<T, MyError> {
     // check part has a Content-Type header w/ `application/json` value...
     if let Some(ct) = part.headers().get_one("content-type") {
@@ -936,6 +942,7 @@ async fn persist_one(
     conn: &PgPool,
     c: Headers,
     statement: &mut Statement,
+    user: &User,
 ) -> Result<PutResponse, Status> {
     debug!("statement = {}", statement);
 
@@ -987,7 +994,7 @@ async fn persist_one(
     //     statement.set_timestamp_unchecked(Utc::now());
     // }
 
-    ensure_authority(statement);
+    ensure_authority(statement, user);
 
     // NOTE (rsn) 20240922 - need to check validity of target Statement (wrt.
     // voiding) _before_ persisting it in the database...
@@ -1058,6 +1065,7 @@ async fn persist_many(
     conn: &PgPool,
     c: Headers,
     mut statements: Vec<Statement>,
+    user: &User,
 ) -> Result<PostResponse, Status> {
     debug!("statements = {:?}", statements);
 
@@ -1157,7 +1165,7 @@ async fn persist_many(
         //     s.set_timestamp_unchecked(Utc::now());
         // }
 
-        ensure_authority(&mut s);
+        ensure_authority(&mut s, user);
 
         if let Err(x) = insert_statement(conn, &s).await {
             error!("Failed persisting Statement #{} (1 of {}): {}", uuid, n, x);
@@ -1343,12 +1351,8 @@ fn last_modified(timestamp: DateTime<Utc>) -> Header<'static> {
     )
 }
 
-// FIXME (rsn) 20240928 - From [4.2.2 Statement] (Description of 'authority')
-// "... Verified by the LRS based on authentication. Set by LRS if not
-// provided or if a strong trust relationship between the LRP and LRS has
-// not been established."  until i add authentication, this is hard-wired.
-fn ensure_authority(s: &mut Statement) {
+fn ensure_authority(s: &mut Statement, user: &User) {
     if s.authority().is_none() {
-        s.set_authority_unchecked(Actor::Agent(config().my_authority()));
+        s.set_authority_unchecked(Actor::Agent(user.authority()));
     }
 }

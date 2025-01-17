@@ -9,6 +9,7 @@ use crate::{
         filter::{drop_all_filters, drop_stale_filters},
         MockDB,
     },
+    Mode,
 };
 use rocket::{
     fairing::{self, Fairing, Info, Kind},
@@ -64,6 +65,26 @@ impl DB {
                         .run(&z_pool)
                         .await
                         .expect("Failed migrating DB");
+
+                    // NOTE (rsn) 20250114 - depending on the mode we're in, we
+                    // need to ensure the root user is known to the DB.  we do
+                    // this here and now always storing the root user record at
+                    // table index #2, given the first row is already used by
+                    // the test user.
+                    if !matches!(config().mode, Mode::Legacy) {
+                        const UPSERT_ROOT_USER: &str = "INSERT INTO users (id, email, credentials) 
+VALUES (2, $1, $2) ON CONFLICT (id) DO UPDATE
+SET email = EXCLUDED.email, credentials = EXCLUDED.credentials";
+                        let email = &config().root_email;
+                        let credentials =
+                            config().root_credentials.expect("Missing root credentials");
+                        sqlx::query(UPSERT_ROOT_USER)
+                            .bind(email)
+                            .bind(credentials as i64)
+                            .execute(&z_pool)
+                            .await
+                            .expect("Failed upsert root user");
+                    }
                 });
             })
             .join()

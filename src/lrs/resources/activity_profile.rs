@@ -28,7 +28,7 @@ use crate::{
     },
     eval_preconditions,
     lrs::{
-        emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers,
+        emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers, User,
         WithDocumentOrIDs, DB,
     },
 };
@@ -54,8 +54,9 @@ async fn put(
     profileId: &str,
     doc: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithETag, Status> {
-    debug!("----- put -----");
+    debug!("----- put ----- {}", user);
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -156,8 +157,9 @@ async fn post(
     profileId: &str,
     doc: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithETag, Status> {
-    debug!("----- post -----");
+    debug!("----- post ----- {}", user);
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -266,8 +268,14 @@ async fn post(
 
 /// Deletes a single document with the given id.
 #[delete("/?<activityId>&<profileId>")]
-async fn delete(c: Headers, activityId: &str, profileId: &str, db: &State<DB>) -> Status {
-    debug!("----- delete -----");
+async fn delete(
+    c: Headers,
+    activityId: &str,
+    profileId: &str,
+    db: &State<DB>,
+    user: User,
+) -> Status {
+    debug!("----- delete ----- {}", user);
 
     let activity_iri = match IriStr::new(activityId) {
         Ok(x) => x,
@@ -324,8 +332,9 @@ async fn get(
     profileId: Option<&str>,
     since: Option<&str>,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithDocumentOrIDs, Status> {
-    debug!("----- get -----");
+    debug!("----- get ----- {}", user);
 
     let conn = db.pool();
     if let Ok(activity) = Activity::from_iri_str(activityId) {

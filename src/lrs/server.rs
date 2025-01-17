@@ -18,7 +18,7 @@ use rocket::{
     http::{Header, Method},
     response::status,
     time::{format_description::well_known::Rfc2822, OffsetDateTime},
-    Build, Request, Rocket,
+    Build, Request, Responder, Rocket,
 };
 use std::{
     fs,
@@ -28,6 +28,31 @@ use std::{
     time::{Duration, SystemTime},
 };
 use tracing::{debug, error, info, warn};
+
+/// Error message text we emit when returning 401.
+const MISSING_CREDENTIALS: &str = "Credentials required";
+/// Name of authentication header we send along a 401 response.
+const WWW_AUTHENTICATE: &str = "WWW-Authenticate";
+
+/// Our Response when detecting failing Basic Authentication requests.
+///
+/// The default implementation populates the `WWW-Authenticate` header w/
+/// our realm.
+#[derive(Responder)]
+#[response(status = 401, content_type = "json")]
+struct UnAuthorized {
+    inner: String,
+    realm: Header<'static>,
+}
+
+impl Default for UnAuthorized {
+    fn default() -> Self {
+        Self {
+            inner: MISSING_CREDENTIALS.to_owned(),
+            realm: Header::new(WWW_AUTHENTICATE, "Basic realm=\"LaRS\""),
+        }
+    }
+}
 
 /// Server Singleton of timestamp when this LaRS persistent storage was
 /// likely altered --i.e. received a PUT, POST or DELETE requests.
@@ -65,6 +90,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
         // extensions...
         .mount("/extensions/verbs", resources::verbs::routes())
         .mount("/extensions/stats", stats::routes())
+        .mount("/extensions/users", resources::users::routes())
         // assets...
         .mount("/static", FileServer::from(relative!("static")))
         .attach(DB::fairing(testing))
@@ -141,7 +167,10 @@ pub fn build(testing: bool) -> Rocket<Build> {
         .attach(StatsFairing)
         .attach(StopWatch)
         // wire the catchers...
-        .register("/", catchers![bad_request, not_found, unknown_route])
+        .register(
+            "/",
+            catchers![bad_request, unauthorized, not_found, unknown_route],
+        )
 }
 
 /// Capture a Query Parameter named `name` of type `T` as an Option\<T\>.
@@ -164,6 +193,12 @@ fn bad_request(req: &Request) -> &'static str {
     error!("----- 400 -----");
     debug!("req = {:?}", req);
     "400 - Bad request :("
+}
+
+#[catch(401)]
+async fn unauthorized() -> UnAuthorized {
+    debug!("----- 401 -----");
+    UnAuthorized::default()
 }
 
 #[catch(404)]

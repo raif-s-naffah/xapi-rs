@@ -16,6 +16,7 @@ pub(crate) mod schema;
 pub mod state;
 pub mod statement;
 pub(crate) mod sub_statement;
+pub(crate) mod user;
 pub mod verb;
 pub(crate) use mockdb::*;
 

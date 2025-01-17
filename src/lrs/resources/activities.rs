@@ -16,7 +16,7 @@ use crate::{
     data::{Activity, Format},
     db::activity::find_activity_by_iri,
     emit_response,
-    lrs::{resources::WithResource, Headers, DB},
+    lrs::{resources::WithResource, Headers, User, DB},
 };
 use iri_string::types::IriStr;
 use rocket::{get, http::Status, routes, State};
@@ -32,8 +32,9 @@ async fn get(
     c: Headers,
     activityId: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithResource<Activity>, Status> {
-    debug!("----- get -----");
+    debug!("----- get ----- {}", user);
 
     let iri = match IriStr::new(activityId) {
         Ok(x) => x,

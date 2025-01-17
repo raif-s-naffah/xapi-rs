@@ -21,6 +21,7 @@ Cargo.lock
 #.idea/
 
 .env
+.vscode
 /bugs
 /logs
 /static

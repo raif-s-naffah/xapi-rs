@@ -6,7 +6,7 @@ mod utils;
 
 use chrono::{DateTime, Utc};
 use rocket::{
-    http::{hyper::header, ContentType, Header, Status},
+    http::{hyper::header, ContentType, Status},
     local::blocking::LocalResponse,
     uri,
 };
@@ -14,8 +14,8 @@ use serde_json::{Map, Value};
 use test_context::test_context;
 use tracing::debug;
 use tracing_test::traced_test;
-use utils::{accept_json, if_match, if_none_match, v2, MyTestContext};
-use xapi_rs::{MyError, V200, VERSION_HDR};
+use utils::{accept_json, authorization, if_match, if_none_match, v2, MyTestContext};
+use xapi_rs::MyError;
 
 #[test_context(MyTestContext)]
 #[traced_test]
@@ -38,7 +38,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body("{}")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -64,7 +65,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .header(ContentType::JSON)
         .header(accept_json())
         .header(v2())
-        .header(if_none_match(etag));
+        .header(if_none_match(etag))
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::PreconditionFailed);
@@ -84,7 +86,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(r#"{"foo": "bar"}"#)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -104,7 +107,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -130,7 +134,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .header(ContentType::JSON)
         .header(accept_json())
         .header(v2())
-        .header(if_match(etag));
+        .header(if_match(etag))
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -148,7 +153,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(Header::new(VERSION_HDR, V200.to_string()));
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NotFound);
@@ -166,7 +172,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -185,7 +192,8 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NotFound);
@@ -217,7 +225,8 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(DOC_V1)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -241,7 +250,8 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(DOC_V2)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -265,7 +275,8 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -304,7 +315,8 @@ fn test_post_get_etags(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(DOC)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::NoContent);
@@ -327,7 +339,8 @@ fn test_post_get_etags(ctx: &mut MyTestContext) -> Result<(), MyError> {
         ))
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);

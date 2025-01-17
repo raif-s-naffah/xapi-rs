@@ -14,7 +14,7 @@ use crate::{
     config::config,
     emit_response,
     lrs::resources::{Headers, WithResource},
-    About, DataError, Extensions, MyVersion, EXT_STATS, EXT_VERBS, V200,
+    About, DataError, Extensions, MyVersion, EXT_STATS, EXT_USERS, EXT_VERBS, V200,
 };
 use rocket::{get, http::Status, routes};
 use serde_json::Value;
@@ -26,6 +26,7 @@ pub fn routes() -> Vec<rocket::Route> {
     routes![get]
 }
 
+// NOTE (rsn) 20250116 - do not enforce user authentication to pass the CTS.
 // NOTE (rsn) 2024097 - removed the Headers guard to allow /about calls w/o an
 // xapi version header...
 #[get("/")]
@@ -49,6 +50,7 @@ fn build_about() -> Result<About, DataError> {
         EXT_STATS,
         &Value::String(config().to_external_url("extensions/stats")),
     )?;
+    extensions.add(EXT_USERS, &Value::Null)?;
 
     Ok(About::new(versions, extensions))
 }

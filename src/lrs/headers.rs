@@ -253,9 +253,7 @@ impl<'r> FromRequest<'r> for Headers {
             None => vec![],
         };
 
-        let is_json_content = req
-            .content_type()
-            .map_or(false, |h| *h == ContentType::JSON);
+        let is_json_content = req.content_type().is_some_and(|h| *h == ContentType::JSON);
 
         Outcome::Success(Headers {
             version: version.to_string(),

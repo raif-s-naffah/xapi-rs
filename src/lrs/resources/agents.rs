@@ -18,7 +18,7 @@ use crate::{
     data::{Agent, Person},
     db::actor::find_person,
     emit_response,
-    lrs::{headers::Headers, resources::WithResource, DB},
+    lrs::{headers::Headers, resources::WithResource, User, DB},
 };
 use rocket::{get, http::Status, routes, State};
 use sqlx::PgPool;
@@ -31,8 +31,13 @@ pub fn routes() -> Vec<rocket::Route> {
 }
 
 #[get("/?<agent>")]
-async fn get(c: Headers, agent: &str, db: &State<DB>) -> Result<WithResource<Person>, Status> {
-    debug!("----- get -----");
+async fn get(
+    c: Headers,
+    agent: &str,
+    db: &State<DB>,
+    user: User,
+) -> Result<WithResource<Person>, Status> {
+    debug!("----- get ----- {}", user);
 
     let agent = match Agent::from_str(agent) {
         Ok(x) => x,

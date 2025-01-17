@@ -8,7 +8,7 @@ use rocket::http::{ContentType, Status};
 use std::str::FromStr;
 use test_context::test_context;
 use tracing_test::traced_test;
-use utils::{accept_json, read_to_string, v2, MyTestContext};
+use utils::{accept_json, authorization, read_to_string, v2, MyTestContext};
 use uuid::Uuid;
 use xapi_rs::{adl_verb, Activity, MyError, MyLanguageTag, Statement, Vocabulary};
 
@@ -62,7 +62,8 @@ fn test_merge_lmaps(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -72,7 +73,9 @@ fn test_merge_lmaps(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .get("/activities/?activityId=http://www.xapi.net/activity/12345")
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
+
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
     assert_eq!(resp.content_type(), Some(ContentType::JSON));

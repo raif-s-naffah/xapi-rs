@@ -28,7 +28,7 @@ use crate::{
     },
     eval_preconditions,
     lrs::{
-        emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers,
+        emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers, User,
         WithDocumentOrIDs, DB,
     },
     MyError,
@@ -54,8 +54,9 @@ async fn put(
     profileId: &str,
     doc: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithETag, Status> {
-    debug!("----- put -----");
+    debug!("----- put ----- {}", user);
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -143,8 +144,9 @@ async fn post(
     profileId: &str,
     doc: &str,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithETag, Status> {
-    debug!("----- post -----");
+    debug!("----- post ----- {}", user);
 
     // it's an error if the document is an empty string
     if doc.is_empty() {
@@ -252,8 +254,8 @@ async fn post(
 
 /// Deletes a single document with the given id.
 #[delete("/?<agent>&<profileId>")]
-async fn delete(c: Headers, agent: &str, profileId: &str, db: &State<DB>) -> Status {
-    debug!("----- delete -----");
+async fn delete(c: Headers, agent: &str, profileId: &str, db: &State<DB>, user: User) -> Status {
+    debug!("----- delete ----- {}", user);
 
     let conn = db.pool();
     match find_agent_id_from_str(conn, agent).await {
@@ -303,8 +305,9 @@ async fn get(
     profileId: Option<&str>,
     since: Option<&str>,
     db: &State<DB>,
+    user: User,
 ) -> Result<WithDocumentOrIDs, Status> {
-    debug!("----- get -----");
+    debug!("----- get ----- {}", user);
 
     let conn = db.pool();
     match find_agent_id_from_str(conn, agent).await {

@@ -8,8 +8,8 @@ use rocket::http::Status;
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{
-    accept_json, boundary_delimiter_line, content_type, multipart, read_to_string, v2,
-    MyTestContext, BOUNDARY, CR_LF,
+    accept_json, authorization, boundary_delimiter_line, content_type, multipart, read_to_string,
+    v2, MyTestContext, BOUNDARY, CR_LF,
 };
 use xapi_rs::MyError;
 
@@ -53,7 +53,8 @@ fn test_sig_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::Ok);
@@ -99,7 +100,8 @@ fn test_sig_w_bad_ct(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
@@ -132,7 +134,8 @@ fn test_bad_sig(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(body)
         .header(content_type(&header))
         .header(accept_json())
-        .header(v2());
+        .header(v2())
+        .header(authorization());
 
     let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
