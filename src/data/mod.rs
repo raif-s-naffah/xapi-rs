@@ -205,7 +205,7 @@ where
         let s = this
             .as_ref()
             .unwrap()
-            .to_rfc3339_opts(SecondsFormat::Millis, false);
+            .to_rfc3339_opts(SecondsFormat::Millis, true);
         ser.serialize_str(&s)
     } else {
         ser.serialize_none()
