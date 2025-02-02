@@ -1,3 +1,21 @@
+# Version 0.1.6 (2025-02-02)
+
+* Fixed Issue #7.
+* .env.template:
+  + Fixed a spelling mistake.
+  + Added EXT_DEFAULT_LANGUAGE parameter.
+  * Removed DB_CONNECT_TIMEOUT_SECS --it's not, and never was, used.
+* Moved src/lrs/stats.rs to src/lrs/resources and updated references.
+* Reorganized some documentation files and links.
+* src/data/verb.rs: Added a new 'extend' function to Verbs.
+* src/lrs/user.rs: Was incorrectly returning 400, instead of 401, when
+  authorization failed. Fixed.
+* src/lrs/resources/state.rs: Fixed a log statement which was using wrong message.
+* src/lrs/resources/statement.rs: Inline module documentation.
+* tests/*: Amended import statements + use shorter paths.
+* Cargo.toml: Refrain from using version 0 as dependency requirement.
+* Fixed Issue #6.
+
 # Version 0.1.5 (2025-01-17)
 
 * Fixed Issue #5.

@@ -184,7 +184,6 @@ impl<'r> FromRequest<'r> for User {
                             // let mut cache = cached_users().lock().await;
                             // match cache.get(&credentials) {
                             match find_cached_user(&credentials).await {
-                                // Some(x) => Outcome::Success(User::from(x)),
                                 Some(x) => Outcome::Success(x),
                                 None => {
                                     // TODO (rsn) 20250106 - store that in an atomic
@@ -196,13 +195,12 @@ impl<'r> FromRequest<'r> for User {
                                             match find_auth_user(conn, credentials).await {
                                                 Ok(x) => {
                                                     debug!("User = {}", x);
-                                                    // cache.put(credentials, AuthUser::from(&x));
                                                     cache_user(credentials, &x).await;
                                                     Outcome::Success(x)
                                                 }
                                                 Err(x) => {
-                                                    error!("Failed: {:?}", x);
-                                                    Outcome::Error((Status::BadRequest, x))
+                                                    error!("Failed (unknown user): {}", x);
+                                                    Outcome::Forward(Status::Unauthorized)
                                                 }
                                             }
                                         }

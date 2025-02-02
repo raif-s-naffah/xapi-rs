@@ -12,7 +12,7 @@ use rocket::{
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{accept_json, authorization, if_match, if_none_match, v2, MyTestContext};
-use xapi_rs::MyError;
+use xapi_rs::{resources, MyError};
 
 #[test_context(MyTestContext)]
 #[traced_test]
@@ -25,7 +25,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::put(
+            resources::activity_profile::put(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = "0001"
             )
@@ -49,7 +49,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::put(
+            resources::activity_profile::put(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = "0001"
             )
@@ -69,7 +69,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::post(
+            resources::activity_profile::post(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = "0010"
             )
@@ -88,7 +88,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::get(
+            resources::activity_profile::get(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = _,
                 since = Some(now.to_rfc3339()),
@@ -113,7 +113,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::delete(
+            resources::activity_profile::delete(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = "0001"
             )
@@ -132,7 +132,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::delete(
+            resources::activity_profile::delete(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = "0001"
             )
@@ -149,7 +149,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::get(
+            resources::activity_profile::get(
                 activityId = r#"http://www.example.com/meetings/occurances/34534"#,
                 profileId = _,
                 since = Some(now.to_rfc3339()),
@@ -181,7 +181,7 @@ fn test_put_non_json_w_json_ct_err(ctx: &mut MyTestContext) -> Result<(), MyErro
     let req = client
         .put(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::put(
+            resources::activity_profile::put(
                 activityId = r#"http://www.example.com/meeting/100"#,
                 profileId = "0001"
             )
@@ -199,7 +199,7 @@ fn test_put_non_json_w_json_ct_err(ctx: &mut MyTestContext) -> Result<(), MyErro
     let req = client
         .put(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::put(
+            resources::activity_profile::put(
                 activityId = r#"http://www.example.com/test/100"#,
                 profileId = "0001"
             )
@@ -226,7 +226,7 @@ fn test_put_non_json_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::put(
+            resources::activity_profile::put(
                 activityId = r#"http://www.example.com/meeting/100"#,
                 profileId = "0001"
             )
@@ -243,7 +243,7 @@ fn test_put_non_json_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::get(
+            resources::activity_profile::get(
                 activityId = r#"http://www.example.com/meeting/100"#,
                 profileId = _,
                 since = _,
@@ -274,7 +274,7 @@ fn test_post_non_json_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::post(
+            resources::activity_profile::post(
                 activityId = r#"http://www.example.com/meeting/100"#,
                 profileId = "0001"
             )
@@ -299,7 +299,7 @@ fn test_delete_404_is_204(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/activities/profile",
-            xapi_rs::resources::activity_profile::delete(
+            resources::activity_profile::delete(
                 activityId = r#"http://www.example.com/meeting/1"#,
                 profileId = "0001"
             )

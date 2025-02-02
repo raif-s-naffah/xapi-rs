@@ -10,7 +10,7 @@ use std::str::FromStr;
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{accept_json, authorization, v2, MyTestContext};
-use xapi_rs::{Agent, MyError, Person};
+use xapi_rs::{resources, Agent, MyError, Person};
 
 #[test_context(MyTestContext)]
 #[test]
@@ -84,7 +84,7 @@ fn test_accounts_is_array(ctx: &mut MyTestContext) -> Result<(), MyError> {
     assert_eq!(resp.status(), Status::Ok);
 
     let req = client
-        .get(uri!("/agents", xapi_rs::resources::agents::get(agent = A)))
+        .get(uri!("/agents", resources::agents::get(agent = A)))
         .header(ContentType::JSON)
         .header(accept_json())
         .header(v2())

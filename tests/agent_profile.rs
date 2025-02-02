@@ -12,7 +12,7 @@ use rocket::{
 use test_context::test_context;
 use tracing_test::traced_test;
 use utils::{accept_json, authorization, if_match, if_none_match, v2, MyTestContext};
-use xapi_rs::MyError;
+use xapi_rs::{resources, MyError};
 
 #[test_context(MyTestContext)]
 #[traced_test]
@@ -25,7 +25,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::put(
+            resources::agent_profile::put(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = "0001"
             )
@@ -49,7 +49,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::put(
+            resources::agent_profile::put(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = "0001"
             )
@@ -69,7 +69,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::post(
+            resources::agent_profile::post(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = "0010"
             )
@@ -88,7 +88,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::get(
+            resources::agent_profile::get(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = _,
                 since = Some(now.to_rfc3339()),
@@ -113,7 +113,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::delete(
+            resources::agent_profile::delete(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = "0001"
             )
@@ -131,7 +131,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::delete(
+            resources::agent_profile::delete(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = "0001"
             )
@@ -148,7 +148,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::get(
+            resources::agent_profile::get(
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 profileId = _,
                 since = Some(now.to_rfc3339()),
@@ -179,11 +179,7 @@ fn test_get_invalid_agent_err(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::get(
-                agent = r#"foo"#,
-                profileId = Some("0001"),
-                since = _,
-            )
+            resources::agent_profile::get(agent = r#"foo"#, profileId = Some("0001"), since = _,)
         ))
         .header(ContentType::JSON)
         .header(accept_json())
@@ -205,7 +201,7 @@ fn test_post_bad_json_err(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/agents/profile",
-            xapi_rs::resources::agent_profile::post(
+            resources::agent_profile::post(
                 agent = r#"{"objectType"""Agent","account":{"homePage":"http://www.example.com/agentId/1","name":"Rick James"}}"#,
                 profileId = "0010"
             )

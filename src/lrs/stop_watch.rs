@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::lrs::stats::update_stats;
+use crate::lrs::resources::stats::update_stats;
 use chrono::{DateTime, SecondsFormat, Utc};
 use rocket::{
     fairing::{Fairing, Info, Kind},

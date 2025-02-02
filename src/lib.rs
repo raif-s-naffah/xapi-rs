@@ -93,10 +93,11 @@ mod lrs;
 
 pub use config::*;
 pub use data::*;
+pub use db::Aggregates;
 pub use error::MyError;
 pub use lrs::{
     build, resources, CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR,
-    TEST_USER_PLAIN_TOKEN, VERSION_HDR,
+    TEST_USER_PLAIN_TOKEN, VERSION_HDR, verbs::VerbUI
 };
 
 use tracing::error;

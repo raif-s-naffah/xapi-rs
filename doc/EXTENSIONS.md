@@ -4,7 +4,7 @@ So far **LaRS** offers the following extensions:
 
 ## Verbs Extensions (`/extensions/verbs/`) &ndash; Since Version 0.1.0
 
-Work In Progress.
+Implemented fully in 0.1.6.  See [here](./EXT_VERBS.md) for details.
 
 ## Statistics Extension (`/extensions/stats/`) &ndash; Since Version 0.1.4
 
@@ -66,4 +66,4 @@ As an example, at the end of a CTS run and after a graceful shutdown, **`LaRS`**
 
 ## User Management Extension (`/extensions/users/`) &ndash; Since Version 0.1.5
 
-Work In Progress
+Work In Progress. See [here](./EXT_USERS.md) for details.

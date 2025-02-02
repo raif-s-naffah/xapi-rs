@@ -8,7 +8,6 @@ mod headers;
 pub mod resources;
 mod server;
 mod signature;
-mod stats;
 mod stop_watch;
 mod user;
 
@@ -22,6 +21,6 @@ pub(crate) use user::*;
 
 /// The pre base-64 encoded input for generating test user credentials and
 /// populating HTTP Authorization header.
-/// 
+///
 /// IMPORTANT (rsn) 20250115 - must match value used in users migration
 pub const TEST_USER_PLAIN_TOKEN: &str = "test@my.xapi.net:";

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::Mode;
+use crate::{Mode, MyLanguageTag};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use chrono::TimeDelta;
 use dotenvy::var;
 use std::{
     num::NonZeroUsize,
     path::{self, Path, PathBuf},
+    str::FromStr,
     sync::OnceLock,
     time::Duration,
 };
@@ -61,6 +62,8 @@ pub struct Config {
     pub(crate) ttl_interval: u64,
 
     pub(crate) mfc_interval: u64,
+
+    pub(crate) default_language: String,
 }
 
 impl Default for Config {
@@ -193,6 +196,10 @@ impl Default for Config {
             .parse()
             .expect("Failed parsing MFC_INTERVAL_SECS");
 
+        let default_language = var("EXT_DEFAULT_LANGUAGE").expect("Missing EXT_DEFAULT_LANGUAGE");
+        // ensure it's valid...
+        let _ = MyLanguageTag::from_str(&default_language).expect("Invalid default language tag");
+
         Self {
             db_server_url,
             db_name,
@@ -215,6 +222,7 @@ impl Default for Config {
             ttl,
             ttl_interval,
             mfc_interval,
+            default_language,
         }
     }
 }

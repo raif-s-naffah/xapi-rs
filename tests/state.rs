@@ -15,7 +15,7 @@ use test_context::test_context;
 use tracing::debug;
 use tracing_test::traced_test;
 use utils::{accept_json, authorization, if_match, if_none_match, v2, MyTestContext};
-use xapi_rs::MyError;
+use xapi_rs::{resources, MyError};
 
 #[test_context(MyTestContext)]
 #[traced_test]
@@ -28,7 +28,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/activities/state",
-            xapi_rs::resources::state::put(
+            resources::state::put(
                 activityId = "http://foo",
                 agent = "{\"objectType\":\"Agent\",\"mbox\":\"foo@nowhere.net\"}",
                 registration = _,
@@ -54,7 +54,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/activities/state",
-            xapi_rs::resources::state::put(
+            resources::state::put(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -76,7 +76,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/activities/state",
-            xapi_rs::resources::state::post(
+            resources::state::post(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -97,7 +97,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/state",
-            xapi_rs::resources::state::get(
+            resources::state::get(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -124,7 +124,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/activities/state",
-            xapi_rs::resources::state::delete(
+            resources::state::delete(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -144,7 +144,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/activities/state",
-            xapi_rs::resources::state::delete(
+            resources::state::delete(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -163,7 +163,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .delete(uri!(
             "/activities/state",
-            xapi_rs::resources::state::delete(
+            resources::state::delete(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -182,7 +182,7 @@ fn test_endpoint(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/state",
-            xapi_rs::resources::state::get(
+            resources::state::get(
                 activityId = "http://foo",
                 agent = r#"{"objectType":"Agent","mbox":"foo@nowhere.net"}"#,
                 registration = _,
@@ -215,7 +215,7 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/activities/state",
-            xapi_rs::resources::state::post(
+            resources::state::post(
                 activityId = "http://www.example.com/activity",
                 agent = r#"{"objectType":"Agent","account":{"homePage":"http://www.example.com/agent/86","name":"Get Smart"}}"#,
                 registration = _,
@@ -240,7 +240,7 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/activities/state",
-            xapi_rs::resources::state::post(
+            resources::state::post(
                 activityId = "http://www.example.com/activity",
                 agent = r#"{"objectType":"Agent","account":{"homePage":"http://www.example.com/agent/86","name":"Get Smart"}}"#,
                 registration = _,
@@ -265,7 +265,7 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/state",
-            xapi_rs::resources::state::get(
+            resources::state::get(
                 activityId = "http://www.example.com/activity",
                 agent = r#"{"objectType":"Agent","account":{"homePage":"http://www.example.com/agent/86","name":"Get Smart"}}"#,
                 registration = _,
@@ -305,7 +305,7 @@ fn test_post_get_etags(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .post(uri!(
             "/activities/state",
-            xapi_rs::resources::state::post(
+            resources::state::post(
                 activityId = "http://www.example.com/activity",
                 agent = r#"{"objectType":"Agent","account":{"homePage":"http://www.example.com/agent/86","name":"Get Smart"}}"#,
                 registration = _,
@@ -329,7 +329,7 @@ fn test_post_get_etags(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .get(uri!(
             "/activities/state",
-            xapi_rs::resources::state::get(
+            resources::state::get(
                 activityId = "http://www.example.com/activity",
                 agent = r#"{"objectType":"Agent","account":{"homePage":"http://www.example.com/agent/86","name":"Get Smart"}}"#,
                 registration = _,

@@ -20,6 +20,7 @@ pub(crate) mod user;
 pub mod verb;
 pub(crate) use mockdb::*;
 
+use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 /// Structure to use when SQL is RETURNING a row ID.
@@ -29,6 +30,32 @@ struct RowID(i32);
 /// Structure to use when SQL computes an aggregate.
 #[derive(Debug, FromRow)]
 struct Count(i64);
+
+/// Structure used when computing SQL Aggregates suitable for use by a client's
+/// pagination mechanism.
+#[derive(Debug, Deserialize, FromRow, Serialize)]
+pub struct Aggregates {
+    min: i32,
+    max: i32,
+    count: i64,
+}
+
+impl Aggregates {
+    /// Current value of the `min` field.
+    pub fn min(&self) -> i32 {
+        self.min
+    }
+
+    /// Current value of the `max` field.
+    pub fn max(&self) -> i32 {
+        self.max
+    }
+
+    /// Current value of the `count` field.
+    pub fn count(&self) -> i64 {
+        self.count
+    }
+}
 
 /// Macro for logging and handling errors with a custom return value to use
 /// when the database raises a `RowNotFound` error.

@@ -174,6 +174,28 @@ impl Verb {
     pub fn equivalent(&self, that: &Verb) -> bool {
         self.uid() == that.uid()
     }
+
+    /// Extend this instance's `display` language-map from bindings present
+    /// in `other`. Entries present in `other` but not in `self` are added
+    /// to the latter, while values in `other` with same keys will replace
+    /// current values in `self`. 
+    /// 
+    /// Return TRUE if this instance was modified, FALSE otherwise.
+    pub fn extend(&mut self, other: Verb) -> bool {
+        match (&self.display, other.display) {
+            (_, None) => false,
+            (None, Some(y)) => {
+                self.display = Some(y);
+                true
+            },
+            (Some(x), Some(y)) => {
+                let mut old_display = x.to_owned();
+                old_display.extend(y);
+                self.display = Some(old_display);
+                true
+            },
+        }
+    }
 }
 
 impl fmt::Display for Verb {

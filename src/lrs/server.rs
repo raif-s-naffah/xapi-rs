@@ -2,10 +2,7 @@
 
 use crate::{
     config,
-    lrs::{
-        resources, stats, stats::StatsFairing, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB,
-        VERSION_HDR,
-    },
+    lrs::{resources, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB, VERSION_HDR},
     MyError, V200,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -89,7 +86,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
         .mount("/statements", resources::statement::routes())
         // extensions...
         .mount("/extensions/verbs", resources::verbs::routes())
-        .mount("/extensions/stats", stats::routes())
+        .mount("/extensions/stats", resources::stats::routes())
         .mount("/extensions/users", resources::users::routes())
         // assets...
         .mount("/static", FileServer::from(relative!("static")))
@@ -164,7 +161,7 @@ pub fn build(testing: bool) -> Rocket<Build> {
                 );
             })
         }))
-        .attach(StatsFairing)
+        .attach(resources::stats::StatsFairing)
         .attach(StopWatch)
         // wire the catchers...
         .register(

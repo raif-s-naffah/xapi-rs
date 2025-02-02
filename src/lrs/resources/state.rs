@@ -173,7 +173,7 @@ async fn post(
         match serde_json::from_str::<Map<String, Value>>(doc) {
             Ok(_) => (),
             Err(x) => {
-                error!("PUT w/ JSON CT but document isn't: {}", x);
+                error!("POST w/ JSON CT but document isn't: {}", x);
                 return Err(Status::BadRequest);
             }
         }

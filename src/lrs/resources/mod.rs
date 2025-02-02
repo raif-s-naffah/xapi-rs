@@ -9,8 +9,9 @@ pub mod agent_profile;
 pub mod agents;
 pub mod state;
 pub mod statement;
-pub(crate) mod users;
-pub(crate) mod verbs;
+pub mod stats;
+pub mod users;
+pub mod verbs;
 
 use crate::{
     lrs::{server::get_consistent_thru, Headers},

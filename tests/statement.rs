@@ -19,7 +19,7 @@ use utils::{
 };
 use uuid::{uuid, Uuid};
 use xapi_rs::{
-    adl_verb, config, MyEmailAddress, MyError, MyLanguageTag, Statement, StatementIDs,
+    adl_verb, config, resources, MyEmailAddress, MyError, MyLanguageTag, Statement, StatementIDs,
     StatementResult, Validate, Vocabulary, CONSISTENT_THRU_HDR,
 };
 
@@ -288,9 +288,7 @@ fn test_non_matching_uuid(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/statements",
-            xapi_rs::resources::statement::put_json(
-                statementId = "fd41c918b88b4b20a0a5a4c32391aaa1"
-            )
+            resources::statement::put_json(statementId = "fd41c918b88b4b20a0a5a4c32391aaa1")
         ))
         .body(S)
         .header(ContentType::JSON)
@@ -329,9 +327,7 @@ fn test_etag(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req1 = client
         .put(uri!(
             "/statements",
-            xapi_rs::resources::statement::put_json(
-                statementId = "fd41c918b88b4b20a0a5a4c32391aaa0"
-            )
+            resources::statement::put_json(statementId = "fd41c918b88b4b20a0a5a4c32391aaa0")
         ))
         .body(S)
         .header(ContentType::JSON)
@@ -427,9 +423,7 @@ fn test_missing_cte(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/statements",
-            xapi_rs::resources::statement::put_mixed(
-                statementId = "fd41c918b88b4b20a0a5a4c32391aaa0"
-            )
+            resources::statement::put_mixed(statementId = "fd41c918b88b4b20a0a5a4c32391aaa0")
         ))
         .body(body)
         .header(Header::new(
@@ -478,9 +472,7 @@ fn test_bad_cte(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/statements",
-            xapi_rs::resources::statement::put_mixed(
-                statementId = "fd41c918b88b4b20a0a5a4c32391aaa0"
-            )
+            resources::statement::put_mixed(statementId = "fd41c918b88b4b20a0a5a4c32391aaa0")
         ))
         .body(body)
         .header(content_type(&header))
@@ -535,9 +527,7 @@ fn test_missing_cl(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let req = client
         .put(uri!(
             "/statements",
-            xapi_rs::resources::statement::put_mixed(
-                statementId = "fd41c918b88b4b20a0a5a4c32391aaa0"
-            )
+            resources::statement::put_mixed(statementId = "fd41c918b88b4b20a0a5a4c32391aaa0")
         ))
         .body(body)
         .header(content_type(&header))

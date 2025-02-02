@@ -2,23 +2,23 @@
 
 use crate::{
     data::{Canonical, Format, Verb, EMPTY_LANGUAGE_MAP},
-    db::{schema::TVerb, RowID},
-    emit_db_error, MyError,
+    db::{schema::TVerb, Aggregates, RowID},
+    emit_db_error,
+    lrs::resources::verbs::{QueryParams, VerbExt, VerbUI},
+    MyError, MyLanguageTag,
 };
 use iri_string::types::IriStr;
 use sqlx::PgPool;
-use tracing::debug;
+use std::str::FromStr;
+use tracing::{debug, error};
 
 const FIND_BY_IRI: &str = r#"SELECT * FROM verb WHERE iri = $1"#;
 
 /// Find a [Verb] given its IRI identifier.
 ///
 /// Raise [MyError] if an error occurs in the process.
-pub(crate) async fn find_verb_by_iri(
-    conn: &PgPool,
-    iri: &str,
-    format: &Format,
-) -> Result<Verb, MyError> {
+#[allow(dead_code)]
+async fn find_verb_by_iri(conn: &PgPool, iri: &str, format: &Format) -> Result<Verb, MyError> {
     match sqlx::query_as::<_, TVerb>(FIND_BY_IRI)
         .bind(iri)
         .fetch_one(conn)
@@ -32,7 +32,7 @@ pub(crate) async fn find_verb_by_iri(
 const INSERT: &str = r#"INSERT INTO verb (iri, display) VALUES ($1, $2) RETURNING id"#;
 
 /// Insert a [Verb]. Fails if it already exists.
-async fn insert_verb(conn: &PgPool, v: &Verb) -> Result<i32, MyError> {
+pub(crate) async fn insert_verb(conn: &PgPool, v: &Verb) -> Result<i32, MyError> {
     let iri = v.id_as_str();
     let display = match v.display_as_map() {
         Some(x) => sqlx::types::Json(x.clone()),
@@ -62,7 +62,7 @@ pub(crate) async fn update_verb(conn: &PgPool, v: &Verb) -> Result<i32, MyError>
         .await
     {
         Ok(x) => {
-            // if the new verb's display is none or empty then do notheing...
+            // if the new verb's display is none or empty then do nothing...
             let new_display = v.display_as_map();
             if new_display.is_none() || new_display.unwrap().is_empty() {
                 Ok(x.id)
@@ -84,7 +84,7 @@ pub(crate) async fn update_verb(conn: &PgPool, v: &Verb) -> Result<i32, MyError>
                     .await
                 {
                     Ok(x) => Ok(x.0),
-                    Err(x) => emit_db_error!(x, "Failed update display for Verb ({})", iri),
+                    Err(x) => emit_db_error!(x, "Failed update display for Verb <{}>", iri),
                 }
             }
         }
@@ -138,6 +138,99 @@ fn build_verb(row: TVerb, format: &Format) -> Result<Verb, MyError> {
     }
 }
 
+pub(crate) async fn ext_find_by_iri(conn: &PgPool, iri: &str) -> Result<VerbExt, MyError> {
+    match sqlx::query_as::<_, TVerb>(FIND_BY_IRI)
+        .bind(iri)
+        .fetch_one(conn)
+        .await
+    {
+        Ok(row) => Ok(VerbExt {
+            rid: row.id,
+            verb: build_verb(row, &Format::default())?,
+        }),
+        Err(x) => emit_db_error!(x, "Failed finding Verb <{}>", iri),
+    }
+}
+
+const FIND_BY_RID: &str = r#"SELECT * FROM verb WHERE id = $1"#;
+
+pub(crate) async fn ext_find_by_rid(conn: &PgPool, rid: i32) -> Result<Verb, MyError> {
+    match sqlx::query_as::<_, TVerb>(FIND_BY_RID)
+        .bind(rid)
+        .fetch_one(conn)
+        .await
+    {
+        Ok(row) => Ok(build_verb(row, &Format::default())?),
+        Err(x) => emit_db_error!(x, "Failed finding Verb @{}", rid),
+    }
+}
+
+const UPDATE_DISPLAY: &str = r#"UPDATE verb SET display = $2 WHERE id = $1"#;
+
+/// Replace an existing [Verb]'s `display` field given its table tow ID.
+pub(crate) async fn ext_update(conn: &PgPool, id: i32, v: &Verb) -> Result<(), MyError> {
+    let display = match v.display_as_map() {
+        Some(x) => sqlx::types::Json(x.clone()),
+        _ => sqlx::types::Json(EMPTY_LANGUAGE_MAP),
+    };
+    match sqlx::query(UPDATE_DISPLAY)
+        .bind(id)
+        .bind(display)
+        .execute(conn)
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(x) => emit_db_error!(x, "Failed updating Verb @{}", id),
+    }
+}
+
+const COMPUTE_AGGREGATES: &str = r#"SELECT MIN(id), MAX(id), COUNT(id) FROM verb"#;
+
+/// Compute aggregations useful for implementing a pagination mechanism.
+pub(crate) async fn ext_compute_aggregates(conn: &PgPool) -> Result<Aggregates, MyError> {
+    match sqlx::query_as::<_, Aggregates>(COMPUTE_AGGREGATES)
+        .fetch_one(conn)
+        .await
+    {
+        Ok(x) => Ok(x),
+        Err(x) => emit_db_error!(x, "Failed computing Verb aggregates"),
+    }
+}
+
+const FIND_SOME_ASC: &str = r#"SELECT * FROM verb WHERE id >= $1 ORDER BY id LIMIT $2"#;
+const FIND_SOME_DESC: &str = r#"SELECT * FROM verb WHERE id >= $1 ORDER BY id DESC LIMIT $2"#;
+
+/// Return a potentially empty array of `VerbUI` instances with the `display`
+/// field of each item being the text value corresponding to the `language`
+/// query parameter in the targeted [Verb].
+pub(crate) async fn ext_find_some(
+    conn: &PgPool,
+    q: QueryParams<'_>,
+) -> Result<Vec<VerbUI>, MyError> {
+    let language = match MyLanguageTag::from_str(q.language) {
+        Ok(x) => x,
+        Err(x) => {
+            error!("Failed coercing '{}' to a language tag: {}", q.language, x);
+            return Err(MyError::Data(x));
+        }
+    };
+    let mut result: Vec<VerbUI> = vec![];
+    let sql = if q.asc { FIND_SOME_ASC } else { FIND_SOME_DESC };
+    match sqlx::query_as::<_, TVerb>(sql)
+        .bind(q.start)
+        .bind(q.count)
+        .fetch_all(conn)
+        .await
+    {
+        Ok(rows) => {
+            for r in rows {
+                result.push(VerbUI::from(r, &language));
+            }
+            Ok(result)
+        }
+        Err(x) => emit_db_error!(x, "Failed finding some verbs"),
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
