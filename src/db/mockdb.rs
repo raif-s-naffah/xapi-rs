@@ -38,7 +38,7 @@ impl MockDB {
 
     /// Create the underlying physical database and apply the migrations.
     pub(crate) fn new() -> Self {
-        let id = rand::thread_rng().gen_range(1_000..10_000);
+        let id = rand::rng().random_range(1_000..10_000);
         let result = MockDB(id);
         let db_name = result.name();
         let db_url = result.url();
