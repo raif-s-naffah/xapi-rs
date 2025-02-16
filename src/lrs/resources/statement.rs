@@ -40,6 +40,7 @@ use base64::{
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use mime::{Mime, APPLICATION_JSON};
+use openssl::sha::Sha256;
 use rocket::{
     futures::Stream,
     get,
@@ -59,7 +60,6 @@ use rocket_multipart::{MultipartReadSection, MultipartReader, MultipartSection, 
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{Map, Value};
 use serde_with::serde_as;
-use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tracing::{debug, error, info, warn};
@@ -104,7 +104,7 @@ fn sha2_path(sha2: &str) -> PathBuf {
     let bytes = hex::decode(sha2).expect("Failed decoding signature");
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
-    let signature = hasher.finalize();
+    let signature = hasher.finish();
     let name = MY_ENGINE.encode(signature);
     config().static_dir.join(format!("_{}", name))
 }

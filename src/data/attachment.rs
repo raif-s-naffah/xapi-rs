@@ -16,10 +16,10 @@ use serde_with::{serde_as, skip_serializing_none};
 use std::str::FromStr;
 use tracing::warn;
 
-/// The mandated 'usageTpe' property value to use when marking an [Attachment]
-/// as a JWS Signature.
-const SIGNATURE_UT: &str = "http://adlnet.gov/expapi/attachments/signature";
-const SIGNATURE_CT: &str = "application/octet-stream";
+/// Mandated 'usageTpe' to use when an [Attachment] is a JWS signature.
+pub const SIGNATURE_UT: &str = "http://adlnet.gov/expapi/attachments/signature";
+/// Mandated 'contentType' to use when an [Attachment] is a JWS signature.
+pub const SIGNATURE_CT: &str = "application/octet-stream";
 
 /// Structure representing an important piece of data that is part of a
 /// _Learning Record_. Could be an essay, a video, etc...

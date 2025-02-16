@@ -35,7 +35,7 @@ impl DB {
     }
 
     /// Real workhorse called by the Fairing implementation on Rocket Ignition.
-    fn init(fairing: &DBFairing) -> Self {
+    async fn init(fairing: &DBFairing) -> Self {
         let mock_db = &fairing.mock_db;
         let testing = mock_db.is_some();
         debug!("init... testing? {}", testing);
@@ -53,7 +53,8 @@ impl DB {
             .acquire_timeout(config().db_acquire_timeout)
             .idle_timeout(config().db_idle_timeout)
             .max_lifetime(config().db_max_lifetime)
-            .connect_lazy(&db_connection_str)
+            .connect(&db_connection_str)
+            .await
             .expect("Failed creating DB pool");
         // when not testing, apply migration(s)...
         if !testing {
@@ -120,7 +121,7 @@ impl Fairing for DBFairing {
     }
 
     async fn on_ignite(&self, r: Rocket<Build>) -> fairing::Result {
-        let db = DB::init(self);
+        let db = DB::init(self).await;
         Ok(r.manage(db))
     }
 

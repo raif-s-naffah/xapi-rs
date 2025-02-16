@@ -11,7 +11,7 @@ use utils::{
     accept_json, authorization, boundary_delimiter_line, content_type, multipart, read_to_string,
     v2, MyTestContext, BOUNDARY, CR_LF,
 };
-use xapi_rs::MyError;
+use xapi_rs::{config, MyError};
 
 const GOOD_SIG_CT: &[u8; 40] = b"Content-Type: application/octet-stream\r\n";
 const BAD_SIG_CT: &[u8; 41] = b"Content-Type: text/plain; charset=ascii\r\n";
@@ -57,7 +57,12 @@ fn test_sig_ok(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .header(authorization());
 
     let resp = req.dispatch();
-    assert_eq!(resp.status(), Status::Ok);
+    let expected = if config().jws_strict {
+        Status::BadRequest
+    } else {
+        Status::Ok
+    };
+    assert_eq!(resp.status(), expected);
 
     Ok(())
 }

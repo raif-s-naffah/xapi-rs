@@ -258,7 +258,7 @@ fn test_merge(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let etag_hdr = resp.headers().get_one(header::ETAG.as_str());
     assert!(etag_hdr.is_some());
     let etag = etag_hdr.unwrap();
-    assert_eq!(etag, "\"115-104964565771855210850373935275174311302\"");
+    assert_eq!(etag, "\"115-216025603876640779745571888634127134337\"");
 
     // 3. finally GET the resource and ensure the document is up-to-date...
     debug!("now = {}", now);

@@ -1,3 +1,33 @@
+# Version 0.1.7 (2025-02-17)
+
+* Fixed Issue #9.
+* src/lrs/db.rs:
+  + DB::init: Made it async + connect eagerly.
+  + Fairing::on_ignite: Await init call.
+* Fixed Issue #8.
+* .env.template: Added JWS_STRICT.
+* .gitignore: Added attic to the list.
+* Updated documentation.
+* Cargo.toml:
+  + Added 'openssl' and 'josekit'.
+  * Removed 'sha2'. Use OpenSSL's instead.
+* src/config.rs: Added new public field (jws_strict) to Config.
+* src/error.rs: Added 2 new variants to handle OpenSSL and JOSE errors.
+* src/lib.rs: Updated documentation.
+* src/data/attachment.rs: Made SIGNATURE_UT and SIGNATURE_CT public.
+* src/lrs/signature.rs: Check JWS signature based on JWS_STRICT setting.
+* src/lrs/resources/statement.rs: Use SHA2 from OpenSSL.
+* tests/examples-statements.rs:
+  + (test_signed_statement) - Condition check based on JWS_STRICT set value.
+  + (test_strict_signed_statement) - New test to check JWS signature handling logic.
+* tests/signed-statements:
+  + (test_sig_ok) Condition expected result on JWS_STRICT setting.
+* tests/state.rs:
+  + (test_merge) Update ETag.
+* tests/samples:
+  + Removed unused files.
+  + Added 2 X.509 certificates and one RSA 2048-bit keypair.
+
 # Version 0.1.6 (2025-02-02)
 
 * Fixed Issue #7.

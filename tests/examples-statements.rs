@@ -4,6 +4,8 @@ mod utils;
 
 use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone, Utc};
 use iri_string::types::IriStr;
+use josekit::jws::{self, JwsHeader, RS256};
+use openssl::{sha::Sha256, x509::X509};
 use rocket::http::Status;
 use serde_json::{Map, Value};
 use std::str::FromStr;
@@ -15,9 +17,9 @@ use utils::{
 };
 use uuid::{uuid, Uuid};
 use xapi_rs::{
-    adl_verb, Account, Activity, ActivityDefinition, Actor, Agent, Group, MyDuration, MyError,
-    MyLanguageTag, MyTimestamp, MyVersion, Score, Statement, StatementObject, StatementRef, Verb,
-    Vocabulary, XResult,
+    adl_verb, config, Account, Activity, ActivityDefinition, Actor, Agent, Attachment, Group,
+    MyDuration, MyError, MyLanguageTag, MyTimestamp, MyVersion, Score, Statement, StatementObject,
+    StatementRef, Verb, Vocabulary, XResult, SIGNATURE_CT, SIGNATURE_UT,
 };
 
 const ID1: Uuid = uuid!("fd41c918-b88b-4b20-a0a5-a4c32391aaa0");
@@ -654,6 +656,18 @@ fn test_long_statement() -> Result<(), MyError> {
     Ok(())
 }
 
+/// IMPORTANT (rsn) 20250213
+/// =========================
+/// This test uses the contents of the 'jws.sig' sample file taken from
+/// [examples here][1]. May be the data was valid at the time it was first
+/// published but it's not anymore. For one, the X.509 certificates have
+/// expired. Their 'not_after' date is...
+///   Mon Apr 03 2023 01:25:53 GMT+1000 (Australian Eastern Standard Time)
+/// This means that it will always fail after the fix to Issue #8 if when
+/// running the tests, the JWS_STRICT environment variable is TRUE.
+///
+/// [1]: https://opensource.ieee.org/xapi/xapi-base-standard-examples/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20Examples.md?ref_type=heads
+///
 #[test_context(MyTestContext)]
 #[traced_test]
 #[test]
@@ -678,6 +692,110 @@ fn test_signed_statement(ctx: &mut MyTestContext) -> Result<(), MyError> {
     let stmt = read_to_string("statement-signed", true);
     let sig = read_to_string("jws.sig", false);
     let body = multipart(&delimiter, &stmt, Some(att_signature(&sig)), None);
+    let req = client
+        .post("/statements")
+        .body(body)
+        .header(content_type(&header))
+        .header(accept_json())
+        .header(v2())
+        .header(authorization());
+
+    let resp = req.dispatch();
+    let expected = if config().jws_strict {
+        Status::BadRequest
+    } else {
+        Status::Ok
+    };
+    assert_eq!(resp.status(), expected);
+
+    Ok(())
+}
+
+/// This test is supposed to exercise the JWS signature handling process when
+/// JWS_STRICT environment variable is TRUE. Essentially we reproduce the same
+/// type of artifacts the previous test uses but this time from valid data
+/// which should lead to a successful outcome.
+#[test_context(MyTestContext)]
+#[traced_test]
+#[test]
+fn test_strict_signed_statement(ctx: &mut MyTestContext) -> Result<(), MyError> {
+    // start by reading the correct and valid...
+    // 1. JWS Signer certificate signed by the next one, containing the signer's
+    //    RSA Public Key which will be used to verify the JWS Signature.
+    // 2. self-signed certificate to emulate a Certificate Authority (CA) signing
+    //    the above certificate.
+    let c_str = read_to_string("C2.pem", false);
+    let c = X509::from_pem(&c_str.as_bytes())?;
+    let c_der = c.to_der()?;
+
+    let ca_str = read_to_string("C1.pem", false);
+    let ca = X509::from_pem(&ca_str.as_bytes())?;
+    let ca_der = ca.to_der()?;
+
+    // assemble the pair in a certificate chain array.  the serialize_compact()
+    // method will take care of base-64 encoding them...
+    let mut x5c = vec![];
+    x5c.push(c_der);
+    x5c.push(ca_der);
+
+    let mut header = JwsHeader::new();
+    header.set_algorithm("RS256");
+    header.set_x509_certificate_chain(&x5c);
+
+    // next, the payload; i.e. a Statement w/o signature attachment...
+    let payload = read_to_string("statement-to-sign", true);
+
+    // finally sign and output compact serialized form which will become the
+    // contents of the attachment...
+    let signer_private_key = read_to_string("P2_private.pem", false);
+    let signer = RS256.signer_from_pem(&signer_private_key)?;
+    let compact_sig = jws::serialize_compact(payload.as_bytes(), &header, &signer)?;
+
+    // construct a content-type header...
+    let ct_hdr = format!("Content-Type: {}\r\n", SIGNATURE_CT);
+    // compute the SHA2 hash of the JWS compact serialized form...
+    let mut hasher = Sha256::new();
+    hasher.update(compact_sig.as_bytes());
+    let hash = hex::encode(hasher.finish());
+    let hash_hdr = format!("X-Experience-API-Hash: {}\r\n", hash);
+
+    // assemble the signature attachment octets...
+    let mut att_bytes = vec![];
+    att_bytes.extend_from_slice(ct_hdr.as_bytes());
+    att_bytes.extend_from_slice(b"Content-Transfer-Encoding: binary\r\n");
+    att_bytes.extend_from_slice(hash_hdr.as_bytes());
+    att_bytes.extend_from_slice(CR_LF);
+    att_bytes.extend_from_slice(compact_sig.as_bytes());
+
+    // construct an Attachment instance representing that signature...
+    hasher = Sha256::new();
+    hasher.update(compact_sig.as_bytes());
+    let digest = hex::encode(hasher.finish());
+    let signature_att = Attachment::builder()
+        .usage_type(SIGNATURE_UT)?
+        .content_type(SIGNATURE_CT)?
+        .sha2(&digest)?
+        .length(
+            compact_sig
+                .len()
+                .try_into()
+                .expect("Failed coercing to i64"),
+        )?
+        .build()?;
+
+    // add it to the Statement we used as payload...
+    let mut stmt = Statement::from_str(&payload)?;
+    let old_atts = stmt.attachments();
+    let new_atts = [old_atts, &[signature_att]].concat();
+    stmt.set_attachments(new_atts);
+
+    // JSON serialize it so we can post it...
+    let stmt_json = serde_json::to_string(&stmt).expect("Failed serializing modified Statement");
+
+    let client = &ctx.client;
+
+    let (header, delimiter) = boundary_delimiter_line(BOUNDARY);
+    let body = multipart(&delimiter, &stmt_json, Some(att_bytes), None);
     let req = client
         .post("/statements")
         .body(body)

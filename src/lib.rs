@@ -51,6 +51,11 @@
 //!     * [unicase][18]: for comparing strings when case is not important
 //!       (using Unicode Case-folding).
 //!
+//! 9. JWS signatures:
+//!     * [josekit][19]: for creating + validating JWS signed Statements.
+//!     * [openssl][21]: for handling X.509 certificates when included in
+//!       JWS Headers.
+//!
 //! [1]: https://www.ietf.org/
 //! [2]: https://www.iso.org/
 //! [3]: https://crates.io/crates/serde
@@ -71,6 +76,7 @@
 //! [18]: https://crates.io/crates/unicase
 //! [19]: https://crates.io/crates/josekit
 //! [20]: https://dotat.at/tmp/ISO_8601-2004_E.pdf
+//! [21]: https://crates.io/crates/openssl
 //!
 //! [^1]: IRL: Internationalized Resource Locator.
 //! [^2]: IRI: Internationalized Resource Identifier.
@@ -96,8 +102,8 @@ pub use data::*;
 pub use db::Aggregates;
 pub use error::MyError;
 pub use lrs::{
-    build, resources, CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR,
-    TEST_USER_PLAIN_TOKEN, VERSION_HDR, verbs::VerbUI
+    build, resources, verbs::VerbUI, CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR,
+    TEST_USER_PLAIN_TOKEN, VERSION_HDR,
 };
 
 use tracing::error;
@@ -164,4 +170,19 @@ macro_rules! emit_error {
         tracing::error!("{}", $err);
         return Err($err);
     }};
+}
+
+/// Generate a message (in the style of `format!` macro), log it at level
+/// _error_ and raise a [data constraint violation error][crate::MyError#variant.Data].
+#[macro_export]
+macro_rules! constraint_violation_error {
+    ( $( $arg: tt )* ) => {
+        {
+            let msg = std::fmt::format(core::format_args!($($arg)*));
+            tracing::error!("{}", msg);
+            return Err($crate::MyError::Data(DataError::Validation(
+                ValidationError::ConstraintViolation(msg.into()),
+            )));
+        }
+    }
 }

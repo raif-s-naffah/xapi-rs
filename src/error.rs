@@ -76,4 +76,20 @@ pub enum MyError {
         #[from]
         io::Error,
     ),
+
+    /// OpenSSL error.
+    #[error("OpenSSL error: {0}")]
+    OSSL(
+        #[doc(hidden)]
+        #[from]
+        openssl::error::ErrorStack,
+    ),
+
+    /// JOSE error.
+    #[error("JOSE error: {0}")]
+    JOSE(
+        #[doc(hidden)]
+        #[from]
+        josekit::JoseError,
+    ),
 }

@@ -64,6 +64,22 @@ pub struct Config {
     pub(crate) mfc_interval: u64,
 
     pub(crate) default_language: String,
+
+    /// Boolean flag that controls how a Statement's JWS signature is processed.
+    /// 
+    /// When `false` a _Statement_ is deemed to be correcly signed if it's
+    /// _Equivalent_ to the one deserialized from the JWS Payload.
+    /// 
+    /// When `true` and the JWS Header has an `x5c` property containing at least
+    /// one X.509 certificate, then a _Statement_ is deemed to be correctly
+    /// signed if additionally the certificates in the `x5c` array...
+    /// 1. Are time-valid at the time of processing the request,
+    /// 2. Each certificate's issuer's distinguished name matches the subject's
+    ///    distinguished name of the next certificate in the chain.
+    /// 3. Every certificate is signed by the next one.
+    /// 4. The JWS signature correctly matches the same generated using the RSA
+    ///    Public Key contained in the 1st certificate.
+    pub jws_strict: bool,
 }
 
 impl Default for Config {
@@ -200,6 +216,11 @@ impl Default for Config {
         // ensure it's valid...
         let _ = MyLanguageTag::from_str(&default_language).expect("Invalid default language tag");
 
+        let jws_strict: bool = var("JWS_STRICT")
+            .unwrap_or("false".to_owned())
+            .parse()
+            .expect("Failed parsing JWS_STRICT");
+
         Self {
             db_server_url,
             db_name,
@@ -223,6 +244,7 @@ impl Default for Config {
             ttl_interval,
             mfc_interval,
             default_language,
+            jws_strict,
         }
     }
 }

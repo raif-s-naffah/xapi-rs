@@ -147,9 +147,9 @@ In no particular order...
 - [x] Clean up temporary files created when generating multipart response.  Done 2024-12-09.
 - [x] Add support for Authentication.  Done 2025-01-17.
 - [x] Add support for Authorization.  Done 2025-01-17.
+- [x] If the JWS header (of a signed Statement) includes an X.509 certificate, we should validate the signature against that certificate as defined in JWS. We don't do that yet.  Done 2025-02-16.
 - ~~[ ] Remove `speedate` and re-write using `chrono`.~~<br/>
 NOTE (rsn) 20241220 - I'm not sure anymore about this. The amount of work to correctly parse an ISO Duration, and the total space savings of 33KB from a binary that's around 46MB, is IMO not worth it.
-- [ ] If the JWS header (of a signed Statement) includes an X.509 certificate, we should validate the signature against that certificate as defined in JWS. We don't do that yet.
 - [ ] Introduce a configuration option to allow setting either a time or size limits on assets stored in `static`.
 - [ ] Optimize Pg SQL queries --may be using CTEs.
 - [ ] Minimize memory allocation by reducing the use of `String` types especially in custom deserializer implementations --e.g. consider using `DeserializeSeed`.
