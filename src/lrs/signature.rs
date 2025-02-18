@@ -184,7 +184,7 @@ impl Signature {
         // need its fingerprint
         let fingerprint = fingerprint_it(&payload);
 
-        if config().jws_strict && !jws_signer_public_key_pem.is_empty(){
+        if config().jws_strict && !jws_signer_public_key_pem.is_empty() {
             info!("Will verify JWS signature with issuer X.509 certificate...");
             // verify signature is for everything that precedes the 2nd dot.
             // but first, remove trailing CR-LF characters if any...
@@ -218,6 +218,7 @@ mod tests {
     use josekit::jws::{self, JwsHeader};
     use openssl::asn1::Asn1Time;
     use std::{borrow::Cow, fs, str};
+    use tracing::debug;
 
     /// A self-signed X.509 certificate, w/ a 2048-bit RSA keypair, issued on
     /// 2025-02-08 and valid for 10 years.
@@ -244,7 +245,7 @@ mod tests {
     ///
     /// We conditionally validate X.509 certificates if+when present in the
     /// JWS Header's `x5c` property based on a boolean configuration parameter
-    /// named `JWS_VALIDATE_X5C`. When that environment variable is set to
+    /// named `JWS_STRICT`. When that environment variable is set to
     /// TRUE, the following additional checks are carried out:
     ///
     /// * The current time of processing the corresponding Statement(s) is
@@ -379,7 +380,7 @@ mod tests {
         verifier
             .verify(to_sign.as_bytes(), &sig_bytes)
             .expect("Failed verification (#1)");
-        println!("Ok (alternative #1)");
+        debug!("Ok (alternative #1)");
 
         // 2.2 alternative #2 - get public key from C2 X.509 certificate
         let public_key = c2
@@ -396,6 +397,6 @@ mod tests {
         verifier
             .verify(to_sign.as_bytes(), &sig_bytes)
             .expect("Failed verification (#2)");
-        println!("Ok (alternative #2)");
+        debug!("Ok (alternative #2)");
     }
 }
