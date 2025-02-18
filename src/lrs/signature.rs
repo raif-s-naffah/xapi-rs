@@ -12,11 +12,11 @@ use base64::{
     Engine,
 };
 use chrono::Utc;
-use josekit::jws::RS256;
+use josekit::jws::{RS256, RS384, RS512};
 use openssl::{asn1::Asn1Time, pkey::PKey, x509::X509};
 use serde_json::{Map, Value};
 use std::{cmp::Ordering, str};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 const JWS_ALGOS: [&str; 3] = ["RS256", "RS384", "RS512"];
 /// A Base-64 Engine suited for encoding and decoding JWS signature data.
@@ -91,6 +91,7 @@ impl Signature {
         let Some(Value::String(alg)) = header.get("alg") else {
             constraint_violation_error!("Missing 'alg' in JWS Header")
         };
+        debug!("alg = {}", alg);
         if !JWS_ALGOS.contains(&alg.as_str()) {
             constraint_violation_error!("Unknown/unsupported ({}) JWS algorithm", alg)
         }
@@ -197,7 +198,11 @@ impl Signature {
                 }
             }
             let signature = JWS_ENGINE.decode(&rest[..len])?;
-            let verifier = RS256.verifier_from_pem(jws_signer_public_key_pem)?;
+            let verifier = match alg.as_str() {
+                "RS256" => RS256.verifier_from_pem(jws_signer_public_key_pem)?,
+                "RS384" => RS384.verifier_from_pem(jws_signer_public_key_pem)?,
+                _ => RS512.verifier_from_pem(jws_signer_public_key_pem)?,
+            };
             verifier.verify(&buffer[..n2], &signature)?;
         } else {
             warn!("Skip JWS signature verification...");
@@ -218,7 +223,6 @@ mod tests {
     use josekit::jws::{self, JwsHeader};
     use openssl::asn1::Asn1Time;
     use std::{borrow::Cow, fs, str};
-    use tracing::debug;
 
     /// A self-signed X.509 certificate, w/ a 2048-bit RSA keypair, issued on
     /// 2025-02-08 and valid for 10 years.
@@ -398,5 +402,61 @@ mod tests {
             .verify(to_sign.as_bytes(), &sig_bytes)
             .expect("Failed verification (#2)");
         debug!("Ok (alternative #2)");
+    }
+
+    // construct a compact serialization of a JWS signature.  the returned JWS
+    // compact serialized signature will be made with the given `rsa` algorithm
+    // but will be signed.
+    fn build_compact_signature(rsa: &str) -> Result<String, MyError> {
+        const S: &str = r#"{
+"actor":{"mbox":"mailto:example@example.com","objectType":"Agent"},
+"verb":{"id":"http://adlnet.gov/expapi/verbs/experienced"},
+"object":{"id":"https://www.theirtube.net/watch?v=whatever","objectType":"Activity"}}"#;
+
+        let c1_bytes = fs::read(C1)?;
+        let c1 = X509::from_pem(&c1_bytes)?;
+        let c2_bytes = fs::read(C2)?;
+        let c2 = X509::from_pem(&c2_bytes)?;
+
+        let mut x5c = vec![];
+        x5c.push(c2.to_der()?);
+        x5c.push(c1.to_der()?);
+
+        // NOTE (rsn) 20250219 - it turns out the later call to `serialize_compact`
+        // ensures that the `alg` claim (a) is added if not already present in the
+        // header, and (b) it's set to the correct value provided by the `signer`.
+        let mut header = JwsHeader::new();
+        header.set_x509_certificate_chain(&x5c);
+
+        let payload = S;
+        let private_key = fs::read_to_string(P2_PRIVATE)?;
+
+        let signer = match rsa {
+            "RS256" => RS256.signer_from_pem(&private_key)?,
+            "RS384" => RS384.signer_from_pem(&private_key)?,
+            "RS512" => RS512.signer_from_pem(&private_key)?,
+            x => panic!("Unknown/unsupported ({}) JWS signing algorithm", x),
+        };
+
+        Ok(jws::serialize_compact(
+            payload.as_bytes(),
+            &header,
+            &signer,
+        )?)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_bad_jws_algorithm() {
+        let _jws_sig = build_compact_signature("HS256").unwrap();
+    }
+
+    #[test]
+    fn test_good_jws_algorithms() -> Result<(), MyError> {
+        for algo in JWS_ALGOS {
+            let jws_sig = build_compact_signature(algo)?;
+            let _ = Signature::from(jws_sig.as_bytes().to_vec())?;
+        }
+        Ok(())
     }
 }
