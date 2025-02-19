@@ -448,7 +448,28 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_bad_jws_algorithm() {
-        let _jws_sig = build_compact_signature("HS256").unwrap();
+        let compact_ser1 = build_compact_signature("RS256").unwrap();
+
+        // separate JWS Header (serialized + base-64 encoded) part...
+        let Some((jws_sig, rest)) = compact_ser1.split_once('.') else {
+            panic!("Missing dot")
+        };
+        // change 'alg' to claim an unsupported algorithm instead...
+        let mut header: Map<String, Value> =
+            serde_json::from_str(str::from_utf8(&JWS_ENGINE.decode(jws_sig).unwrap()).unwrap())
+                .unwrap();
+        let old_alg = header.insert("alg".to_owned(), Value::String("HS256".to_owned()));
+        assert_eq!(old_alg, Some(Value::String("RS256".to_owned())));
+        // re-assemble compact serialized string containing fake claim...
+        let mut compact_ser2 =
+            String::from(JWS_ENGINE.encode(serde_json::to_string(&header).unwrap()));
+        compact_ser2.push('.');
+        compact_ser2.push_str(rest);
+        // to be sure, to be sure...
+        assert_eq!(compact_ser1, compact_ser2);
+
+        // should fail w/ unsupported algorithm...
+        let _ = Signature::from(compact_ser2.as_bytes().to_vec()).unwrap();
     }
 
     #[test]
