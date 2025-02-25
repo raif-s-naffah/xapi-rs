@@ -33,11 +33,7 @@ use crate::{
     },
     MyError,
 };
-use base64::{
-    alphabet::URL_SAFE,
-    engine::{general_purpose::NO_PAD, GeneralPurpose},
-    Engine,
-};
+use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use chrono::{DateTime, SecondsFormat, Utc};
 use mime::{Mime, APPLICATION_JSON};
 use openssl::sha::Sha256;
@@ -64,8 +60,6 @@ use sqlx::PgPool;
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
-
-const MY_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
 
 /// A derived Rocket Responder structure w/ an OK Status, a body consisting
 /// of a Statement, and an `Etag` header.
@@ -105,7 +99,7 @@ fn sha2_path(sha2: &str) -> PathBuf {
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     let signature = hasher.finish();
-    let name = MY_ENGINE.encode(signature);
+    let name = BASE64_URL_SAFE_NO_PAD.encode(signature);
     config().static_dir.join(format!("_{}", name))
 }
 
@@ -1269,7 +1263,7 @@ async fn get_many(
 /// file inside 'static/s' folder path rooted at this project's home dir.
 /// Return the file's path if/when successful.
 async fn save_statements(res: &StatementType) -> Result<PathBuf, Status> {
-    let name = &format!("_{}", MY_ENGINE.encode(Uuid::now_v7()));
+    let name = &format!("_{}", BASE64_URL_SAFE_NO_PAD.encode(Uuid::now_v7()));
     // create the temp file in 'static' dir, under a folder named 's'...
     let path = config().static_dir.join("s").join(name);
     let parent = path.parent().unwrap();

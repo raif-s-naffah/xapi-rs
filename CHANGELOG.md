@@ -1,3 +1,22 @@
+# Version 0.1.8 (2025-02-26)
+
+* Fixed Issue #12.
+* src/lrs/signature.rs: Replace JWS_ENGINE w/ BASE64_URL_SAFE_NO_PAD.
+* src/lrs/resources/statement.rs: Likewise.
+* Cargo.toml:
+  + Remove 'ahash' dependency.
+  + Specify 1.1 as minimal requirement for 'async-recursion'.
+* src/lrs/signature.rs:
+  + (test_bad_jws_algorithm): Rewrite to test the code not the test utility method.
+* Fixed Issue #10.
+* src/lrs/signature.rs:
+  + (from): Take into account `alg` from JWS Header when selecting an RSA Verifier.
+  + (build_compact_signature): New test utility method.
+  + (test_bad_jws_algorithm): A must-fail unit test w/ an unsupported algorithm.
+  + (test_good_jws_algorithms): Exercise supported signature algorithms.
+  + (test_x509_verification): Corrected documentation.
+  + (test_jws): Use debug! instead of println!.
+
 # Version 0.1.7 (2025-02-17)
 
 * Fixed Issue #9.

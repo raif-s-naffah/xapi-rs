@@ -6,9 +6,7 @@ use crate::{
     fingerprint_it, MyError,
 };
 use base64::{
-    alphabet::URL_SAFE,
-    engine::{general_purpose::NO_PAD, GeneralPurpose},
-    prelude::BASE64_STANDARD,
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD},
     Engine,
 };
 use chrono::Utc;
@@ -19,8 +17,6 @@ use std::{cmp::Ordering, str};
 use tracing::{debug, error, info, warn};
 
 const JWS_ALGOS: [&str; 3] = ["RS256", "RS384", "RS512"];
-/// A Base-64 Engine suited for encoding and decoding JWS signature data.
-const JWS_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
 
 /// A structure to contain enough info to verify if a _JWS Signature_ matches
 /// a _Statement_.
@@ -77,7 +73,7 @@ impl Signature {
         // JWS Signature is buffer[n2+1..] minus any trailing CRLF
 
         // input is url-safe base64-encoded; decode first...
-        let header_bytes = JWS_ENGINE.decode(&buffer[..n1])?;
+        let header_bytes = BASE64_URL_SAFE_NO_PAD.decode(&buffer[..n1])?;
         // convert to UTF-8 string...
         let header_str = str::from_utf8(&header_bytes)?;
         // deserialize...
@@ -174,7 +170,7 @@ impl Signature {
             warn!("No 'x5c' in JWS Header. Unable to verify JWS Signature");
         }
 
-        let payload_bytes = JWS_ENGINE.decode(&buffer[n1 + 1..n2])?;
+        let payload_bytes = BASE64_URL_SAFE_NO_PAD.decode(&buffer[n1 + 1..n2])?;
         let payload_str = str::from_utf8(&payload_bytes)?;
         let payload: Statement = serde_json::from_str(payload_str).map_err(|x| {
             error!("Failed deserializing payload: {}", x);
@@ -197,7 +193,7 @@ impl Signature {
                     len -= 1;
                 }
             }
-            let signature = JWS_ENGINE.decode(&rest[..len])?;
+            let signature = BASE64_URL_SAFE_NO_PAD.decode(&rest[..len])?;
             let verifier = match alg.as_str() {
                 "RS256" => RS256.verifier_from_pem(jws_signer_public_key_pem)?,
                 "RS384" => RS384.verifier_from_pem(jws_signer_public_key_pem)?,
@@ -334,7 +330,9 @@ mod tests {
 
         let parts = jws_sig.split('.').collect::<Vec<&str>>();
 
-        let z_b64 = JWS_ENGINE.decode(parts[0]).expect("Failed decoding header");
+        let z_b64 = BASE64_URL_SAFE_NO_PAD
+            .decode(parts[0])
+            .expect("Failed decoding header");
         let z_utf8 = str::from_utf8(&z_b64).expect("Failed converting header to UTF8");
         let z_header: Map<String, Value> =
             serde_json::from_str(z_utf8).expect("Failed deserializing header");
@@ -361,7 +359,7 @@ mod tests {
         .expect("Failed DER decoding C2");
         assert_eq!(z_cert, c2);
 
-        let msg = JWS_ENGINE
+        let msg = BASE64_URL_SAFE_NO_PAD
             .decode(parts[1])
             .expect("Failed decoding payload");
         let msg = str::from_utf8(&msg).expect("Failed converting payload to UTF8");
@@ -372,7 +370,7 @@ mod tests {
         to_sign.push('.');
         to_sign.push_str(parts[1]);
 
-        let sig_bytes = JWS_ENGINE
+        let sig_bytes = BASE64_URL_SAFE_NO_PAD
             .decode(parts[2])
             .expect("Failed decoding last part");
 
@@ -455,14 +453,15 @@ mod tests {
             panic!("Missing dot")
         };
         // change 'alg' to claim an unsupported algorithm instead...
-        let mut header: Map<String, Value> =
-            serde_json::from_str(str::from_utf8(&JWS_ENGINE.decode(jws_sig).unwrap()).unwrap())
-                .unwrap();
+        let mut header: Map<String, Value> = serde_json::from_str(
+            str::from_utf8(&BASE64_URL_SAFE_NO_PAD.decode(jws_sig).unwrap()).unwrap(),
+        )
+        .unwrap();
         let old_alg = header.insert("alg".to_owned(), Value::String("HS256".to_owned()));
         assert_eq!(old_alg, Some(Value::String("RS256".to_owned())));
         // re-assemble compact serialized string containing fake claim...
         let mut compact_ser2 =
-            String::from(JWS_ENGINE.encode(serde_json::to_string(&header).unwrap()));
+            String::from(BASE64_URL_SAFE_NO_PAD.encode(serde_json::to_string(&header).unwrap()));
         compact_ser2.push('.');
         compact_ser2.push_str(rest);
         // to be sure, to be sure...
