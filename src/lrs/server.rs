@@ -105,7 +105,8 @@ pub fn build(testing: bool) -> Rocket<Build> {
                 tokio::spawn(async move {
                     loop {
                         tokio::time::sleep(Duration::from_secs(config().mfc_interval)).await;
-                        if let Err(x) = clean_multipart_files() {
+                        let tmp = clean_multipart_files();
+                        if let Err(x) = tmp {
                             warn!("Failed: {}", x);
                         }
                     }

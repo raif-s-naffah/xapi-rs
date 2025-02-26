@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![warn(tail_expr_drop_order)]
 #![warn(if_let_rescope)]
 #![warn(missing_docs)]
 

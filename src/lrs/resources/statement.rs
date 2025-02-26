@@ -290,7 +290,7 @@ async fn put_mixed(
         return Err(Status::BadRequest);
     }
 
-    persist_one(db.pool(), c, statement, &user).await
+    return persist_one(db.pool(), c, statement, &user).await;
 }
 
 #[put("/?<statementId>", data = "<json>", format = "application/json")]
@@ -342,7 +342,7 @@ async fn put_json(
         return Err(Status::BadRequest);
     }
 
-    persist_one(db.pool(), c, &mut statement, &user).await
+    return persist_one(db.pool(), c, &mut statement, &user).await;
 }
 
 /// From section 4.1.6.1 Statement Resource (/statements) [POST Request][1]:
@@ -739,10 +739,12 @@ async fn ingest_multipart(
     {
         if ndx == 0 {
             // 1st part.  always one or more Statement...
-            match as_json::<Statements>(&mut part).await {
+            let tmp = as_json::<Statements>(&mut part).await;
+            match tmp {
                 Ok(x) => {
                     for map in x.0 {
-                        match Statement::from_json_obj(map) {
+                        let tmp2 = Statement::from_json_obj(map);
+                        match tmp2 {
                             Ok(x) => statements.push(x),
                             Err(x) => {
                                 error!("Failed unmarshalling a Statement: {}", x);
@@ -1099,7 +1101,8 @@ async fn persist_many(
     while i < statements.len() {
         let s = &statements[i];
         let uuid = s.id().unwrap();
-        match statement_exists(conn, uuid).await {
+        let tmp = statement_exists(conn, uuid).await;
+        match tmp {
             Ok(None) => i += 1,
             Ok(Some(x)) => {
                 // if fingerprints match, drop `s`; otherwise return Conflict
@@ -1132,7 +1135,8 @@ async fn persist_many(
         if s.is_verb_voided() {
             if let Some(target_uuid) = s.voided_target() {
                 // target Statement, if known, should not be a voiding one...
-                match find_statement_to_void(conn, &target_uuid).await {
+                let tmp = find_statement_to_void(conn, &target_uuid).await;
+                match tmp {
                     Ok((found, valid, id)) => {
                         if found {
                             if valid {
@@ -1180,7 +1184,8 @@ async fn persist_many(
     // finally, void statements...
     for id in ids_to_void {
         debug!("About to void Statement #{}", id);
-        match void_statement(conn, id).await {
+        let tmp = void_statement(conn, id).await;
+        match tmp {
             Ok(_) => info!("Voided Statement #{}", id),
             Err(_) => return Err(Status::InternalServerError),
         }

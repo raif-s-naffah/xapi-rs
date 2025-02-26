@@ -104,7 +104,9 @@ impl Fairing for StatsFairing {
 // Update stats for given route and request duration.
 pub(crate) fn update_stats(route: &Route, duration: u64) {
     let key = RouteAttributes::from(route);
-    match endpoints().get_mut(&key) {
+    let tmp = endpoints();
+    let tmp = tmp.get_mut(&key);
+    match tmp {
         Some(endpoint) => {
             endpoint.min.fetch_min(duration, Ordering::Relaxed);
             endpoint.max.fetch_max(duration, Ordering::Relaxed);

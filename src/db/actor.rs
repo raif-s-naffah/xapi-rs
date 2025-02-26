@@ -264,7 +264,8 @@ async fn find_members(
         Ok(actors) => {
             // NOTE (rsn) 20240506 - investigate using multi-threading...
             for actor in actors.iter() {
-                match try_actor(conn, actor, Target::AgentOnly, format).await {
+                let tmp = try_actor(conn, actor, Target::AgentOnly, format).await;
+                match tmp {
                     Ok(x) => vec.push(x.as_agent().unwrap().to_owned()),
                     Err(x) => {
                         warn!("Failed coercing actor to Agent. Ignore + continue: {}", x);

@@ -902,7 +902,8 @@ mod tests {
 
         let statement =
             serde_json::from_str::<Statement>(S1).expect("Failed deserializing Statement");
-        match insert_statement(conn, &statement).await {
+        let tmp = insert_statement(conn, &statement).await;
+        match tmp {
             Ok(_) => Ok(()),
             Err(x) => {
                 error!("Failed persisting Statement: {}", x);
