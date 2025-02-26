@@ -199,19 +199,19 @@ impl<'de> Deserialize<'de> for Actor {
                             return Ok(Actor::Agent(x));
                         }
                     }
-                    if let Ok(x) = Group::deserialize(val) {
-                        Ok(Actor::Group(x))
-                    } else {
-                        Err(D::Error::unknown_variant("actor", &["Agent", "Group"]))
+                    match Group::deserialize(val) {
+                        Ok(x) => Ok(Actor::Group(x)),
+                        _ => Err(D::Error::unknown_variant("actor", &["Agent", "Group"])),
                     }
                 } else {
                     // NOTE (rsn) 20241121 - only Agent is allowed to not have an
                     // explicit 'objectType' property in its serialization...
-                    if let Ok(x) = Agent::deserialize(val.clone()) {
-                        Ok(Actor::Agent(x))
-                    } else {
-                        error!("Alleged Actor has no 'objectType' and is NOT an Agent");
-                        Err(D::Error::unknown_field("actor", &["Agent", "Group"]))
+                    match Agent::deserialize(val.clone()) {
+                        Ok(x) => Ok(Actor::Agent(x)),
+                        _ => {
+                            error!("Alleged Actor has no 'objectType' and is NOT an Agent");
+                            Err(D::Error::unknown_field("actor", &["Agent", "Group"]))
+                        }
                     }
                 }
             }

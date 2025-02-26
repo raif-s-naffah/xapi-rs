@@ -99,75 +99,76 @@ impl Signature {
         // 4. If the JWS header includes an X.509 certificate, validate the
         //    signature against that certificate as defined in JWS.
         let mut jws_signer_public_key_pem: Vec<u8> = vec![];
-        if let Some(Value::Array(x5c)) = header.get("x5c") {
-            // `x5c`, when present, should contain an X.509 certificate chain.
-            // this is a Vec of base-64 encoded ASN.1 DER certificates that should
-            // consist of at least 1 certificate if self-signed ones are allowed.
-            if x5c.is_empty() {
-                constraint_violation_error!("Empty certificate chain")
-            }
+        match header.get("x5c") {
+            Some(Value::Array(x5c)) => {
+                // `x5c`, when present, should contain an X.509 certificate chain.
+                // this is a Vec of base-64 encoded ASN.1 DER certificates that should
+                // consist of at least 1 certificate if self-signed ones are allowed.
+                if x5c.is_empty() {
+                    constraint_violation_error!("Empty certificate chain")
+                }
 
-            // x5c has at least one X.509 certificate candidate...
-            let mut cert_chain: Vec<X509> = vec![];
-            for (i, cert) in x5c.iter().enumerate() {
-                let Value::String(b64_der_cert) = cert else {
-                    constraint_violation_error!("Item #{} of 'x5c' is not a JSON string", i)
-                };
+                // x5c has at least one X.509 certificate candidate...
+                let mut cert_chain: Vec<X509> = vec![];
+                for (i, cert) in x5c.iter().enumerate() {
+                    let Value::String(b64_der_cert) = cert else {
+                        constraint_violation_error!("Item #{} of 'x5c' is not a JSON string", i)
+                    };
 
-                let der = BASE64_STANDARD.decode(b64_der_cert.as_bytes())?;
-                let x509 = X509::from_der(&der)?;
-                cert_chain.push(x509);
-            }
+                    let der = BASE64_STANDARD.decode(b64_der_cert.as_bytes())?;
+                    let x509 = X509::from_der(&der)?;
+                    cert_chain.push(x509);
+                }
 
-            let limit = x5c.len();
-            if config().jws_strict {
-                info!("Will validate X.509 certificate chain...");
-                for (i, cert) in cert_chain.iter().enumerate() {
-                    // check not_before and not_after date-time bounds...
-                    let now = Asn1Time::from_unix(Utc::now().timestamp())?;
-                    if now < cert.not_before() {
-                        constraint_violation_error!("Certificate #{} is not yet valid", i)
-                    }
-                    if now > cert.not_after() {
-                        constraint_violation_error!("Certificate #{} is no more valid", i)
-                    }
+                let limit = x5c.len();
+                if config().jws_strict {
+                    info!("Will validate X.509 certificate chain...");
+                    for (i, cert) in cert_chain.iter().enumerate() {
+                        // check not_before and not_after date-time bounds...
+                        let now = Asn1Time::from_unix(Utc::now().timestamp())?;
+                        if now < cert.not_before() {
+                            constraint_violation_error!("Certificate #{} is not yet valid", i)
+                        }
+                        if now > cert.not_after() {
+                            constraint_violation_error!("Certificate #{} is no more valid", i)
+                        }
 
-                    if i + 1 < limit {
-                        let issuer_cert = &cert_chain[i + 1];
-                        // check that issuer at N is the subject at N+1...
-                        let issuer_dn = cert.issuer_name();
-                        let subject_dn = issuer_cert.subject_name();
-                        match issuer_dn.try_cmp(subject_dn) {
-                            Ok(Ordering::Equal) => (),
-                            _ => {
+                        if i + 1 < limit {
+                            let issuer_cert = &cert_chain[i + 1];
+                            // check that issuer at N is the subject at N+1...
+                            let issuer_dn = cert.issuer_name();
+                            let subject_dn = issuer_cert.subject_name();
+                            match issuer_dn.try_cmp(subject_dn) {
+                                Ok(Ordering::Equal) => (),
+                                _ => {
+                                    constraint_violation_error!(
+                                        "Certificate #{} was not issued by next one in the chain",
+                                        i
+                                    )
+                                }
+                            }
+
+                            // check that signature of N is made by the public key of N+1...
+                            let issuer_public_key: PKey<_> = issuer_cert.public_key()?;
+                            let verified = cert.verify(&issuer_public_key)?;
+                            if !verified {
                                 constraint_violation_error!(
-                                    "Certificate #{} was not issued by next one in the chain",
+                                    "Certificate #{} was not signed by next one in the chain",
                                     i
                                 )
                             }
                         }
-
-                        // check that signature of N is made by the public key of N+1...
-                        let issuer_public_key: PKey<_> = issuer_cert.public_key()?;
-                        let verified = cert.verify(&issuer_public_key)?;
-                        if !verified {
-                            constraint_violation_error!(
-                                "Certificate #{} was not signed by next one in the chain",
-                                i
-                            )
-                        }
                     }
+                } else {
+                    warn!("Skip JWS certificate-chain validation...");
                 }
-            } else {
-                warn!("Skip JWS certificate-chain validation...");
-            }
 
-            jws_signer_public_key_pem = cert_chain[0]
-                .public_key()?
-                .rsa()?
-                .public_key_to_pem_pkcs1()?;
-        } else {
-            warn!("No 'x5c' in JWS Header. Unable to verify JWS Signature");
+                jws_signer_public_key_pem = cert_chain[0]
+                    .public_key()?
+                    .rsa()?
+                    .public_key_to_pem_pkcs1()?;
+            }
+            _ => warn!("No 'x5c' in JWS Header. Unable to verify JWS Signature"),
         }
 
         let payload_bytes = BASE64_URL_SAFE_NO_PAD.decode(&buffer[n1 + 1..n2])?;

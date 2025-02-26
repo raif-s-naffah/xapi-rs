@@ -337,8 +337,8 @@ async fn get(
     debug!("----- get ----- {}", user);
 
     let conn = db.pool();
-    if let Ok(activity) = Activity::from_iri_str(activityId) {
-        match find_activity_id(conn, activity.id()).await {
+    match Activity::from_iri_str(activityId) {
+        Ok(activity) => match find_activity_id(conn, activity.id()).await {
             Ok(None) => {
                 error!("No such Activity ({})", activity.id());
                 Err(Status::BadRequest)
@@ -364,10 +364,11 @@ async fn get(
                 error!("Failed find Activity: {}", x);
                 Err(Status::InternalServerError)
             }
+        },
+        _ => {
+            error!("Failed parse Activity IRI");
+            Err(Status::BadRequest)
         }
-    } else {
-        error!("Failed parse Activity IRI");
-        Err(Status::BadRequest)
     }
 }
 

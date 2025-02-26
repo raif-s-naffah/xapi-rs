@@ -1272,35 +1272,39 @@ async fn save_statements(res: &StatementType) -> Result<PathBuf, Status> {
         return Err(Status::InternalServerError);
     }
 
-    if let Ok(mut file) = File::create(&path).await {
-        let json = match res {
-            StatementType::S(x) => {
-                serde_json::to_string(x).expect("Failed serializing S to temp file")
-            }
-            StatementType::SId(x) => {
-                serde_json::to_string(x).expect("Failed serializing SId to temp file")
-            }
-            StatementType::SR(x) => {
-                serde_json::to_string(x).expect("Failed serializing SR to temp file")
-            }
-            StatementType::SRId(x) => {
-                serde_json::to_string(x).expect("Failed serializing SRId to temp file")
-            }
-        };
-        if (file.write_all(json.as_bytes()).await).is_ok() {
-            if let Err(x) = file.flush().await {
-                error!("Failed flushing {}: {}", name, x);
-                Err(Status::InternalServerError)
+    match File::create(&path).await {
+        Ok(mut file) => {
+            let json = match res {
+                StatementType::S(x) => {
+                    serde_json::to_string(x).expect("Failed serializing S to temp file")
+                }
+                StatementType::SId(x) => {
+                    serde_json::to_string(x).expect("Failed serializing SId to temp file")
+                }
+                StatementType::SR(x) => {
+                    serde_json::to_string(x).expect("Failed serializing SR to temp file")
+                }
+                StatementType::SRId(x) => {
+                    serde_json::to_string(x).expect("Failed serializing SRId to temp file")
+                }
+            };
+            if (file.write_all(json.as_bytes()).await).is_ok() {
+                match file.flush().await {
+                    Err(x) => {
+                        error!("Failed flushing {}: {}", name, x);
+                        Err(Status::InternalServerError)
+                    }
+                    _ => Ok(path),
+                }
             } else {
-                Ok(path)
+                error!("Failed writing {}", name);
+                Err(Status::InternalServerError)
             }
-        } else {
-            error!("Failed writing {}", name);
+        }
+        _ => {
+            error!("Failed creating {}", name);
             Err(Status::InternalServerError)
         }
-    } else {
-        error!("Failed creating {}", name);
-        Err(Status::InternalServerError)
     }
 }
 
@@ -1322,21 +1326,25 @@ async fn save_attachment(bytes: Vec<u8>, part: &InPartInfo) -> Result<(), Status
         return Err(Status::InternalServerError);
     }
 
-    if let Ok(mut file) = File::create(path).await {
-        if (file.write_all(&bytes).await).is_ok() {
-            if let Err(x) = file.flush().await {
-                error!("Failed flushing {}: {}", name, x);
-                Err(Status::InternalServerError)
+    match File::create(path).await {
+        Ok(mut file) => {
+            if (file.write_all(&bytes).await).is_ok() {
+                match file.flush().await {
+                    Err(x) => {
+                        error!("Failed flushing {}: {}", name, x);
+                        Err(Status::InternalServerError)
+                    }
+                    _ => Ok(()),
+                }
             } else {
-                Ok(())
+                error!("Failed writing {}", name);
+                Err(Status::InternalServerError)
             }
-        } else {
-            error!("Failed writing {}", name);
+        }
+        _ => {
+            error!("Failed creating {}", name);
             Err(Status::InternalServerError)
         }
-    } else {
-        error!("Failed creating {}", name);
-        Err(Status::InternalServerError)
     }
 }
 

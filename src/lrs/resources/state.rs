@@ -85,64 +85,66 @@ async fn put(
     }
 
     let conn = db.pool();
-    if let Ok(s) = as_single(conn, activityId, agent, registration, stateId).await {
-        debug!("s = {:?}", s);
-
-        // if a PUT request is received without If-[None-]Match headers for a
-        // resource that already exists, we should return Status 409
-        match find(conn, &s).await {
-            Ok((None, _)) => {
-                // insert it...
-                match upsert(conn, &s, doc).await {
-                    Ok(_) => {
-                        let etag = etag_from_str(doc);
-                        Ok(no_content(&etag))
-                    }
-                    Err(x) => {
-                        error!("Failed insert State: {}", x);
-                        Err(Status::InternalServerError)
+    match as_single(conn, activityId, agent, registration, stateId).await {
+        Ok(s) => {
+            debug!("s = {:?}", s);
+            // if a PUT request is received without If-[None-]Match headers for a
+            // resource that already exists, we should return Status 409
+            match find(conn, &s).await {
+                Ok((None, _)) => {
+                    // insert it...
+                    match upsert(conn, &s, doc).await {
+                        Ok(_) => {
+                            let etag = etag_from_str(doc);
+                            Ok(no_content(&etag))
+                        }
+                        Err(x) => {
+                            error!("Failed insert State: {}", x);
+                            Err(Status::InternalServerError)
+                        }
                     }
                 }
-            }
-            Ok((Some(old_doc), _)) => {
-                if c.has_no_conditionals() {
-                    error!("PUT a known resource, w/ no pre-conditions, is NOT allowed");
-                    Err(Status::Conflict)
-                } else {
-                    // only upsert it if pre-conditions pass...
-                    let etag = etag_from_str(&old_doc);
-                    debug!("etag (old) = {}", etag);
-                    match eval_preconditions!(&etag, c) {
-                        s if s != Status::Ok => Err(s),
-                        _ => {
-                            // no point in invoking a DB op if old == new..
-                            if old_doc == doc {
-                                info!("Old + new State documents are identidal");
-                                Ok(no_content(&etag))
-                            } else {
-                                match upsert(conn, &s, doc).await {
-                                    Ok(_) => {
-                                        let etag = etag_from_str(doc);
-                                        Ok(no_content(&etag))
-                                    }
-                                    Err(x) => {
-                                        error!("Failed replace State: {}", x);
-                                        Err(Status::InternalServerError)
+                Ok((Some(old_doc), _)) => {
+                    if c.has_no_conditionals() {
+                        error!("PUT a known resource, w/ no pre-conditions, is NOT allowed");
+                        Err(Status::Conflict)
+                    } else {
+                        // only upsert it if pre-conditions pass...
+                        let etag = etag_from_str(&old_doc);
+                        debug!("etag (old) = {}", etag);
+                        match eval_preconditions!(&etag, c) {
+                            s if s != Status::Ok => Err(s),
+                            _ => {
+                                // no point in invoking a DB op if old == new..
+                                if old_doc == doc {
+                                    info!("Old + new State documents are identidal");
+                                    Ok(no_content(&etag))
+                                } else {
+                                    match upsert(conn, &s, doc).await {
+                                        Ok(_) => {
+                                            let etag = etag_from_str(doc);
+                                            Ok(no_content(&etag))
+                                        }
+                                        Err(x) => {
+                                            error!("Failed replace State: {}", x);
+                                            Err(Status::InternalServerError)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
-            Err(x) => {
-                error!("Failed find State: {}", x);
-                Err(Status::InternalServerError)
+                Err(x) => {
+                    error!("Failed find State: {}", x);
+                    Err(Status::InternalServerError)
+                }
             }
         }
-    } else {
-        error!("Failed converting query parameters");
-        Err(Status::BadRequest)
+        _ => {
+            error!("Failed converting query parameters");
+            Err(Status::BadRequest)
+        }
     }
 }
 
@@ -180,83 +182,87 @@ async fn post(
     }
 
     let conn = db.pool();
-    if let Ok(s) = as_single(conn, activityId, agent, registration, stateId).await {
-        debug!("s = {:?}", s);
-        match find(conn, &s).await {
-            Ok((None, _)) => {
-                // insert it...
-                match upsert(conn, &s, doc).await {
-                    Ok(_) => {
-                        let etag = etag_from_str(doc);
-                        Ok(no_content(&etag))
-                    }
-                    Err(x) => {
-                        error!("Failed insert State: {}", x);
-                        Err(Status::InternalServerError)
-                    }
-                }
-            }
-            Ok((Some(old_doc), _)) => {
-                let etag = etag_from_str(&old_doc);
-                debug!("etag (old) = {}", etag);
-                if c.has_conditionals() {
-                    match eval_preconditions!(&etag, c) {
-                        s if s != Status::Ok => return Err(s),
-                        _ => (),
+    match as_single(conn, activityId, agent, registration, stateId).await {
+        Ok(s) => {
+            debug!("s = {:?}", s);
+            match find(conn, &s).await {
+                Ok((None, _)) => {
+                    // insert it...
+                    match upsert(conn, &s, doc).await {
+                        Ok(_) => {
+                            let etag = etag_from_str(doc);
+                            Ok(no_content(&etag))
+                        }
+                        Err(x) => {
+                            error!("Failed insert State: {}", x);
+                            Err(Status::InternalServerError)
+                        }
                     }
                 }
+                Ok((Some(old_doc), _)) => {
+                    let etag = etag_from_str(&old_doc);
+                    debug!("etag (old) = {}", etag);
+                    if c.has_conditionals() {
+                        match eval_preconditions!(&etag, c) {
+                            s if s != Status::Ok => return Err(s),
+                            _ => (),
+                        }
+                    }
 
-                // if either document is not JSON return 400
-                let mut old: Map<String, Value> = match serde_json::from_str(&old_doc) {
-                    Ok(x) => x,
-                    Err(x) => {
-                        error!("Failed deserialize old document: {}", x);
-                        return Err(Status::BadRequest);
-                    }
-                };
-                let mut new: Map<String, Value> = match serde_json::from_str(doc) {
-                    Ok(x) => x,
-                    Err(x) => {
-                        error!("Failed deserialize new document: {}", x);
-                        return Err(Status::BadRequest);
-                    }
-                };
+                    // if either document is not JSON return 400
+                    let mut old: Map<String, Value> = match serde_json::from_str(&old_doc) {
+                        Ok(x) => x,
+                        Err(x) => {
+                            error!("Failed deserialize old document: {}", x);
+                            return Err(Status::BadRequest);
+                        }
+                    };
+                    let mut new: Map<String, Value> = match serde_json::from_str(doc) {
+                        Ok(x) => x,
+                        Err(x) => {
+                            error!("Failed deserialize new document: {}", x);
+                            return Err(Status::BadRequest);
+                        }
+                    };
 
-                // both documents are JSON, are they different?
-                if old == new {
-                    info!("Old + new State documents are identical");
-                    return Ok(no_content(&etag));
-                }
-
-                // merge...
-                debug!("document (before) = '{}'", old_doc);
-                for (k, v) in new.iter_mut() {
-                    let new_v = mem::take(v);
-                    old.insert(k.to_owned(), new_v);
-                }
-                // serialize updated 'old' so we can persist it...
-                let merged = serde_json::to_string(&old).expect("Failed serialize merged document");
-                debug!("document ( after) = '{}'", merged);
-
-                match upsert(conn, &s, &merged).await {
-                    Ok(_) => {
-                        let etag = etag_from_str(&merged);
-                        Ok(no_content(&etag))
+                    // both documents are JSON, are they different?
+                    if old == new {
+                        info!("Old + new State documents are identical");
+                        return Ok(no_content(&etag));
                     }
-                    Err(x) => {
-                        error!("Failed update State: {}", x);
-                        Err(Status::InternalServerError)
+
+                    // merge...
+                    debug!("document (before) = '{}'", old_doc);
+                    for (k, v) in new.iter_mut() {
+                        let new_v = mem::take(v);
+                        old.insert(k.to_owned(), new_v);
+                    }
+                    // serialize updated 'old' so we can persist it...
+                    let merged =
+                        serde_json::to_string(&old).expect("Failed serialize merged document");
+                    debug!("document ( after) = '{}'", merged);
+
+                    match upsert(conn, &s, &merged).await {
+                        Ok(_) => {
+                            let etag = etag_from_str(&merged);
+                            Ok(no_content(&etag))
+                        }
+                        Err(x) => {
+                            error!("Failed update State: {}", x);
+                            Err(Status::InternalServerError)
+                        }
                     }
                 }
-            }
-            Err(x) => {
-                error!("Failed find State: {}", x);
-                Err(Status::InternalServerError)
+                Err(x) => {
+                    error!("Failed find State: {}", x);
+                    Err(Status::InternalServerError)
+                }
             }
         }
-    } else {
-        error!("Failed converting query parameters");
-        Err(Status::BadRequest)
+        _ => {
+            error!("Failed converting query parameters");
+            Err(Status::BadRequest)
+        }
     }
 }
 
@@ -279,28 +285,32 @@ async fn get(
             return Err(Status::BadRequest);
         }
 
-        if let Ok(s) = as_single(conn, activityId, agent, registration, stateId.unwrap()).await {
-            debug!("s = {:?}", s);
-            let res = get_state(conn, &s).await?;
-            (res.0, Some(res.1))
-        } else {
-            return Err(Status::BadRequest);
-        }
-    } else if let Ok(s) = as_many(conn, activityId, agent, registration, since).await {
-        debug!("s = {:?}", s);
-        match find_ids(conn, &s).await {
-            Ok(x) => {
-                // IMPORTANT (rsn) 20241026 - always return an array even if
-                // it's empty
-                (serde_json::to_string(&x).unwrap(), None)
+        match as_single(conn, activityId, agent, registration, stateId.unwrap()).await {
+            Ok(s) => {
+                debug!("s = {:?}", s);
+                let res = get_state(conn, &s).await?;
+                (res.0, Some(res.1))
             }
-            Err(x) => {
-                error!("Failed finding N State(s): {}", x);
-                return Err(Status::InternalServerError);
-            }
+            _ => return Err(Status::BadRequest),
         }
     } else {
-        return Err(Status::BadRequest);
+        match as_many(conn, activityId, agent, registration, since).await {
+            Ok(s) => {
+                debug!("s = {:?}", s);
+                match find_ids(conn, &s).await {
+                    Ok(x) => {
+                        // IMPORTANT (rsn) 20241026 - always return an array even if
+                        // it's empty
+                        (serde_json::to_string(&x).unwrap(), None)
+                    }
+                    Err(x) => {
+                        error!("Failed finding N State(s): {}", x);
+                        return Err(Status::InternalServerError);
+                    }
+                }
+            }
+            _ => return Err(Status::BadRequest),
+        }
     };
 
     emit_doc_response(resource.0, resource.1).await
@@ -348,27 +358,30 @@ async fn delete_one(
     registration: Option<&str>,
     state_id: &str,
 ) -> Status {
-    if let Ok(s) = as_single(conn, activity_iri, agent, registration, state_id).await {
-        debug!("s = {:?}", s);
-        match get_state(conn, &s).await {
-            Ok((doc, _)) => {
-                let etag = etag_from_str(&doc);
-                match eval_preconditions!(&etag, c) {
-                    s if s != Status::Ok => s,
-                    _ => match remove(conn, &s).await {
-                        Ok(_) => Status::NoContent,
-                        Err(x) => {
-                            error!("Failed while deleting state record: {}", x);
-                            Status::InternalServerError
-                        }
-                    },
+    match as_single(conn, activity_iri, agent, registration, state_id).await {
+        Ok(s) => {
+            debug!("s = {:?}", s);
+            match get_state(conn, &s).await {
+                Ok((doc, _)) => {
+                    let etag = etag_from_str(&doc);
+                    match eval_preconditions!(&etag, c) {
+                        s if s != Status::Ok => s,
+                        _ => match remove(conn, &s).await {
+                            Ok(_) => Status::NoContent,
+                            Err(x) => {
+                                error!("Failed while deleting state record: {}", x);
+                                Status::InternalServerError
+                            }
+                        },
+                    }
                 }
+                Err(x) => x,
             }
-            Err(x) => x,
         }
-    } else {
-        error!("Failed converting query parameters");
-        Status::BadRequest
+        _ => {
+            error!("Failed converting query parameters");
+            Status::BadRequest
+        }
     }
 }
 
@@ -378,16 +391,17 @@ async fn delete_many(
     agent: &str,
     registration: Option<&str>,
 ) -> Status {
-    if let Ok(s) = as_single(conn, activity_iri, agent, registration, "").await {
-        debug!("s = {:?}", s);
-        match remove_many(conn, &s).await {
-            Ok(_) => Status::NoContent,
-            Err(x) => {
-                error!("Failed while deleting state records: {}", x);
-                Status::InternalServerError
+    match as_single(conn, activity_iri, agent, registration, "").await {
+        Ok(s) => {
+            debug!("s = {:?}", s);
+            match remove_many(conn, &s).await {
+                Ok(_) => Status::NoContent,
+                Err(x) => {
+                    error!("Failed while deleting state records: {}", x);
+                    Status::InternalServerError
+                }
             }
         }
-    } else {
-        Status::BadRequest
+        _ => Status::BadRequest,
     }
 }

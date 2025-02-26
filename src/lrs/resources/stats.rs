@@ -104,15 +104,16 @@ impl Fairing for StatsFairing {
 // Update stats for given route and request duration.
 pub(crate) fn update_stats(route: &Route, duration: u64) {
     let key = RouteAttributes::from(route);
-    if let Some(endpoint) = endpoints().get_mut(&key) {
-        endpoint.min.fetch_min(duration, Ordering::Relaxed);
-        endpoint.max.fetch_max(duration, Ordering::Relaxed);
-        let old_count = endpoint.count.fetch_add(1, Ordering::Relaxed);
-        let old_avg = endpoint.avg.fetch_add(0, Ordering::Relaxed);
-        let new_avg = (old_count * old_avg + duration) / (old_count + 1);
-        endpoint.avg.store(new_avg, Ordering::Relaxed);
-    } else {
-        error!("Failed finding stats for {}", route);
+    match endpoints().get_mut(&key) {
+        Some(endpoint) => {
+            endpoint.min.fetch_min(duration, Ordering::Relaxed);
+            endpoint.max.fetch_max(duration, Ordering::Relaxed);
+            let old_count = endpoint.count.fetch_add(1, Ordering::Relaxed);
+            let old_avg = endpoint.avg.fetch_add(0, Ordering::Relaxed);
+            let new_avg = (old_count * old_avg + duration) / (old_count + 1);
+            endpoint.avg.store(new_avg, Ordering::Relaxed);
+        }
+        _ => error!("Failed finding stats for {}", route),
     }
 }
 

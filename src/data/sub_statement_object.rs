@@ -176,12 +176,11 @@ impl<'de> Deserialize<'de> for SubStatementObject {
                 return Ok(SubStatementObject::StatementRef(x));
             }
         }
-        if let Ok(x) = Activity::deserialize(value) {
-            Ok(SubStatementObject::Activity(x))
-        } else {
-            Err(D::Error::custom(
+        match Activity::deserialize(value) {
+            Ok(x) => Ok(SubStatementObject::Activity(x)),
+            _ => Err(D::Error::custom(
                 "input did not match any SubStatementObject variant",
-            ))
+            )),
         }
     }
 }
@@ -246,10 +245,11 @@ mod tests {
     fn test_de() {
         let de_result = serde_json::from_str(JSON);
         assert!(de_result.is_ok());
-        if let SubStatementObject::StatementRef(sr) = de_result.unwrap() {
-            assert_eq!(sr.id().to_string(), ID);
-        } else {
-            panic!("Bummer :(");
+        match de_result.unwrap() {
+            SubStatementObject::StatementRef(sr) => {
+                assert_eq!(sr.id().to_string(), ID);
+            }
+            _ => panic!("Bummer :("),
         }
     }
 }
