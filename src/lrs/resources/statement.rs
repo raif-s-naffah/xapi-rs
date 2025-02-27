@@ -472,7 +472,7 @@ async fn get_some<'r>(
     mut extras: HashMap<&'r str, &'r str>,
     db: &State<DB>,
     user: User,
-) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>>>, Status> {
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
     debug!("----- get_some ----- {}", user);
     debug!("q = {:?}", q);
     // NOTE (rsn) 20241003 - `extras` will capture *all* query string parameters
@@ -577,7 +577,7 @@ async fn get_some<'r>(
 
 async fn send_multipart(
     resource: &StatementType,
-) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>>>, Status> {
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
     let mut server_last_modified = get_consistent_thru().await;
     let stored = resource.stored();
     if stored > server_last_modified {
@@ -618,7 +618,7 @@ async fn get_more(
     attachments: bool,
     db: &State<DB>,
     user: User,
-) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>>>, Status> {
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
     debug!("----- get_more ----- {}", user);
     debug!("c = {:?}", c);
     debug!("sid = {}", sid);
