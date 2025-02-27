@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![warn(edition_2024_expr_fragment_specifier)]
+#![warn(unsafe_op_in_unsafe_fn)]
+#![warn(unsafe_attr_outside_unsafe)]
+#![warn(missing_unsafe_on_extern)]
+#![warn(rust_2024_incompatible_pat)]
 #![warn(tail_expr_drop_order)]
 #![warn(if_let_rescope)]
 #![warn(missing_docs)]
@@ -168,7 +173,7 @@ macro_rules! runtime_error {
 /// Log `$err` at level _error_ before returning it.
 #[macro_export]
 macro_rules! emit_error {
-    ( $err: expr ) => {{
+    ( $err: expr_2021 ) => {{
         tracing::error!("{}", $err);
         return Err($err);
     }};

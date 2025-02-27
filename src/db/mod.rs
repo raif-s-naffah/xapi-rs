@@ -61,7 +61,7 @@ impl Aggregates {
 /// when the database raises a `RowNotFound` error.
 #[macro_export]
 macro_rules! handle_db_error {
-    ( $err: expr, $not_found_val: expr, $( $arg: expr),* ) => {
+    ( $err: expr_2021, $not_found_val: expr_2021, $( $arg: expr_2021),* ) => {
         match $err {
             sqlx::Error::RowNotFound => Ok($not_found_val),
             x => {
@@ -77,7 +77,7 @@ macro_rules! handle_db_error {
 /// ours.
 #[macro_export]
 macro_rules! emit_db_error {
-    ( $err: expr, $( $arg: expr),* ) => {{
+    ( $err: expr_2021, $( $arg: expr_2021),* ) => {{
         let __msg = format!($($arg),*);
         tracing::error!("{}: {:?}", __msg, $err);
         Err(MyError::DB($err))

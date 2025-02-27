@@ -115,7 +115,7 @@ use serde_json::Value;
 /// [2]: https://crates.io/crates/language-tags
 #[macro_export]
 macro_rules! add_language {
-    ( $map: expr, $tag: expr, $label: expr ) => {
+    ( $map: expr_2021, $tag: expr_2021, $label: expr_2021 ) => {
         if !$label.trim().is_empty() {
             let label = $label.trim();
             if $map.is_none() {
@@ -136,7 +136,7 @@ macro_rules! add_language {
 /// [1]: [email_address::EmailAddress]
 #[macro_export]
 macro_rules! set_email {
-    ( $builder: expr, $val: expr ) => {
+    ( $builder: expr_2021, $val: expr_2021 ) => {
         if $val.trim().is_empty() {
             $crate::emit_error!(DataError::Validation(ValidationError::Empty("mbox".into())))
         } else {
@@ -159,7 +159,7 @@ macro_rules! set_email {
 /// [1]: std::collections::BTreeMap
 #[macro_export]
 macro_rules! merge_maps {
-    ( $dst: expr, $src: expr ) => {
+    ( $dst: expr_2021, $src: expr_2021 ) => {
         if $dst.is_none() {
             if $src.is_some() {
                 let x = std::mem::take(&mut $src.unwrap());

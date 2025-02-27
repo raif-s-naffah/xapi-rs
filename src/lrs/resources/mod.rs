@@ -141,11 +141,11 @@ pub(crate) async fn do_emit_response<T: Serialize>(
 /// 3. return a _Response_ of the form `Result<WithResource<T>, Status>`.
 #[macro_export]
 macro_rules! emit_response {
-    ( $headers:expr, $resource:expr => $T:ident, $timestamp:expr ) => {
+    ( $headers:expr_2021, $resource:expr_2021 => $T:ident, $timestamp:expr_2021 ) => {
         $crate::lrs::resources::do_emit_response::<$T>($headers, $resource, Some($timestamp)).await
     };
 
-    ( $headers:expr, $resource:expr => $T:ident ) => {
+    ( $headers:expr_2021, $resource:expr_2021 => $T:ident ) => {
         $crate::lrs::resources::do_emit_response::<$T>($headers, $resource, None).await
     };
 }
@@ -186,7 +186,7 @@ pub(crate) async fn emit_doc_response(
 /// * PreconditionFailed: if pre-conditions were present and failed.
 #[macro_export]
 macro_rules! eval_preconditions {
-    ( $etag: expr, $headers: expr ) => {
+    ( $etag: expr_2021, $headers: expr_2021 ) => {
         if !$headers.has_conditionals() {
             tracing::debug!("Request has no If-xxx headers");
             Status::Ok
