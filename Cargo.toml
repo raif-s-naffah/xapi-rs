@@ -52,7 +52,7 @@ tracing-subscriber = { version = "0.3", features = [
     "parking_lot",
 ] }
 rocket = { version = "0.5", features = ["json", "secrets", "tls"] }
-rocket-multipart = { version = "0", features = ["json"] }
+rocket-multipart = { version = "0.2", features = ["json"] }
 etag = "4"
 hex = "0.4"
 base64 = "0.22"
