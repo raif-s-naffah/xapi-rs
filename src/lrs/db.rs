@@ -67,6 +67,13 @@ impl DB {
                         .await
                         .expect("Failed migrating DB");
 
+                    // Issue #16 - always disable the test user...
+                    const DISABLE_TEST_USER: &str = "UPDATE users SET enabled = false WHERE id = 1";
+                    sqlx::query(DISABLE_TEST_USER)
+                        .execute(&z_pool)
+                        .await
+                        .expect("Failed disable test user");
+
                     // NOTE (rsn) 20250114 - depending on the mode we're in, we
                     // need to ensure the root user is known to the DB.  we do
                     // this here and now always storing the root user record at
