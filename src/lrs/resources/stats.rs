@@ -97,7 +97,26 @@ impl Fairing for StatsFairing {
 
     /// Output @info server stats collected during the run.
     async fn on_shutdown(&self, _: &Rocket<Orbit>) {
-        info!("LaRS stats\n{:?}", endpoints());
+        let stats = endpoints();
+        let (total_count, total_avg): (u64, u64) = stats
+            .iter()
+            .filter(|e| e.count.load(Ordering::Relaxed) > 0)
+            .fold((0, 0), |(sum_count, sum_avg), e| {
+                (
+                    sum_count + e.count.load(Ordering::Relaxed),
+                    sum_avg + e.avg.load(Ordering::Relaxed),
+                )
+            });
+        let average_duration = if total_count > 0 {
+            total_avg / total_count
+        } else {
+            0
+        };
+        info!("LaRS stats\n{:?}", stats);
+        info!(
+            "*** Total calls = {}; Average duration = {} ns",
+            total_count, average_duration
+        );
     }
 }
 
