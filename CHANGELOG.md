@@ -1,3 +1,11 @@
+# Version 0.1.9 (2025-03-xx)
+
+* Fixed Issue #17.
+* Fixed Issue #16.
+* Cargo.toml:
+  + Use version 0.2 of 'rocket-multipart'.
+* Fixed Issues #13, #14, #15, and #11.
+
 # Version 0.1.8 (2025-02-26)
 
 * Fixed Issue #12.
