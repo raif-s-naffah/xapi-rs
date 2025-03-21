@@ -38,6 +38,7 @@ async fn get(
     user: User,
 ) -> Result<WithResource<Person>, Status> {
     debug!("----- get ----- {}", user);
+    user.can_use_xapi()?;
 
     let agent = match Agent::from_str(agent) {
         Ok(x) => x,

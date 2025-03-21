@@ -100,6 +100,16 @@ pub(crate) fn authorization() -> Header<'static> {
     )
 }
 
+/// Used in tests to exercise user management with different Roles.
+pub(crate) fn act_as(email: &str, password: &str) -> Header<'static> {
+    let name_password = format!("{}:{}", email, password);
+    let b64_encoded = BASE64_STANDARD.encode(name_password);
+    Header::new(
+        header::AUTHORIZATION.as_str(),
+        format!("Basic {}", b64_encoded),
+    )
+}
+
 // given a `boundary` string, generate and return a pair consisting of
 // (a) the Content-Type HTTP `multipart/mixed` header, and (b) a boundary
 // delimiter line using the given input as a byte array.
@@ -154,4 +164,15 @@ pub(crate) fn multipart(
     result.extend_from_slice(delimiter);
 
     result
+}
+
+/// Skip test when running in Legacy mode.
+#[macro_export]
+macro_rules! skip_if_legacy {
+    () => {
+        if xapi_rs::config().is_legacy() {
+            tracing::info!("*** Skip test b/c we're in Legacy mode.");
+            return Ok(());
+        }
+    };
 }

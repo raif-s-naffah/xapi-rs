@@ -103,8 +103,8 @@ pub use data::*;
 pub use db::Aggregates;
 pub use error::MyError;
 pub use lrs::{
-    build, resources, verbs::VerbUI, CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR,
-    TEST_USER_PLAIN_TOKEN, VERSION_HDR,
+    build, resources, verbs::VerbUI, Role, User, CONSISTENT_THRU_HDR,
+    CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR, TEST_USER_PLAIN_TOKEN, VERSION_HDR,
 };
 
 use tracing::error;

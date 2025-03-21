@@ -57,6 +57,7 @@ async fn put(
     user: User,
 ) -> Result<WithETag, Status> {
     debug!("----- put ----- {}", user);
+    user.can_use_xapi()?;
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -147,6 +148,7 @@ async fn post(
     user: User,
 ) -> Result<WithETag, Status> {
     debug!("----- post ----- {}", user);
+    user.can_use_xapi()?;
 
     // it's an error if the document is an empty string
     if doc.is_empty() {
@@ -256,6 +258,7 @@ async fn post(
 #[delete("/?<agent>&<profileId>")]
 async fn delete(c: Headers, agent: &str, profileId: &str, db: &State<DB>, user: User) -> Status {
     debug!("----- delete ----- {}", user);
+    let _ = user.can_use_xapi();
 
     let conn = db.pool();
     match find_agent_id_from_str(conn, agent).await {
@@ -308,6 +311,7 @@ async fn get(
     user: User,
 ) -> Result<WithDocumentOrIDs, Status> {
     debug!("----- get ----- {}", user);
+    user.can_use_xapi()?;
 
     let conn = db.pool();
     match find_agent_id_from_str(conn, agent).await {

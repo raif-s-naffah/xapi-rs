@@ -34,14 +34,14 @@ There's the classical _Equality_ concept ubiquitous in software that deals w/ ob
 
 The xAPI describes (and relies) on a concept of _Equivalence_ that determines if two instances of the same Data Type (say [Statement]s) are equal. That _Equivalence_ is **different** from _Equality_ introduced earlier. So it's possible to have two [Statement]s that have different `hash`[^12] values yet are _equivalent_. Note though that if two [Statement]s (and more generally two instances of the same Data Type) are **equal** then they're also **equivalent**.  In other words, _Equality_ implies _Equivalence_ but not the other way around.
 
-To satisfy _Equivalence_ between instances of a Data Type i intoroduce a Trait named [Fingerprint]. The _required_ function of this Trait; i.e. [`fingerprint()`][crate::Fingerprint#fingerprint], is used to test for _Equivalence_ between two instances of the same Data Type.
+To satisfy _Equivalence_ between instances of a Data Type i introduce a Trait named [Fingerprint]. The _required_ function of this Trait; i.e. [`fingerprint()`][crate::Fingerprint#fingerprint], is used to test for _Equivalence_ between two instances of the same Data Type.
 
 For most xAPI Data Types, both the `hash` and `fingerprint` functions yield the same result. When they differ the _Equivalence_ only considers properties the xAPI standard qualifies as **_preserving immutability requirements_**, for example for [Statement]s those are...
 
 * [Actor], except the ordering of Group members,
 * [Verb], except for `display` property,
 * [Object][107],
-* Duration, excluding precisions beyond 0.01 second.
+* Duration, excluding precision beyond 0.01 second.
 
 Note though that even when they yield the same result, the implementations take into consideration the following constraints --and hence apply the required conversions before the test for equality...
 
@@ -67,7 +67,7 @@ This pattern is generalized thoughtout the project.
 
 The project so far, except for rare use-cases, does NOT offer setters for any type field. Creating new instances of types by hand --as opposed to deserializing (from the wire)-- is done by (a) instantiating a _Builder_ for a type, (b) calling the _Builder_ setters (using the same field names as those of the to-be built type) to set the desired values, and when ready, (c) calling the `build()` method.
 
-_Builders_ signal the occurence of errors by returning a `Result` w/ the error part being a [DataError] instance (a variant of [MyError]). Here's an example...
+_Builders_ signal the occurrence of errors by returning a `Result` w/ the error part being a [DataError] instance (a variant of [MyError]). Here's an example...
 
 ```rust
 # use core::result::Result;

@@ -66,4 +66,4 @@ As an example, at the end of a CTS run and after a graceful shutdown, **`LaRS`**
 
 ## User Management Extension (`/extensions/users/`) &ndash; Since Version 0.1.5
 
-Work In Progress. See [here](./EXT_USERS.md) for details.
+Implemented fully in 0.1.10.  See [here](./EXT_USERS.md) for details.

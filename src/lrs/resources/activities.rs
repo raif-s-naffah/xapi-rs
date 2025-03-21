@@ -35,6 +35,7 @@ async fn get(
     user: User,
 ) -> Result<WithResource<Activity>, Status> {
     debug!("----- get ----- {}", user);
+    user.can_use_xapi()?;
 
     let iri = match IriStr::new(activityId) {
         Ok(x) => x,

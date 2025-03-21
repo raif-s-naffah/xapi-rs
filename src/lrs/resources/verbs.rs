@@ -236,6 +236,9 @@ fn parse_verb(s: &str) -> Result<Verb, Status> {
 async fn post(body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status> {
     debug!("----- post ----- {}", user);
 
+    // if user does not have right role, bail out...
+    user.can_use_verbs()?;
+
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
     match insert_verb(conn, &new_verb).await {
@@ -258,6 +261,7 @@ async fn post(body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status
 #[put("/", data = "<body>")]
 async fn put(c: Headers, body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status> {
     debug!("----- put ----- {}", user);
+    user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
@@ -280,6 +284,7 @@ async fn put_rid(
     user: User,
 ) -> Result<WithETag, Status> {
     debug!("----- put_rid ----- {}", user);
+    user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
@@ -349,6 +354,7 @@ async fn update_it(
 #[patch("/", data = "<body>")]
 async fn patch(c: Headers, body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status> {
     debug!("----- patch ----- {}", user);
+    user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
@@ -372,6 +378,7 @@ async fn patch_rid(
     user: User,
 ) -> Result<WithETag, Status> {
     debug!("----- patch_rid ----- {}", user);
+    user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
@@ -443,6 +450,8 @@ async fn patch_it(
 #[get("/?<iri>")]
 async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResource, Status> {
     debug!("----- get_iri ----- {}", user);
+    user.can_use_verbs()?;
+
     let iri = if IriStr::new(iri).is_err() {
         warn!(
             "This <{}> is not a valid IRI. Assume it's an alias + continue",
@@ -472,6 +481,7 @@ async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResourc
 #[get("/<rid>")]
 async fn get_rid(rid: i32, db: &State<DB>, user: User) -> Result<ETaggedResource, Status> {
     debug!("----- get_rid ----- {}", user);
+    user.can_use_verbs()?;
 
     match ext_find_by_rid(db.pool(), rid).await {
         Ok(x) => tag_n_bag_it::<Verb>(x),
@@ -485,6 +495,9 @@ async fn get_rid(rid: i32, db: &State<DB>, user: User) -> Result<ETaggedResource
 #[get("/aggregates")]
 async fn get_aggregates(db: &State<DB>, user: User) -> Result<ETaggedResource, Status> {
     debug!("----- get_aggregates ----- {}", user);
+
+    // if user does not have right role, bail out...
+    user.can_use_verbs()?;
 
     match ext_compute_aggregates(db.pool()).await {
         Ok(x) => tag_n_bag_it::<Aggregates>(x),
@@ -502,8 +515,9 @@ async fn get_some(
     user: User,
 ) -> Result<ETaggedResource, Status> {
     debug!("----- get_some ----- {}", user);
-    debug!("q = {}", q);
+    user.can_use_verbs()?;
 
+    debug!("q = {}", q);
     match ext_find_some(db.pool(), q).await {
         Ok(x) => tag_n_bag_it::<Vec<VerbUI>>(x),
         Err(x) => {

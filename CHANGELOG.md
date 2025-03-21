@@ -1,3 +1,25 @@
+# Version 0.1.10 (2025-03-22)
+
+* Fixed Issue #18.
+* doc/DATA_README.md: Fixed spelling mistakes.
+* doc/EXT_USERS.md: Updated to reflect latest changes.
+* doc/EXTENSIONS.md: Likewise.
+* src/config.rs (is_legacy): New method; allow skipping tests when required.
+* src/lib.rs: Made User and Role types public.
+* src/lrs/db.rs (init): Amend to take into account modified User type.
+* src/lrs/resources/activities.rs: Check authorization when handling requests.
+* src/lrs/resources/activity_profile.rs: Likewise.
+* src/lrs/resources/agent_profile.rs: Likewise.
+* src/lrs/resources/agents.rs: Likewise.
+* src/lrs/resources/state.rs: Likewise.
+* src/lrs/resources/statement.rs: Likewise.
+* src/lrs/resources/verbs.rs: Likewise.
+* tests/about.rs: Added more integration tests.
+* tests/users.rs: New integration tests for Users Extension.
+* tests/utils.rs:
+  + (act_as): New method to allow testing as a non-root.
+  + (skip_if_legacy): New macro to skip test if mode is legacy.
+
 # Version 0.1.9 (2025-03-10)
 
 * Fixed Issue #17.

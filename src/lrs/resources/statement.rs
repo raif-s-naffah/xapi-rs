@@ -268,6 +268,7 @@ async fn put_mixed(
     user: User,
 ) -> Result<PutResponse, Status> {
     debug!("----- put_mixed ----- {}", user);
+    user.can_use_xapi()?;
 
     let uuid = match Uuid::parse_str(statementId) {
         Err(x) => {
@@ -302,6 +303,7 @@ async fn put_json(
     user: User,
 ) -> Result<PutResponse, Status> {
     debug!("----- put_json ----- {}", user);
+    user.can_use_xapi()?;
 
     let uuid = match Uuid::parse_str(statementId) {
         Err(x) => {
@@ -374,6 +376,8 @@ async fn post_mixed(
     user: User,
 ) -> Result<PostResponse, Status> {
     debug!("----- post_mixed ----- {}", user);
+    user.can_use_xapi()?;
+
     debug!("c = {:?}", c);
     let statements = ingest_multipart(data, true).await?;
 
@@ -388,8 +392,9 @@ async fn post_json(
     user: User,
 ) -> Result<PostResponse, Status> {
     debug!("----- post_json ----- {}", user);
-    debug!("c = {:?}", c);
+    user.can_use_xapi()?;
 
+    debug!("c = {:?}", c);
     let mut statements = vec![];
     for map in json.0 .0 {
         match Statement::from_json_obj(map) {
@@ -474,6 +479,8 @@ async fn get_some<'r>(
     user: User,
 ) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
     debug!("----- get_some ----- {}", user);
+    user.can_use_xapi()?;
+
     debug!("q = {:?}", q);
     // NOTE (rsn) 20241003 - `extras` will capture *all* query string parameters
     // including those that are already captured as fields of `QueryParams`.
@@ -620,6 +627,8 @@ async fn get_more(
     user: User,
 ) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
     debug!("----- get_more ----- {}", user);
+    user.can_use_xapi()?;
+
     debug!("c = {:?}", c);
     debug!("sid = {}", sid);
     debug!("count = {}", count);
@@ -701,13 +710,6 @@ async fn as_json<T: DeserializeOwned>(
     })
 }
 
-/// TODO (rsn) 20240630 - if an error occurs while processing this method
-/// we may end up w/ some `PartInfo` instances w/ persisted data on disk
-/// which are not associated w/ any Attachments or Statements.  those files
-/// must be removed.
-/// in the future i should add a job scheduler w/ a recurrent task to (a) find
-/// such files and (b) remove them...
-///
 /// `data` - The MultipartReader stream,
 /// `reuse_ids` - If TRUE then if a Statement already has an `id` then use as
 ///     is; otherwise assign it a new UUID value.  If this parameter is FALSE
@@ -999,7 +1001,7 @@ async fn persist_one(
     //     statement.set_timestamp_unchecked(Utc::now());
     // }
 
-    ensure_authority(statement, user);
+    ensure_authority(statement, user)?;
 
     // NOTE (rsn) 20240922 - need to check validity of target Statement (wrt.
     // voiding) _before_ persisting it in the database...
@@ -1172,7 +1174,7 @@ async fn persist_many(
         //     s.set_timestamp_unchecked(Utc::now());
         // }
 
-        ensure_authority(&mut s, user);
+        ensure_authority(&mut s, user)?;
 
         if let Err(x) = insert_statement(conn, &s).await {
             error!("Failed persisting Statement #{} (1 of {}): {}", uuid, n, x);
@@ -1367,8 +1369,12 @@ fn last_modified(timestamp: DateTime<Utc>) -> Header<'static> {
     )
 }
 
-fn ensure_authority(s: &mut Statement, user: &User) {
+fn ensure_authority(s: &mut Statement, user: &User) -> Result<(), Status> {
     if s.authority().is_none() {
+        user.can_authorize_statement()?;
+
         s.set_authority_unchecked(Actor::Agent(user.authority()));
     }
+
+    Ok(())
 }

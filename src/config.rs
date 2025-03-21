@@ -66,10 +66,10 @@ pub struct Config {
     pub(crate) default_language: String,
 
     /// Boolean flag that controls how a Statement's JWS signature is processed.
-    /// 
+    ///
     /// When `false` a _Statement_ is deemed to be correcly signed if it's
     /// _Equivalent_ to the one deserialized from the JWS Payload.
-    /// 
+    ///
     /// When `true` and the JWS Header has an `x5c` property containing at least
     /// one X.509 certificate, then a _Statement_ is deemed to be correctly
     /// signed if additionally the certificates in the `x5c` array...
@@ -258,6 +258,11 @@ impl Config {
         }
         url.push_str(partial);
         url
+    }
+
+    /// Return TRUE when running in legacy mode; FALSE otherwise.
+    pub fn is_legacy(&self) -> bool {
+        matches!(self.mode, Mode::Legacy)
     }
 }
 

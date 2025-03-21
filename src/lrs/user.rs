@@ -5,10 +5,11 @@
 
 use crate::{
     config::config,
-    db::user::{find_auth_user, TUser},
-    lrs::DB,
+    db::user::{find_active_user, TUser},
+    lrs::{role::Role, DB},
     Agent, MyError,
 };
+use base64::{prelude::BASE64_STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::fmt;
 use lru::LruCache;
@@ -17,19 +18,31 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request, State,
 };
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, FromInto};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tracing::{debug, error};
 
-#[allow(dead_code)]
+/// Representation of a user that is subject to authentication and authorization.
+#[serde_as]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct User {
-    id: i32,
-    email: String,
-    enabled: bool,
-    admin: bool,
-    manager_id: i32,
-    created: DateTime<Utc>,
-    updated: DateTime<Utc>,
+    /// Row ID uniquely identifying this instance.
+    pub id: i32,
+    /// Whether this is active (TRUE) or not (FALSE).
+    pub enabled: bool,
+    /// User's IFI.
+    pub email: String,
+    /// Current role.
+    #[serde_as(as = "FromInto<u16>")]
+    pub role: Role,
+    /// Row ID of the User that currently manages this.
+    pub manager_id: i32,
+    /// When this was created.
+    pub created: DateTime<Utc>,
+    /// When this was last updated.
+    pub updated: DateTime<Utc>,
 }
 
 impl Default for User {
@@ -40,7 +53,7 @@ impl Default for User {
             id: 0,
             email: config().root_email.clone(),
             enabled: true,
-            admin: false,
+            role: Role::Root,
             manager_id: 0,
             created: Utc::now(),
             updated: Utc::now(),
@@ -50,11 +63,15 @@ impl Default for User {
 
 impl fmt::Display for User {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match (self.admin, self.enabled) {
-            (true, true) => write!(f, "[+] User* <{}>", self.email),
-            (true, false) => write!(f, "[-] User* <{}>", self.email),
-            (false, true) => write!(f, "[+] User <{}>", self.email),
-            (false, false) => write!(f, "[-] User <{}>", self.email),
+        match (&self.role, &self.enabled) {
+            (Role::Guest, _) => write!(f, "guest <{}>", self.email),
+            (Role::User, true) => write!(f, "xapi+ <{}>", self.email),
+            (Role::User, false) => write!(f, "xapi- <{}>", self.email),
+            (Role::AuthUser, true) => write!(f, "auth+ <{}>", self.email),
+            (Role::AuthUser, false) => write!(f, "auth- <{}>", self.email),
+            (Role::Admin, true) => write!(f, "admin+ <{}>", self.email),
+            (Role::Admin, false) => write!(f, "admin- <{}>", self.email),
+            (Role::Root, _) => write!(f, "root"),
         }
     }
 }
@@ -66,7 +83,7 @@ impl From<TUser> for User {
             id: row.id,
             email: row.email,
             enabled: row.enabled,
-            admin: row.admin,
+            role: Role::from(row.role),
             manager_id: row.manager_id,
             created: row.created,
             updated: row.updated,
@@ -79,7 +96,7 @@ struct CachedUser {
     id: i32,
     email: String,
     enabled: bool,
-    admin: bool,
+    role: Role,
     manager_id: i32,
 }
 
@@ -90,7 +107,7 @@ impl From<&CachedUser> for User {
             id: value.id,
             email: value.email.to_owned(),
             enabled: value.enabled,
-            admin: value.admin,
+            role: value.role,
             manager_id: value.manager_id,
             ..Default::default()
         }
@@ -104,13 +121,20 @@ impl From<&User> for CachedUser {
             id: user.id,
             email: user.email.clone(),
             enabled: user.enabled,
-            admin: user.admin,
+            role: user.role,
             manager_id: user.manager_id,
         }
     }
 }
 
 impl User {
+    /// Compute Basic Authentication credentials from given email and password.
+    pub(crate) fn credentials_from(email: &str, password: &str) -> u32 {
+        let basic = format!("{}:{}", email, password);
+        let encoded = BASE64_STANDARD.encode(basic);
+        fxhash::hash32(&encoded)
+    }
+
     /// Create a new enabled user from an email address string.
     #[allow(dead_code)]
     pub(crate) fn with_email(email: &str) -> Self {
@@ -138,6 +162,66 @@ impl User {
                 .build()
                 .unwrap(),
         }
+    }
+
+    /// Check if this user is enabled or not. If is not enabled return
+    /// an Error wrapping an HTTP 403 Status.
+    fn check_is_enabled(&self) -> Result<(), Status> {
+        if !self.enabled {
+            error!("User {} is NOT active", self);
+            Err(Status::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn can_use_xapi(&self) -> Result<(), Status> {
+        // to be sure, to be sure...
+        self.check_is_enabled()?;
+        if !matches!(self.role, Role::Root | Role::User | Role::AuthUser) {
+            error!("User {} is NOT authorized to use xAPI", self);
+            Err(Status::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn can_authorize_statement(&self) -> Result<(), Status> {
+        self.check_is_enabled()?;
+        if !matches!(self.role, Role::Root | Role::AuthUser) {
+            error!("User {} is NOT allowed to authorize Statements", self);
+            Err(Status::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn can_use_verbs(&self) -> Result<(), Status> {
+        self.check_is_enabled()?;
+        if !matches!(self.role, Role::Root | Role::Admin) {
+            error!("User {} is NOT authorized to use verbs", self);
+            Err(Status::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn can_manage_users(&self) -> Result<(), Status> {
+        self.check_is_enabled()?;
+        if !matches!(self.role, Role::Root | Role::Admin) {
+            error!("User {} is NOT authorized to manage users", self);
+            Err(Status::Forbidden)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn is_root(&self) -> bool {
+        matches!(self.role, Role::Root)
+    }
+
+    pub(crate) fn is_admin(&self) -> bool {
+        matches!(self.role, Role::Admin)
     }
 }
 
@@ -192,7 +276,8 @@ impl<'r> FromRequest<'r> for User {
                                     match req.guard::<&State<DB>>().await {
                                         Outcome::Success(db) => {
                                             let conn = db.pool();
-                                            match find_auth_user(conn, credentials).await {
+                                            // match find_auth_user(conn, credentials).await {
+                                            match find_active_user(conn, credentials).await {
                                                 Ok(x) => {
                                                     debug!("User = {}", x);
                                                     cache_user(credentials, &x).await;
@@ -231,8 +316,8 @@ impl<'r> FromRequest<'r> for User {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::lrs::TEST_USER_PLAIN_TOKEN;
-    use base64::{prelude::BASE64_STANDARD, Engine};
 
     #[test]
     fn test_test_user_credentials() {
@@ -241,6 +326,12 @@ mod tests {
         let credentials = fxhash::hash32(plain.as_bytes());
         assert_eq!(credentials, 3793911390);
         let credentials = fxhash::hash32(&plain);
+        assert_eq!(credentials, 2175704399);
+    }
+
+    #[test]
+    fn test_class_methods() {
+        let credentials = User::credentials_from("test@my.xapi.net", "");
         assert_eq!(credentials, 2175704399);
     }
 }

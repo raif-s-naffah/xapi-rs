@@ -57,6 +57,7 @@ async fn put(
     user: User,
 ) -> Result<WithETag, Status> {
     debug!("----- put ----- {}", user);
+    user.can_use_xapi()?;
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -160,6 +161,7 @@ async fn post(
     user: User,
 ) -> Result<WithETag, Status> {
     debug!("----- post ----- {}", user);
+    user.can_use_xapi()?;
 
     // document must not be an empty string
     if doc.is_empty() {
@@ -276,6 +278,7 @@ async fn delete(
     user: User,
 ) -> Status {
     debug!("----- delete ----- {}", user);
+    let _ = user.can_use_xapi();
 
     let activity_iri = match IriStr::new(activityId) {
         Ok(x) => x,
@@ -335,6 +338,7 @@ async fn get(
     user: User,
 ) -> Result<WithDocumentOrIDs, Status> {
     debug!("----- get ----- {}", user);
+    user.can_use_xapi()?;
 
     let conn = db.pool();
     match Activity::from_iri_str(activityId) {

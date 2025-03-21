@@ -80,9 +80,10 @@ impl DB {
                     // table index #2, given the first row is already used by
                     // the test user.
                     if !matches!(config().mode, Mode::Legacy) {
-                        const UPSERT_ROOT_USER: &str = "INSERT INTO users (id, email, credentials) 
-VALUES (2, $1, $2) ON CONFLICT (id) DO UPDATE
-SET email = EXCLUDED.email, credentials = EXCLUDED.credentials";
+                        const UPSERT_ROOT_USER: &str = r#"
+INSERT INTO users (id, role, email, credentials) 
+VALUES (2, 4, $1, $2) ON CONFLICT (id) DO UPDATE
+SET email = EXCLUDED.email, credentials = EXCLUDED.credentials"#;
                         let email = &config().root_email;
                         let credentials =
                             config().root_credentials.expect("Missing root credentials");

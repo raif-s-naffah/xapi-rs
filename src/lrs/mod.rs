@@ -6,6 +6,7 @@
 mod db;
 mod headers;
 pub mod resources;
+mod role;
 mod server;
 mod signature;
 mod stop_watch;
@@ -15,9 +16,10 @@ pub(crate) use db::DB;
 pub(crate) use headers::*;
 pub use headers::{CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR, VERSION_HDR};
 pub(crate) use resources::*;
+pub use role::Role;
 pub use server::build;
 pub(crate) use signature::*;
-pub(crate) use user::*;
+pub use user::User;
 
 /// The pre base-64 encoded input for generating test user credentials and
 /// populating HTTP Authorization header.
