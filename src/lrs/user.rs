@@ -265,8 +265,6 @@ impl<'r> FromRequest<'r> for User {
                             let token = trimmed[6..].trim();
                             let credentials = fxhash::hash32(token);
                             // check first if we have this in our LRU cache...
-                            // let mut cache = cached_users().lock().await;
-                            // match cache.get(&credentials) {
                             match find_cached_user(&credentials).await {
                                 Some(x) => Outcome::Success(x),
                                 None => {
@@ -276,7 +274,6 @@ impl<'r> FromRequest<'r> for User {
                                     match req.guard::<&State<DB>>().await {
                                         Outcome::Success(db) => {
                                             let conn = db.pool();
-                                            // match find_auth_user(conn, credentials).await {
                                             match find_active_user(conn, credentials).await {
                                                 Ok(x) => {
                                                     debug!("User = {}", x);
