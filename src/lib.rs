@@ -151,6 +151,13 @@ pub const EXT_STATS: &str = "http://crates.io/xapi-rs/ext/stats";
 /// User Management Extension IRI
 pub const EXT_USERS: &str = "http://crates.io/xapi-rs/ext/users";
 
+/// Vebrs Extension base URI.
+pub const VERBS_EXT_BASE: &str = "extensions/verbs";
+/// Statistics Extension base URI.
+pub const STATS_EXT_BASE: &str = "extensions/stats";
+/// Users Extension base URI.
+pub const USERS_EXT_BASE: &str = "extensions/users";
+
 /// Generate a message (in the style of `format!` macro), log it at level
 /// _error_ and raise a [runtime error][crate::MyError#variant.Runtime].
 #[macro_export]

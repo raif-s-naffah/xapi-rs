@@ -3,7 +3,7 @@
 use crate::{
     config,
     lrs::{resources, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB, VERSION_HDR},
-    MyError, V200,
+    MyError, STATS_EXT_BASE, USERS_EXT_BASE, V200, VERBS_EXT_BASE,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use rocket::{
@@ -85,9 +85,9 @@ pub fn build(testing: bool) -> Rocket<Build> {
         .mount("/agents/profile", resources::agent_profile::routes())
         .mount("/statements", resources::statement::routes())
         // extensions...
-        .mount("/extensions/verbs", resources::verbs::routes())
-        .mount("/extensions/stats", resources::stats::routes())
-        .mount("/extensions/users", resources::users::routes())
+        .mount(prepend_slash(VERBS_EXT_BASE), resources::verbs::routes())
+        .mount(prepend_slash(STATS_EXT_BASE), resources::stats::routes())
+        .mount(prepend_slash(USERS_EXT_BASE), resources::users::routes())
         // assets...
         .mount("/static", FileServer::from(relative!("static")))
         .attach(DB::fairing(testing))
@@ -169,6 +169,13 @@ pub fn build(testing: bool) -> Rocket<Build> {
             "/",
             catchers![bad_request, unauthorized, not_found, unknown_route],
         )
+}
+
+fn prepend_slash(p: &str) -> String {
+    let mut result = String::with_capacity(p.len() + 1);
+    result.push('/');
+    result.push_str(p);
+    result
 }
 
 /// Capture a Query Parameter named `name` of type `T` as an Option\<T\>.

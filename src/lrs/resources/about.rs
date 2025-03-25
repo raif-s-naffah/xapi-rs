@@ -14,7 +14,8 @@ use crate::{
     config::config,
     emit_response,
     lrs::resources::{Headers, WithResource},
-    About, DataError, Extensions, MyVersion, EXT_STATS, EXT_USERS, EXT_VERBS, V200,
+    About, DataError, Extensions, MyVersion, EXT_STATS, EXT_USERS, EXT_VERBS, STATS_EXT_BASE,
+    USERS_EXT_BASE, V200, VERBS_EXT_BASE,
 };
 use rocket::{get, http::Status, routes};
 use serde_json::Value;
@@ -45,12 +46,18 @@ async fn get() -> Result<WithResource<About>, Status> {
 fn build_about() -> Result<About, DataError> {
     let versions = vec![MyVersion::from_str(V200)?];
     let mut extensions = Extensions::default();
-    extensions.add(EXT_VERBS, &Value::Null)?;
+    extensions.add(
+        EXT_VERBS,
+        &Value::String(config().to_external_url(VERBS_EXT_BASE)),
+    )?;
     extensions.add(
         EXT_STATS,
-        &Value::String(config().to_external_url("extensions/stats")),
+        &Value::String(config().to_external_url(STATS_EXT_BASE)),
     )?;
-    extensions.add(EXT_USERS, &Value::Null)?;
+    extensions.add(
+        EXT_USERS,
+        &Value::String(config().to_external_url(USERS_EXT_BASE)),
+    )?;
 
     Ok(About::new(versions, extensions))
 }

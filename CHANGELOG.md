@@ -1,3 +1,20 @@
+# Unpublished (2025-03-25)
+
+* Fixed Issue #19.
+* src/config.rs (to_external_url): Made it public.
+* src/lib.rs:
+  + (VERBS_EXT_BASE): New constant.
+  + (STATS_EXT_BASE): Likewise.
+  + (USERS_EXT_BASE): Likewise.
+* src/lrs/server.rs:
+  + (build): Replace raw strings with above constants.
+  + (prepend_slash): New private method.
+* src/lrs/resources/about.rs (build_about): Fully populate extensions map.
+* tests/about.rs:
+  + (check_versions): New private method.
+  + (check_extensions): Likewise.
+  + (test_xxx): Refactor to reduce redundancy.
+
 # Version 0.1.10 (2025-03-22)
 
 * Fixed Issue #18.

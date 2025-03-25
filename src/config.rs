@@ -251,7 +251,7 @@ impl Default for Config {
 
 impl Config {
     /// Construct a valid URL accessible externally (internet facing).
-    pub(crate) fn to_external_url(&self, partial: &str) -> String {
+    pub fn to_external_url(&self, partial: &str) -> String {
         let mut url = self.external_url.clone();
         if !partial.starts_with(path::MAIN_SEPARATOR) {
             url.push(path::MAIN_SEPARATOR);
