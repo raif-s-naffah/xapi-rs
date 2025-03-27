@@ -204,7 +204,7 @@ Finally only _Root_ can re-assign a user manager.
 
 
 ### Update multiple _Users_ (`PUT /`)
-It is envisaged that a somewhat sophisticated front-end would benefit from the ability to apply an action on multiple users at the same. For example, re-assigning a set of users to a different _Admin_, or disabling a set of users managed by the same _Admin or not, etc...
+It is envisaged that a somewhat sophisticated front-end would benefit from the ability to apply an action on multiple users at the same. For example, re-assigning a set of users to a different _Admin_, or disabling a set of users managed by the same _Admin_ or not, etc...
 
 This method/route allows _Root_ and _Admin_ to do just that. When the requesting authenticated user is an _Admin_ only users managed by them can be targeted with the same constraints and limitations as when targeting a single user.
 
@@ -219,7 +219,7 @@ This method/route allows _Root_ and _Admin_ to do just that. When the requesting
 
 
 ### Fetch a _User_  (`GET /<id>`)
-Only _Root_ and _Admin_ can fetch the details of a _User_. Again, when the requesting authenticated user is an _Admin_ the targeted user must one managed by that _Admin_.
+Only _Root_ and _Admin_ can fetch the details of a _User_. Again, when the requesting authenticated user is an _Admin_ the targeted user must be one managed by that _Admin_.
 
 **`id`**: An existing _User_ ID.
 
