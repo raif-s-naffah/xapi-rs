@@ -97,7 +97,7 @@ async fn post(
     }
     let conn = db.pool();
     match insert_user(conn, (form.email, form.password, z_role, user.id)).await {
-        Ok(x) => emit_user_response(x).await,
+        Ok(x) => emit_user_response(x, false).await,
         Err(x) => {
             error!("Failed creating user: {}", x);
             Err(Status::InternalServerError)
@@ -271,7 +271,7 @@ async fn update_one(
         match eval_preconditions!(&etag, c) {
             s if s != Status::Ok => Err(s),
             _ => match update_user(db.pool(), id, form.into_inner()).await {
-                Ok(x) => emit_user_response(x).await,
+                Ok(x) => emit_user_response(x, true).await,
                 Err(x) => {
                     error!("Failed updating User: {}", x);
                     // FIXME (rsn) 20250318 - should be bad-request if error is
@@ -348,7 +348,13 @@ async fn update_many(
     }
 
     match batch_update_users(db.pool(), form.into_inner()).await {
-        Ok(_) => Ok(Status::Ok),
+        Ok(_) => {
+            // NOTE (rsn) 20250317 - the safest course of action here is to
+            // clear the LRU cache.
+            User::clear_cache().await;
+
+            Ok(Status::Ok)
+        }
         Err(x) => {
             error!("Failed batch updating users: {}", x);
             Err(Status::InternalServerError)
@@ -356,7 +362,9 @@ async fn update_many(
     }
 }
 
-async fn emit_user_response(u: User) -> Result<WithResource<User>, Status> {
+/// Construct and return a response based on the User `u`. If in addition,
+/// `uncache` is TRUE then also evict said User from the LRU cache.
+async fn emit_user_response(u: User, uncache: bool) -> Result<WithResource<User>, Status> {
     match serde_json::to_string(&u) {
         Ok(x) => {
             let etag = etag_from_str(&x);
@@ -364,6 +372,11 @@ async fn emit_user_response(u: User) -> Result<WithResource<User>, Status> {
             let last_modified = get_consistent_thru()
                 .await
                 .to_rfc3339_opts(SecondsFormat::Millis, true);
+
+            if uncache {
+                u.uncache().await
+            }
+
             Ok(WithResource {
                 inner: rocket::serde::json::Json(u),
                 etag: Header::new(header::ETAG.as_str(), etag.to_string()),

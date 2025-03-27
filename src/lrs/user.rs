@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 /// Representation of a user that is subject to authentication and authorization.
 #[serde_as]
@@ -135,6 +135,13 @@ impl User {
         fxhash::hash32(&encoded)
     }
 
+    /// Clears the cache forcing user DB lookup upon receiving future requests.
+    pub(crate) async fn clear_cache() {
+        let mut cache = cached_users().lock().await;
+        cache.clear();
+        info!("Cache cleared")
+    }
+
     /// Create a new enabled user from an email address string.
     #[allow(dead_code)]
     pub(crate) fn with_email(email: &str) -> Self {
@@ -222,6 +229,18 @@ impl User {
 
     pub(crate) fn is_admin(&self) -> bool {
         matches!(self.role, Role::Admin)
+    }
+
+    /// If this user is cached, evict it...
+    pub(crate) async fn uncache(&self) {
+        let mut cache = cached_users().lock().await;
+        for (&k, v) in cache.iter() {
+            if v.id == self.id {
+                cache.pop(&k);
+                info!("Evicted user #{}", self.id);
+                break;
+            }
+        }
     }
 }
 
@@ -315,6 +334,7 @@ impl<'r> FromRequest<'r> for User {
 mod tests {
     use super::*;
     use crate::lrs::TEST_USER_PLAIN_TOKEN;
+    use tracing_test::traced_test;
 
     #[test]
     fn test_test_user_credentials() {
@@ -330,5 +350,70 @@ mod tests {
     fn test_class_methods() {
         let credentials = User::credentials_from("test@my.xapi.net", "");
         assert_eq!(credentials, 2175704399);
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_cache_eviction() {
+        let u1 = User {
+            id: 100,
+            enabled: true,
+            email: "nobody@nowhere".to_owned(),
+            role: Role::User,
+            ..Default::default()
+        };
+        let u2 = User {
+            id: 200,
+            enabled: true,
+            email: "anybody@nowhere".to_owned(),
+            role: Role::User,
+            ..Default::default()
+        };
+
+        cache_user(10, &u1).await;
+        cache_user(20, &u2).await;
+
+        // wrap in a block to drop+unlock `c` on exist...
+        {
+            let c = cached_users().lock().await;
+            assert_eq!(c.len(), 2);
+        }
+
+        u1.uncache().await;
+        {
+            let c = cached_users().lock().await;
+            assert_eq!(c.len(), 1);
+        }
+
+        u2.uncache().await;
+        let c = cached_users().lock().await;
+        assert!(c.is_empty())
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn test_cache_clearing() {
+        let u1 = User {
+            id: 100,
+            enabled: true,
+            email: "nobody@nowhere".to_owned(),
+            role: Role::User,
+            ..Default::default()
+        };
+        let u2 = User {
+            id: 200,
+            enabled: true,
+            email: "anybody@nowhere".to_owned(),
+            role: Role::User,
+            ..Default::default()
+        };
+
+        cache_user(10, &u1).await;
+        cache_user(20, &u2).await;
+
+        User::clear_cache().await;
+
+        let c = cached_users().lock().await;
+        assert!(c.is_empty())
     }
 }

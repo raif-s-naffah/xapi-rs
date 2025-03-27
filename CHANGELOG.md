@@ -1,5 +1,16 @@
-# Unpublished (2025-03-25)
+# Unpublished (2025-03-27)
 
+* Fixed Issue #20.
+* src/lrs/users.rs:
+  + (clear_cache): New pub(crate) method.
+  + (uncache): Likewise.
+  + (test_cache_eviction): New unit test.
+  + (test_cache_clearing): Likewise.
+* src/lrs/resources/users.rs:
+  + (update_many): Call User::clear_cache() when done.
+  + (emit_user_response): Modified signature to accept additional boolean.
+  + (post): Amend call to emit_user_response.
+  * (update_one): Likewise.
 * Fixed Issue #19.
 * src/config.rs (to_external_url): Made it public.
 * src/lib.rs:
