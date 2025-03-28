@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#![allow(dead_code)]
-
 use core::fmt;
 use sqlx::{
     postgres::types::PgCiText,
@@ -81,16 +79,6 @@ pub(crate) struct TActorIfi {
     pub(crate) ifi_id: i32,
 }
 
-/// Representation of a `member` row.
-///
-/// Groups, anonymous or not (i.e. identified), may have one or more Agent as
-/// members
-#[derive(Debug, FromRow)]
-pub(crate) struct TMember {
-    pub(crate) group_id: i32,
-    pub(crate) agent_id: i32,
-}
-
 // ===== verb stuff ===========================================================
 
 /// Representation of a `verb` row.
@@ -114,9 +102,12 @@ pub(crate) struct TActivity {
 /// Representation of a `state` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TState {
-    pub(crate) activity_id: i32,
-    pub(crate) agent_id: i32,
-    pub(crate) registration: Uuid,
+    #[allow(dead_code)]
+    activity_id: i32,
+    #[allow(dead_code)]
+    agent_id: i32,
+    #[allow(dead_code)]
+    registration: Uuid,
     pub(crate) state_id: String,
     pub(crate) document: String,
     pub(crate) updated: DateTime<Utc>,
@@ -127,7 +118,8 @@ pub(crate) struct TState {
 /// Representation of an `agent_profile` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TAgentProfile {
-    pub(crate) agent_id: i32,
+    #[allow(dead_code)]
+    agent_id: i32,
     pub(crate) profile_id: String,
     pub(crate) document: String,
     pub(crate) updated: DateTime<Utc>,
@@ -138,7 +130,8 @@ pub(crate) struct TAgentProfile {
 /// Representation of an `activity_profile` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TActivityProfile {
-    pub(crate) activity_id: i32,
+    #[allow(dead_code)]
+    activity_id: i32,
     pub(crate) profile_id: String,
     pub(crate) document: String,
     pub(crate) updated: DateTime<Utc>,
@@ -149,7 +142,8 @@ pub(crate) struct TActivityProfile {
 /// Representation of a `result` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TResult {
-    pub(crate) id: i32,
+    #[allow(dead_code)]
+    id: i32,
     pub(crate) score_scaled: Option<f32>,
     pub(crate) score_raw: Option<f32>,
     pub(crate) score_min: Option<f32>,
@@ -186,7 +180,8 @@ pub(crate) struct TContext {
 ///   3: other.
 #[derive(Debug, FromRow)]
 pub(crate) struct TCtxActivities {
-    pub(crate) context_id: i32,
+    #[allow(dead_code)]
+    context_id: i32,
     pub(crate) kind: i16,
     pub(crate) activity_id: i32,
 }
@@ -200,8 +195,10 @@ pub(crate) struct TCtxActivities {
 /// `is_group`.
 #[derive(Debug, FromRow)]
 pub(crate) struct TCtxActors {
-    pub(crate) context_id: i32,
-    pub(crate) kind: i16,
+    #[allow(dead_code)]
+    context_id: i32,
+    #[allow(dead_code)]
+    kind: i16,
     pub(crate) actor_id: i32,
     pub(crate) relevant_types: Option<Json<Vec<String>>>,
 }
@@ -235,28 +232,32 @@ pub(crate) struct TStatement {
 /// Representation of a `obj_activity` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TObjActivity {
-    pub(crate) statement_id: i32,
+    #[allow(dead_code)]
+    statement_id: i32,
     pub(crate) activity_id: i32,
 }
 
 /// Representation of a `obj_actor` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TObjActor {
-    pub(crate) statement_id: i32,
+    #[allow(dead_code)]
+    statement_id: i32,
     pub(crate) actor_id: i32,
 }
 
 /// Representation of a `obj_statement_ref` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TObjStatementRef {
-    pub(crate) statement_id: i32,
+    #[allow(dead_code)]
+    statement_id: i32,
     pub(crate) uuid: Uuid,
 }
 
 /// Representation of a `obj_statement` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TObjStatement {
-    pub(crate) statement_id: i32,
+    #[allow(dead_code)]
+    statement_id: i32,
     pub(crate) sub_statement_id: i32,
 }
 
@@ -265,6 +266,7 @@ pub(crate) struct TObjStatement {
 /// Representation of a `obj_statement` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TAttachment {
+    #[allow(dead_code)]
     pub(crate) id: i32,
     pub(crate) usage_type: String,
     pub(crate) display: Json<LanguageMap>,
@@ -278,6 +280,7 @@ pub(crate) struct TAttachment {
 /// Representation of a `attachments` row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TAttachments {
-    pub(crate) statement_id: i32,
+    #[allow(dead_code)]
+    statement_id: i32,
     pub(crate) attachment_id: i32,
 }

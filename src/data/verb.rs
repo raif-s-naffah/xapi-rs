@@ -80,7 +80,6 @@ pub enum Vocabulary {
 }
 
 /// Return a [Verb] identified by its [Vocabulary] variant.
-#[allow(dead_code)]
 pub fn adl_verb(id: Vocabulary) -> &'static Verb {
     verbs().get(&id).unwrap()
 }
@@ -178,8 +177,8 @@ impl Verb {
     /// Extend this instance's `display` language-map from bindings present
     /// in `other`. Entries present in `other` but not in `self` are added
     /// to the latter, while values in `other` with same keys will replace
-    /// current values in `self`. 
-    /// 
+    /// current values in `self`.
+    ///
     /// Return TRUE if this instance was modified, FALSE otherwise.
     pub fn extend(&mut self, other: Verb) -> bool {
         match (&self.display, other.display) {
@@ -187,13 +186,13 @@ impl Verb {
             (None, Some(y)) => {
                 self.display = Some(y);
                 true
-            },
+            }
             (Some(x), Some(y)) => {
                 let mut old_display = x.to_owned();
                 old_display.extend(y);
                 self.display = Some(old_display);
                 true
-            },
+            }
         }
     }
 }

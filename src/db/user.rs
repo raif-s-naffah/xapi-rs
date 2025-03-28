@@ -13,7 +13,6 @@ use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool};
 use tracing::info;
 
-#[allow(dead_code)]
 /// Representation of a `user` DB table row.
 #[derive(Debug, FromRow)]
 pub(crate) struct TUser {
@@ -23,7 +22,8 @@ pub(crate) struct TUser {
     /// Authority Agent's IFI if/when this User is not an ADMIN.
     pub(crate) email: String,
     /// Obfuscated credentials used when accessing LaRS.
-    pub(crate) credentials: i64,
+    #[allow(dead_code)]
+    credentials: i64,
     /// Their Role (as an integer).
     pub(crate) role: i16,
     /// The row ID of the User that created them. 0 implies Root

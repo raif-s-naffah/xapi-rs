@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#![allow(dead_code)]
-
 //! A Mock DB struct to use in Unit Tests.
 
 use crate::config::config;
 use core::fmt;
 use rand::Rng;
-use sqlx::{
-    migrate::Migrator, postgres::PgPoolOptions, Connection, Executor, PgConnection, PgPool,
-};
+use sqlx::{migrate::Migrator, Connection, Executor, PgConnection};
 use std::{path::Path, thread};
 use tokio::runtime::Runtime;
 use tracing::warn;
@@ -72,8 +68,9 @@ impl MockDB {
         result
     }
 
-    pub(crate) async fn pool(&self) -> PgPool {
-        PgPoolOptions::new()
+    #[cfg(test)]
+    pub(crate) async fn pool(&self) -> sqlx::PgPool {
+        sqlx::postgres::PgPoolOptions::new()
             .connect(&self.url())
             .await
             .expect("Failed creating mock DB connections pool")

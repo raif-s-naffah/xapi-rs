@@ -143,7 +143,7 @@ impl User {
     }
 
     /// Create a new enabled user from an email address string.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn with_email(email: &str) -> Self {
         Self {
             email: email.to_owned(),

@@ -31,12 +31,10 @@ pub fn config() -> &'static Config {
 }
 
 /// A structure that provides the current configuration settings.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Config {
     pub(crate) db_server_url: String,
     pub(crate) db_name: String,
-    pub(crate) db_url: String,
     pub(crate) db_max_connections: u32,
     pub(crate) db_min_connections: u32,
     pub(crate) db_acquire_timeout: Duration,
@@ -46,10 +44,7 @@ pub struct Config {
 
     /// The base of this server's external URL as seen by its users.
     pub external_url: String,
-    pub(crate) home_dir: String,
     pub(crate) static_dir: PathBuf,
-    pub(crate) port: String,
-
     /// Mode of Operations + whether to enforce access authentication to LRS
     /// resources.
     pub mode: Mode,
@@ -86,7 +81,6 @@ impl Default for Config {
     fn default() -> Self {
         let db_server_url = var("DB_SERVER_URL").expect("Missing DB_SERVERL_URL");
         let db_name = var("DB_NAME").expect("Missing DB_NAME");
-        let db_url = format!("{}/{}", db_server_url, db_name);
 
         let db_max_connections: u32 = var("DB_MAX_CONNECTIONS")
             .unwrap_or("8".to_string())
@@ -131,7 +125,6 @@ impl Default for Config {
         }
         let home_dir = my_home_dir();
         let static_dir = Path::new(&home_dir).join("static").to_owned();
-        let port = var("LRS_PORT").expect("Missing LRS_PORT");
 
         let mode: Mode = var("LRS_MODE")
             .unwrap_or("legacy".to_owned())
@@ -224,7 +217,6 @@ impl Default for Config {
         Self {
             db_server_url,
             db_name,
-            db_url,
             db_max_connections,
             db_min_connections,
             db_acquire_timeout,
@@ -232,9 +224,7 @@ impl Default for Config {
             db_max_lifetime,
             db_statements_page_len,
             external_url,
-            home_dir,
             static_dir,
-            port,
             mode,
             root_email,
             root_credentials,

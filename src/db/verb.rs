@@ -17,7 +17,7 @@ const FIND_BY_IRI: &str = r#"SELECT * FROM verb WHERE iri = $1"#;
 /// Find a [Verb] given its IRI identifier.
 ///
 /// Raise [MyError] if an error occurs in the process.
-#[allow(dead_code)]
+#[cfg(test)]
 async fn find_verb_by_iri(conn: &PgPool, iri: &str, format: &Format) -> Result<Verb, MyError> {
     match sqlx::query_as::<_, TVerb>(FIND_BY_IRI)
         .bind(iri)
@@ -231,6 +231,7 @@ pub(crate) async fn ext_find_some(
         Err(x) => emit_db_error!(x, "Failed finding some verbs"),
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
