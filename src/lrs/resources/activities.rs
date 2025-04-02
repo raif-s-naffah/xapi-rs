@@ -17,10 +17,11 @@ use crate::{
     db::activity::find_activity_by_iri,
     emit_response,
     lrs::{resources::WithResource, Headers, User, DB},
+    DataError, MyError,
 };
 use iri_string::types::IriStr;
 use rocket::{get, http::Status, routes, State};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -33,22 +34,17 @@ async fn get(
     activityId: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithResource<Activity>, Status> {
+) -> Result<WithResource<Activity>, MyError> {
     debug!("----- get ----- {}", user);
     user.can_use_xapi()?;
 
-    let iri = match IriStr::new(activityId) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing 'activityId': {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
-
+    let iri = IriStr::new(activityId)
+        .map_err(|x| MyError::Data(DataError::IRI(x)).with_status(Status::BadRequest))?;
     let format = Format::from(c.languages().to_vec());
-
-    let mut resource = match find_activity_by_iri(db.pool(), iri, &format).await {
-        Ok(None) => {
+    let x = find_activity_by_iri(db.pool(), iri, &format).await?;
+    let mut resource = match x {
+        Some(x) => x,
+        None => {
             // NOTE (rsn) 20240805 - section 4.1.6.4 states...
             // > If an LRS does not have a canonical definition of the Activity
             // > to return, the LRS shall still return an Activity Object when
@@ -57,13 +53,7 @@ async fn get(
             // if this fails it would've earlier when converting to IRI
             Activity::from_iri_str(activityId).unwrap()
         }
-        Ok(Some(x)) => x,
-        Err(x) => {
-            error!("Failed finding Activity: {}", x);
-            return Err(Status::InternalServerError);
-        }
     };
-
     // NOTE (rsn) 224116 - the object_type field in the DAO is an Option
     // meaning it's not always set.  however some conformance tests expect a
     // fully formed Activity instance.

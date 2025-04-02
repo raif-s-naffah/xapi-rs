@@ -31,14 +31,14 @@ use crate::{
         emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers, User,
         WithDocumentOrIDs, DB,
     },
-    MyError,
+    DataError, MyError,
 };
 use chrono::{DateTime, Utc};
 use rocket::{delete, get, http::Status, post, put, routes, State};
 use serde_json::{Map, Value};
 use sqlx::PgPool;
 use std::mem;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -55,25 +55,21 @@ async fn put(
     doc: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- put ----- {}", user);
     user.can_use_xapi()?;
 
-    // document must not be an empty string
     if doc.is_empty() {
-        error!("Document must NOT be an empty string");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Document must NOT be an empty string".into(),
+        });
     }
 
     // NOTE (rsn) 20241104 - it's an error if JSON is claimed but document isn't
     if c.is_json_content() {
-        match serde_json::from_str::<Map<String, Value>>(doc) {
-            Ok(_) => (),
-            Err(x) => {
-                error!("PUT w/ JSON CT but document isn't: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        serde_json::from_str::<Map<String, Value>>(doc)
+            .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     }
 
     let conn = db.pool();
@@ -83,55 +79,48 @@ async fn put(
 
             // if a PUT request is received without If-[None-]Match headers for
             // a resource that already exists, we should return Status 409
-            match find(conn, agent_id, profileId).await {
-                Ok((None, _)) => {
+            let (x, _) = find(conn, agent_id, profileId).await?;
+            match x {
+                None => {
                     // insert it...
                     let etag = etag_from_str(doc);
-                    match upsert(conn, agent_id, profileId, doc).await {
-                        Ok(_) => Ok(no_content(&etag)),
-                        Err(_) => Err(Status::InternalServerError),
-                    }
+                    upsert(conn, agent_id, profileId, doc).await?;
+                    Ok(no_content(&etag))
                 }
-                Ok((Some(old_doc), _)) => {
+                Some(old_doc) => {
                     if c.has_no_conditionals() {
-                        error!("PUT a known resource, w/ no pre-conditions, is NOT allowed");
-                        Err(Status::Conflict)
+                        Err(MyError::HTTP {
+                            status: Status::Conflict,
+                            info: "PUT a known resource, w/ no pre-conditions, is NOT allowed"
+                                .into(),
+                        })
                     } else {
                         // only upsert it if pre-conditions pass...
                         let etag = etag_from_str(&old_doc);
                         debug!("etag (old) = {}", etag);
                         match eval_preconditions!(&etag, c) {
-                            s if s != Status::Ok => Err(s),
+                            s if s != Status::Ok => Err(MyError::HTTP {
+                                status: s,
+                                info: "Failed pre-condition(s)".into(),
+                            }),
                             _ => {
                                 if old_doc == doc {
                                     info!("Old + new Agent Profile documents are identical");
                                     Ok(no_content(&etag))
                                 } else {
                                     let etag = etag_from_str(doc);
-                                    match upsert(conn, agent_id, profileId, doc).await {
-                                        Ok(_) => Ok(no_content(&etag)),
-                                        Err(x) => {
-                                            error!("Failed update Agent Profile: {}", x);
-                                            Err(Status::InternalServerError)
-                                        }
-                                    }
+                                    upsert(conn, agent_id, profileId, doc).await?;
+                                    Ok(no_content(&etag))
                                 }
                             }
                         }
                     }
                 }
-                Err(x) => {
-                    error!("Failed find Agent Profile: {}", x);
-                    Err(Status::InternalServerError)
-                }
             }
         }
         Err(x) => match x {
-            MyError::Data(_) => Err(Status::BadRequest),
-            _ => {
-                error!("Failed find Agent's row ID: {}", x);
-                Err(Status::InternalServerError)
-            }
+            MyError::Data(_) => Err(x.with_status(Status::BadRequest)),
+            x => Err(x),
         },
     }
 }
@@ -146,26 +135,21 @@ async fn post(
     doc: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- post ----- {}", user);
     user.can_use_xapi()?;
 
-    // it's an error if the document is an empty string
     if doc.is_empty() {
-        error!("Document must NOT be an empty string");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Document must NOT be an empty string".into(),
+        });
     }
 
     // NOTE (rsn) 20241104 - it's an error if JSON is claimed but document isn't
     if c.is_json_content() {
-        // FIXME (rsn) 20241104 - we do the same thing again later :(
-        match serde_json::from_str::<Map<String, Value>>(doc) {
-            Ok(_) => (),
-            Err(x) => {
-                error!("PUT w/ JSON CT but document isn't: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        serde_json::from_str::<Map<String, Value>>(doc)
+            .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     }
 
     let conn = db.pool();
@@ -173,44 +157,37 @@ async fn post(
         Ok(agent_id) => {
             debug!("agent_id = {}", agent_id);
 
-            match find(conn, agent_id, profileId).await {
-                Ok((None, _)) => {
+            let (x, _) = find(conn, agent_id, profileId).await?;
+            match x {
+                None => {
                     // insert it...
-                    match upsert(conn, agent_id, profileId, doc).await {
-                        Ok(_) => {
-                            let etag = etag_from_str(doc);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed insert Agent Profile: {}", x);
-                            Err(Status::InternalServerError)
-                        }
-                    }
+                    upsert(conn, agent_id, profileId, doc).await?;
+                    let etag = etag_from_str(doc);
+                    Ok(no_content(&etag))
                 }
-                Ok((Some(old_doc), _)) => {
+                Some(old_doc) => {
                     let etag = etag_from_str(&old_doc);
                     debug!("etag (old) = {}", etag);
                     if c.has_conditionals() {
                         match eval_preconditions!(&etag, c) {
-                            s if s != Status::Ok => return Err(s),
+                            s if s != Status::Ok => {
+                                return Err(MyError::HTTP {
+                                    status: s,
+                                    info: "Failed pre-condition(s)".into(),
+                                })
+                            }
                             _ => (),
                         }
                     }
 
-                    let mut old: Map<String, Value> = match serde_json::from_str(&old_doc) {
-                        Ok(x) => x,
-                        Err(x) => {
-                            error!("Failed deserialize old document: {}", x);
-                            return Err(Status::BadRequest);
-                        }
-                    };
-                    let mut new: Map<String, Value> = match serde_json::from_str(doc) {
-                        Ok(x) => x,
-                        Err(x) => {
-                            error!("Failed deserialize new document: {}", x);
-                            return Err(Status::BadRequest);
-                        }
-                    };
+                    let mut old: Map<String, Value> =
+                        serde_json::from_str(&old_doc).map_err(|x| {
+                            MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest)
+                        })?;
+
+                    let mut new: Map<String, Value> = serde_json::from_str(doc).map_err(|x| {
+                        MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest)
+                    })?;
 
                     if old == new {
                         info!("Old + new Agent Profile documents are identical");
@@ -227,36 +204,28 @@ async fn post(
                         serde_json::to_string(&old).expect("Failed serialize merged document");
                     debug!("document ( after) = '{}'", merged);
 
-                    match upsert(conn, agent_id, profileId, &merged).await {
-                        Ok(_) => {
-                            let etag = etag_from_str(&merged);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed update Agent Profile: {}", x);
-                            Err(Status::InternalServerError)
-                        }
-                    }
-                }
-                Err(x) => {
-                    error!("Failed find Agent Profile: {}", x);
-                    Err(Status::InternalServerError)
+                    upsert(conn, agent_id, profileId, &merged).await?;
+                    let etag = etag_from_str(&merged);
+                    Ok(no_content(&etag))
                 }
             }
         }
         Err(x) => match x {
-            MyError::Data(_) => Err(Status::BadRequest),
-            _ => {
-                error!("Failed find Agent's row ID: {}", x);
-                Err(Status::InternalServerError)
-            }
+            MyError::Data(_) => Err(x.with_status(Status::BadRequest)),
+            x => Err(x),
         },
     }
 }
 
 /// Deletes a single document with the given id.
 #[delete("/?<agent>&<profileId>")]
-async fn delete(c: Headers, agent: &str, profileId: &str, db: &State<DB>, user: User) -> Status {
+async fn delete(
+    c: Headers,
+    agent: &str,
+    profileId: &str,
+    db: &State<DB>,
+    user: User,
+) -> Result<Status, MyError> {
     debug!("----- delete ----- {}", user);
     let _ = user.can_use_xapi();
 
@@ -264,36 +233,23 @@ async fn delete(c: Headers, agent: &str, profileId: &str, db: &State<DB>, user: 
     match find_agent_id_from_str(conn, agent).await {
         Ok(agent_id) => {
             debug!("agent_id = {}", agent_id);
-            let document = match get_profile(conn, agent_id, profileId).await {
-                Ok((x, _)) => x,
-                Err(s) => {
-                    error!(
-                        "Failed fetch Agent Profile ({}) for Actor #{}",
-                        profileId, agent_id,
-                    );
-                    return s;
-                }
-            };
-
+            let (document, _) = get_profile(conn, agent_id, profileId).await?;
             let etag = etag_from_str(&document);
             debug!("etag (LaRS) = {}", etag);
             match eval_preconditions!(&etag, c) {
-                s if s != Status::Ok => s,
-                _ => match remove(conn, agent_id, profileId).await {
-                    Ok(_) => Status::NoContent,
-                    Err(x) => {
-                        error!("Failed delete Agent Profile: {}", x);
-                        Status::InternalServerError
-                    }
-                },
+                s if s != Status::Ok => Err(MyError::HTTP {
+                    status: s,
+                    info: "Failed pre-condition(s)".into(),
+                }),
+                _ => {
+                    remove(conn, agent_id, profileId).await?;
+                    Ok(Status::NoContent)
+                }
             }
         }
         Err(x) => match x {
-            MyError::Data(_) => Status::BadRequest,
-            _ => {
-                error!("Failed find Agent's row ID: {}", x);
-                Status::InternalServerError
-            }
+            MyError::Data(_) => Err(x.with_status(Status::BadRequest)),
+            x => Err(x),
         },
     }
 }
@@ -309,7 +265,7 @@ async fn get(
     since: Option<&str>,
     db: &State<DB>,
     user: User,
-) -> Result<WithDocumentOrIDs, Status> {
+) -> Result<WithDocumentOrIDs, MyError> {
     debug!("----- get ----- {}", user);
     user.can_use_xapi()?;
 
@@ -319,27 +275,24 @@ async fn get(
             debug!("agent_id = {}", agent_id);
             let resource = if profileId.is_some() {
                 if since.is_some() {
-                    error!("Either `profileId` or `since` should be specified; not both");
-                    return Err(Status::BadRequest);
+                    return Err(MyError::HTTP {
+                        status: Status::BadRequest,
+                        info: "Either `profileId` or `since` should be specified; not both".into(),
+                    });
                 } else {
                     get_profile(conn, agent_id, profileId.unwrap()).await?
                 }
             } else {
-                match get_ids(conn, agent_id, since).await {
-                    Ok((x, last_updated)) => (serde_json::to_string(&x).unwrap(), last_updated),
-                    Err(x) => return Err(x),
-                }
+                let (x, last_updated) = get_ids(conn, agent_id, since).await?;
+                (serde_json::to_string(&x).unwrap(), last_updated)
             };
 
             debug!("resource = {:?}", resource);
             emit_doc_response(resource.0, Some(resource.1)).await
         }
         Err(x) => match x {
-            MyError::Data(_) => Err(Status::BadRequest),
-            _ => {
-                error!("Failed find Agent's row ID: {}", x);
-                Err(Status::InternalServerError)
-            }
+            MyError::Data(_) => Err(x.with_status(Status::BadRequest)),
+            x => Err(x),
         },
     }
 }
@@ -348,11 +301,18 @@ async fn get_profile(
     conn: &PgPool,
     actor_id: i32,
     profile_id: &str,
-) -> Result<(String, DateTime<Utc>), Status> {
-    match find(conn, actor_id, profile_id).await {
-        Ok((None, _)) => Err(Status::NotFound),
-        Ok((Some(doc), updated)) => Ok((doc, updated)),
-        Err(_) => Err(Status::InternalServerError),
+) -> Result<(String, DateTime<Utc>), MyError> {
+    let (x, updated) = find(conn, actor_id, profile_id).await?;
+    match x {
+        None => Err(MyError::HTTP {
+            status: Status::NotFound,
+            info: format!(
+                "Failed find Agent Profile ({}) for Actor #{}",
+                profile_id, actor_id,
+            )
+            .into(),
+        }),
+        Some(doc) => Ok((doc, updated)),
     }
 }
 
@@ -360,23 +320,14 @@ async fn get_ids(
     conn: &PgPool,
     actor_id: i32,
     since: Option<&str>,
-) -> Result<(Vec<String>, DateTime<Utc>), Status> {
+) -> Result<(Vec<String>, DateTime<Utc>), MyError> {
     let since = if since.is_none() {
         None
     } else {
-        match DateTime::parse_from_rfc3339(since.unwrap()) {
-            Ok(x) => Some(x.with_timezone(&Utc)),
-            Err(x) => {
-                error!("Failed parsing 'since': {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        let x = DateTime::parse_from_rfc3339(since.unwrap())
+            .map_err(|x| MyError::Data(DataError::Time(x)).with_status(Status::BadRequest))?;
+        Some(x.with_timezone(&Utc))
     };
 
-    match find_ids(conn, actor_id, since).await {
-        // IMPORTANT (rsn) 20241026 - always return an array even when no
-        // records were found.
-        Ok(x) => Ok(x),
-        Err(_) => Err(Status::InternalServerError),
-    }
+    find_ids(conn, actor_id, since).await
 }

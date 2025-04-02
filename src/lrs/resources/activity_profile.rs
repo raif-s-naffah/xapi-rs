@@ -31,6 +31,7 @@ use crate::{
         emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers, User,
         WithDocumentOrIDs, DB,
     },
+    DataError, MyError,
 };
 use chrono::{DateTime, Utc};
 use iri_string::types::IriStr;
@@ -38,7 +39,7 @@ use rocket::{delete, get, http::Status, post, put, routes, State};
 use serde_json::{Map, Value};
 use sqlx::PgPool;
 use std::mem;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -55,96 +56,68 @@ async fn put(
     doc: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- put ----- {}", user);
     user.can_use_xapi()?;
 
-    // document must not be an empty string
     if doc.is_empty() {
-        error!("Document must NOT be an empty string");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Document must NOT be an empty string".into(),
+        });
     }
 
-    let activity_iri = match IriStr::new(activityId) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing Activity IRI: {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let activity_iri = IriStr::new(activityId)
+        .map_err(|x| MyError::Data(DataError::IRI(x)).with_status(Status::BadRequest))?;
 
     // NOTE (rsn) 20241104 - it's an error if JSON is claimed but document isn't
     if c.is_json_content() {
-        match serde_json::from_str::<Map<String, Value>>(doc) {
-            Ok(_) => (),
-            Err(x) => {
-                error!("PUT w/ JSON CT but document isn't: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        serde_json::from_str::<Map<String, Value>>(doc)
+            .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     }
 
     let conn = db.pool();
-    match insert_activity_iri(conn, activity_iri).await {
-        Ok(activity_id) => {
-            debug!("activity_id = {}", activity_id);
+    let activity_id = insert_activity_iri(conn, activity_iri).await?;
+    debug!("activity_id = {}", activity_id);
 
-            // if a PUT request is received without If-[None-]Match headers for
-            // a resource that already exists, we should return Status 409
-            match find(conn, activity_id, profileId).await {
-                Ok((None, _)) => {
-                    // insert it
-                    match upsert(conn, activity_id, profileId, doc).await {
-                        Ok(_) => {
+    // if a PUT request is received without If-[None-]Match headers for
+    // a resource that already exists, we should return Status 409
+    let (x, _) = find(conn, activity_id, profileId).await?;
+    match x {
+        None => {
+            // insert it
+            upsert(conn, activity_id, profileId, doc).await?;
+            let etag = etag_from_str(doc);
+            Ok(no_content(&etag))
+        }
+        Some(old_doc) => {
+            if c.has_no_conditionals() {
+                Err(MyError::HTTP {
+                    status: Status::Conflict,
+                    info: "PUT a known resource, w/ no pre-conditions, is NOT allowed".into(),
+                })
+            } else {
+                // only upsert it if pre-conditions pass...
+                let etag = etag_from_str(&old_doc);
+                debug!("etag (old) = {}", etag);
+                match eval_preconditions!(&etag, c) {
+                    s if s != Status::Ok => Err(MyError::HTTP {
+                        status: s,
+                        info: "Failed pre-condition(s)".into(),
+                    }),
+                    _ => {
+                        // no point in invoking a DB op if old == new..
+                        if old_doc == doc {
+                            info!("Old + new Activity Profile documents are identical");
+                            Ok(no_content(&etag))
+                        } else {
+                            upsert(conn, activity_id, profileId, doc).await?;
                             let etag = etag_from_str(doc);
                             Ok(no_content(&etag))
                         }
-                        Err(x) => {
-                            error!("Failed insert Activity Profile: {}", x);
-                            Err(Status::InternalServerError)
-                        }
                     }
-                }
-                Ok((Some(old_doc), _)) => {
-                    if c.has_no_conditionals() {
-                        error!("PUT a known resource, w/ no pre-conditions, is NOT allowed");
-                        Err(Status::Conflict)
-                    } else {
-                        // only upsert it if pre-conditions pass...
-                        let etag = etag_from_str(&old_doc);
-                        debug!("etag (old) = {}", etag);
-                        match eval_preconditions!(&etag, c) {
-                            s if s != Status::Ok => Err(s),
-                            _ => {
-                                // no point in invoking a DB op if old == new..
-                                if old_doc == doc {
-                                    info!("Old + new Activity Profile documents are identical");
-                                    Ok(no_content(&etag))
-                                } else {
-                                    match upsert(conn, activity_id, profileId, doc).await {
-                                        Ok(_) => {
-                                            let etag = etag_from_str(doc);
-                                            Ok(no_content(&etag))
-                                        }
-                                        Err(x) => {
-                                            error!("Failed update Activity Profile: {}", x);
-                                            Err(Status::InternalServerError)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(x) => {
-                    error!("Failed find Activity Profile: {}", x);
-                    Err(Status::InternalServerError)
                 }
             }
-        }
-        Err(x) => {
-            error!("Failed find Activity row ID: {}", x);
-            Err(Status::InternalServerError)
         }
     }
 }
@@ -159,111 +132,74 @@ async fn post(
     doc: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- post ----- {}", user);
     user.can_use_xapi()?;
 
-    // document must not be an empty string
     if doc.is_empty() {
-        error!("Document must NOT be an empty string");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Document must NOT be an empty string".into(),
+        });
     }
 
-    let activity_iri = match IriStr::new(activityId) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing Activity IRI: {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let activity_iri = IriStr::new(activityId)
+        .map_err(|x| MyError::Data(DataError::IRI(x)).with_status(Status::BadRequest))?;
 
     // NOTE (rsn) 20241104 - it's an error if JSON is claimed but document isn't
     if c.is_json_content() {
-        // FIXME (rsn) 20241104 - we do the same thing again later :(
-        match serde_json::from_str::<Map<String, Value>>(doc) {
-            Ok(_) => (),
-            Err(x) => {
-                error!("PUT w/ JSON CT but document isn't: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        serde_json::from_str::<Map<String, Value>>(doc)
+            .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     }
 
     let conn = db.pool();
-    match insert_activity_iri(conn, activity_iri).await {
-        Ok(activity_id) => {
-            debug!("activity_id = {}", activity_id);
+    let activity_id = insert_activity_iri(conn, activity_iri).await?;
+    debug!("activity_id = {}", activity_id);
 
-            match find(conn, activity_id, profileId).await {
-                Ok((None, _)) => match upsert(conn, activity_id, profileId, doc).await {
-                    Ok(_) => {
-                        let etag = etag_from_str(doc);
-                        Ok(no_content(&etag))
+    let (x, _) = find(conn, activity_id, profileId).await?;
+    match x {
+        None => {
+            upsert(conn, activity_id, profileId, doc).await?;
+            let etag = etag_from_str(doc);
+            Ok(no_content(&etag))
+        }
+        Some(old_doc) => {
+            let etag = etag_from_str(&old_doc);
+            debug!("etag (old) = {}", etag);
+            if c.has_conditionals() {
+                match eval_preconditions!(&etag, c) {
+                    s if s != Status::Ok => {
+                        return Err(MyError::HTTP {
+                            status: s,
+                            info: "Failed pre-condition(s)".into(),
+                        })
                     }
-                    Err(x) => {
-                        error!("Failed insert Activity Profile: {}", x);
-                        Err(Status::InternalServerError)
-                    }
-                },
-                Ok((Some(old_doc), _)) => {
-                    let etag = etag_from_str(&old_doc);
-                    debug!("etag (old) = {}", etag);
-                    if c.has_conditionals() {
-                        match eval_preconditions!(&etag, c) {
-                            s if s != Status::Ok => return Err(s),
-                            _ => (),
-                        }
-                    }
-
-                    let mut old: Map<String, Value> = match serde_json::from_str(&old_doc) {
-                        Ok(x) => x,
-                        Err(x) => {
-                            error!("Failed deserialize old document: {}", x);
-                            return Err(Status::BadRequest);
-                        }
-                    };
-                    let mut new: Map<String, Value> = match serde_json::from_str(doc) {
-                        Ok(x) => x,
-                        Err(x) => {
-                            error!("Failed deserialize new document: {}", x);
-                            return Err(Status::BadRequest);
-                        }
-                    };
-
-                    if old == new {
-                        info!("Old + new Activity Profile documents are identical");
-                        return Ok(no_content(&etag));
-                    }
-
-                    debug!("document (before) = '{}'", old_doc);
-                    for (k, v) in new.iter_mut() {
-                        let new_v = mem::take(v);
-                        old.insert(k.to_owned(), new_v);
-                    }
-                    let merged =
-                        serde_json::to_string(&old).expect("Failed serialize merged document");
-                    debug!("document ( after) = '{}'", merged);
-
-                    match upsert(conn, activity_id, profileId, &merged).await {
-                        Ok(_) => {
-                            let etag = etag_from_str(&merged);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed update Activity Profile: {}", x);
-                            Err(Status::InternalServerError)
-                        }
-                    }
-                }
-                Err(x) => {
-                    error!("Failed find Activity Profile: {}", x);
-                    Err(Status::InternalServerError)
+                    _ => (),
                 }
             }
-        }
-        Err(x) => {
-            error!("Failed find Activity row ID: {}", x);
-            Err(Status::InternalServerError)
+
+            let mut old: Map<String, Value> = serde_json::from_str(&old_doc)
+                .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
+
+            let mut new: Map<String, Value> = serde_json::from_str(doc)
+                .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
+
+            if old == new {
+                info!("Old + new Activity Profile documents are identical");
+                return Ok(no_content(&etag));
+            }
+
+            debug!("document (before) = '{}'", old_doc);
+            for (k, v) in new.iter_mut() {
+                let new_v = mem::take(v);
+                old.insert(k.to_owned(), new_v);
+            }
+            let merged = serde_json::to_string(&old).expect("Failed serialize merged document");
+            debug!("document ( after) = '{}'", merged);
+
+            upsert(conn, activity_id, profileId, &merged).await?;
+            let etag = etag_from_str(&merged);
+            Ok(no_content(&etag))
         }
     }
 }
@@ -276,57 +212,49 @@ async fn delete(
     profileId: &str,
     db: &State<DB>,
     user: User,
-) -> Status {
+) -> Result<Status, MyError> {
     debug!("----- delete ----- {}", user);
     let _ = user.can_use_xapi();
 
-    let activity_iri = match IriStr::new(activityId) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parse Activity IRI: {}", x);
-            return Status::BadRequest;
-        }
-    };
+    let activity_iri = IriStr::new(activityId)
+        .map_err(|x| MyError::Data(DataError::IRI(x)).with_status(Status::BadRequest))?;
 
     let conn = db.pool();
-    match find_activity_id(conn, activity_iri).await {
-        Ok(None) => {
-            error!("No such Activity ({})", activity_iri);
-            Status::NoContent
+    let x = find_activity_id(conn, activity_iri).await?;
+    match x {
+        None => {
+            info!("No such Activity ({})", activity_iri);
+            Ok(Status::NoContent)
         }
-        Ok(Some(activity_id)) => {
+        Some(activity_id) => {
             let document = match get_profile(conn, activity_id, profileId).await {
                 Ok((x, _)) => x,
-                Err(s) => {
+                Err(x) => match x {
                     // NOTE (rsn) 20241104 - CTS expects a DELETE to return 204
                     // when it's 404 :/
-                    error!("Failed find Activity Profile for #{}: {}", activity_id, s);
-                    match s.code {
-                        404 => return Status::NoContent,
-                        _ => return s,
-                    }
-                }
+                    MyError::HTTP { status, .. } => match status.code {
+                        404 => return Ok(Status::NoContent),
+                        _ => return Err(x),
+                    },
+                    _ => return Err(x),
+                },
             };
             let etag = etag_from_str(&document);
             match eval_preconditions!(&etag, c) {
-                s if s != Status::Ok => s,
-                _ => match remove(conn, activity_id, profileId).await {
-                    Ok(_) => Status::NoContent,
-                    Err(x) => {
-                        error!("Failed delete Activity Profile: {}", x);
-                        Status::InternalServerError
-                    }
-                },
+                s if s != Status::Ok => Err(MyError::HTTP {
+                    status: s,
+                    info: "Failed pre-condition(s)".into(),
+                }),
+                _ => {
+                    remove(conn, activity_id, profileId).await?;
+                    Ok(Status::NoContent)
+                }
             }
-        }
-        Err(x) => {
-            error!("Failed find Activity: {}", x);
-            Status::InternalServerError
         }
     }
 }
 
-/// Fetches a single document with the given id, or if `since` is specified,
+/// Fetch a single document with the given id, or if `since` is specified,
 /// Profile ids of all Profile documents for an Activity that have been stored
 /// or updated since the specified Timestamp (exclusive).
 #[get("/?<activityId>&<profileId>&<since>")]
@@ -336,42 +264,35 @@ async fn get(
     since: Option<&str>,
     db: &State<DB>,
     user: User,
-) -> Result<WithDocumentOrIDs, Status> {
+) -> Result<WithDocumentOrIDs, MyError> {
     debug!("----- get ----- {}", user);
     user.can_use_xapi()?;
 
     let conn = db.pool();
-    match Activity::from_iri_str(activityId) {
-        Ok(activity) => match find_activity_id(conn, activity.id()).await {
-            Ok(None) => {
-                error!("No such Activity ({})", activity.id());
-                Err(Status::BadRequest)
-            }
-            Ok(Some(activity_id)) => {
-                let resource = if profileId.is_some() {
-                    if since.is_some() {
-                        error!("Either `profileId` or `since` should be specified; not both");
-                        return Err(Status::BadRequest);
-                    } else {
-                        get_profile(conn, activity_id, profileId.unwrap()).await?
-                    }
+    let activity = Activity::from_iri_str(activityId)
+        .map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
+    let x = find_activity_id(conn, activity.id()).await?;
+    match x {
+        None => Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: format!("No such Activity ({})", activity.id()).into(),
+        }),
+        Some(activity_id) => {
+            let resource = if profileId.is_some() {
+                if since.is_some() {
+                    return Err(MyError::HTTP {
+                        status: Status::BadRequest,
+                        info: "Either `profileId` or `since` should be specified; not both".into(),
+                    });
                 } else {
-                    match get_ids(conn, activity_id, since).await {
-                        Ok((x, last_updated)) => (serde_json::to_string(&x).unwrap(), last_updated),
-                        Err(x) => return Err(x),
-                    }
-                };
+                    get_profile(conn, activity_id, profileId.unwrap()).await?
+                }
+            } else {
+                let (x, last_updated) = get_ids(conn, activity_id, since).await?;
+                (serde_json::to_string(&x).unwrap(), last_updated)
+            };
 
-                emit_doc_response(resource.0, Some(resource.1)).await
-            }
-            Err(x) => {
-                error!("Failed find Activity: {}", x);
-                Err(Status::InternalServerError)
-            }
-        },
-        _ => {
-            error!("Failed parse Activity IRI");
-            Err(Status::BadRequest)
+            emit_doc_response(resource.0, Some(resource.1)).await
         }
     }
 }
@@ -380,14 +301,18 @@ async fn get_profile(
     conn: &PgPool,
     activity_id: i32,
     profile_id: &str,
-) -> Result<(String, DateTime<Utc>), Status> {
-    match find(conn, activity_id, profile_id).await {
-        Ok((None, _)) => Err(Status::NotFound),
-        Ok((Some(doc), updated)) => Ok((doc, updated)),
-        Err(x) => {
-            error!("Failed finding Activity Profile: {}", x);
-            Err(Status::InternalServerError)
-        }
+) -> Result<(String, DateTime<Utc>), MyError> {
+    let (x, updated) = find(conn, activity_id, profile_id).await?;
+    match x {
+        None => Err(MyError::HTTP {
+            status: Status::NotFound,
+            info: format!(
+                "No profile found for activity ({}), and profile ({})",
+                activity_id, profile_id
+            )
+            .into(),
+        }),
+        Some(doc) => Ok((doc, updated)),
     }
 }
 
@@ -395,25 +320,13 @@ async fn get_ids(
     conn: &PgPool,
     activity_id: i32,
     since: Option<&str>,
-) -> Result<(Vec<String>, DateTime<Utc>), Status> {
+) -> Result<(Vec<String>, DateTime<Utc>), MyError> {
     let since = if since.is_none() {
         None
     } else {
-        match DateTime::parse_from_rfc3339(since.unwrap()) {
-            Ok(x) => Some(x.with_timezone(&Utc)),
-            Err(x) => {
-                error!("Failed parsing 'since': {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        let x = DateTime::parse_from_rfc3339(since.unwrap())
+            .map_err(|x| MyError::Data(DataError::Time(x)).with_status(Status::BadRequest))?;
+        Some(x.with_timezone(&Utc))
     };
-    match find_ids(conn, activity_id, since).await {
-        // IMPORTANT (rsn) 20241026 - always return an array even when no
-        // records were found.
-        Ok(x) => Ok(x),
-        Err(x) => {
-            error!("Failed finding Activity Profile IDs: {}", x);
-            Err(Status::InternalServerError)
-        }
-    }
+    find_ids(conn, activity_id, since).await
 }

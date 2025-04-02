@@ -173,51 +173,61 @@ impl User {
 
     /// Check if this user is enabled or not. If is not enabled return
     /// an Error wrapping an HTTP 403 Status.
-    fn check_is_enabled(&self) -> Result<(), Status> {
+    fn check_is_enabled(&self) -> Result<(), MyError> {
         if !self.enabled {
-            error!("User {} is NOT active", self);
-            Err(Status::Forbidden)
+            Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: format!("User {} is NOT active", self).into(),
+            })
         } else {
             Ok(())
         }
     }
 
-    pub(crate) fn can_use_xapi(&self) -> Result<(), Status> {
+    pub(crate) fn can_use_xapi(&self) -> Result<(), MyError> {
         // to be sure, to be sure...
         self.check_is_enabled()?;
         if !matches!(self.role, Role::Root | Role::User | Role::AuthUser) {
-            error!("User {} is NOT authorized to use xAPI", self);
-            Err(Status::Forbidden)
+            Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: format!("User {} is NOT authorized to use xAPI", self).into(),
+            })
         } else {
             Ok(())
         }
     }
 
-    pub(crate) fn can_authorize_statement(&self) -> Result<(), Status> {
+    pub(crate) fn can_authorize_statement(&self) -> Result<(), MyError> {
         self.check_is_enabled()?;
         if !matches!(self.role, Role::Root | Role::AuthUser) {
-            error!("User {} is NOT allowed to authorize Statements", self);
-            Err(Status::Forbidden)
+            Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: format!("User {} is NOT allowed to authorize Statements", self).into(),
+            })
         } else {
             Ok(())
         }
     }
 
-    pub(crate) fn can_use_verbs(&self) -> Result<(), Status> {
+    pub(crate) fn can_use_verbs(&self) -> Result<(), MyError> {
         self.check_is_enabled()?;
         if !matches!(self.role, Role::Root | Role::Admin) {
-            error!("User {} is NOT authorized to use verbs", self);
-            Err(Status::Forbidden)
+            Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: format!("User {} is NOT authorized to use verbs", self).into(),
+            })
         } else {
             Ok(())
         }
     }
 
-    pub(crate) fn can_manage_users(&self) -> Result<(), Status> {
+    pub(crate) fn can_manage_users(&self) -> Result<(), MyError> {
         self.check_is_enabled()?;
         if !matches!(self.role, Role::Root | Role::Admin) {
-            error!("User {} is NOT authorized to manage users", self);
-            Err(Status::Forbidden)
+            Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: format!("User {} is NOT authorized to manage users", self).into(),
+            })
         } else {
             Ok(())
         }
@@ -294,13 +304,17 @@ impl<'r> FromRequest<'r> for User {
                                         Outcome::Success(db) => {
                                             let conn = db.pool();
                                             match find_active_user(conn, credentials).await {
-                                                Ok(x) => {
+                                                Ok(None) => {
+                                                    error!("Unknown user");
+                                                    Outcome::Forward(Status::Unauthorized)
+                                                }
+                                                Ok(Some(x)) => {
                                                     debug!("User = {}", x);
                                                     cache_user(credentials, &x).await;
                                                     Outcome::Success(x)
                                                 }
                                                 Err(x) => {
-                                                    error!("Failed (unknown user): {}", x);
+                                                    error!("Failed: {}", x);
                                                     Outcome::Forward(Status::Unauthorized)
                                                 }
                                             }

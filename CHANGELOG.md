@@ -1,30 +1,10 @@
-# Unpublished (2025-03-27)
+# Unpublished (2025-04-03)
 
+* Fixed Issue #21.
+* Cleanup dead code.
+* doc/EXT_USERS.md: Fixed spelling mistakes.
 * Fixed Issue #20.
-* src/lrs/users.rs:
-  + (clear_cache): New pub(crate) method.
-  + (uncache): Likewise.
-  + (test_cache_eviction): New unit test.
-  + (test_cache_clearing): Likewise.
-* src/lrs/resources/users.rs:
-  + (update_many): Call User::clear_cache() when done.
-  + (emit_user_response): Modified signature to accept additional boolean.
-  + (post): Amend call to emit_user_response.
-  * (update_one): Likewise.
 * Fixed Issue #19.
-* src/config.rs (to_external_url): Made it public.
-* src/lib.rs:
-  + (VERBS_EXT_BASE): New constant.
-  + (STATS_EXT_BASE): Likewise.
-  + (USERS_EXT_BASE): Likewise.
-* src/lrs/server.rs:
-  + (build): Replace raw strings with above constants.
-  + (prepend_slash): New private method.
-* src/lrs/resources/about.rs (build_about): Fully populate extensions map.
-* tests/about.rs:
-  + (check_versions): New private method.
-  + (check_extensions): Likewise.
-  + (test_xxx): Refactor to reduce redundancy.
 
 # Version 0.1.10 (2025-03-22)
 

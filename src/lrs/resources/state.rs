@@ -37,15 +37,16 @@ use crate::{
         resources::{WithDocumentOrIDs, WithETag},
         User, DB,
     },
+    DataError, MyError,
 };
-use rocket::{delete, get, http::Status, post, put, routes, State};
+use rocket::{delete, futures::TryFutureExt, get, http::Status, post, put, routes, State};
 use serde_json::{Map, Value};
 use sqlx::{
     types::chrono::{DateTime, Utc},
     PgPool,
 };
 use std::mem;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -64,87 +65,66 @@ async fn put(
     doc: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- put ----- {}", user);
     user.can_use_xapi()?;
 
-    // document must not be an empty string
     if doc.is_empty() {
-        error!("Document must NOT be an empty string");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Document must NOT be an empty string".into(),
+        });
     }
 
     // NOTE (rsn) 20241104 - it's an error if JSON is claimed but document isn't
     if c.is_json_content() {
-        match serde_json::from_str::<Map<String, Value>>(doc) {
-            Ok(_) => (),
-            Err(x) => {
-                error!("PUT w/ JSON CT but document isn't: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        serde_json::from_str::<Map<String, Value>>(doc)
+            .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     }
 
     let conn = db.pool();
-    match as_single(conn, activityId, agent, registration, stateId).await {
-        Ok(s) => {
-            debug!("s = {:?}", s);
-            // if a PUT request is received without If-[None-]Match headers for a
-            // resource that already exists, we should return Status 409
-            match find(conn, &s).await {
-                Ok((None, _)) => {
-                    // insert it...
-                    match upsert(conn, &s, doc).await {
-                        Ok(_) => {
+    let s = as_single(conn, activityId, agent, registration, stateId)
+        .map_err(|x| x.with_status(Status::BadRequest))
+        .await?;
+    debug!("s = {:?}", s);
+    // if a PUT request is received without If-[None-]Match headers for a
+    // resource that already exists, we should return Status 409
+    let (x, _) = find(conn, &s).await?;
+    match x {
+        None => {
+            // insert it...
+            upsert(conn, &s, doc).await?;
+            let etag = etag_from_str(doc);
+            Ok(no_content(&etag))
+        }
+        Some(old_doc) => {
+            if c.has_no_conditionals() {
+                Err(MyError::HTTP {
+                    status: Status::Conflict,
+                    info: "PUT a known resource, w/ no pre-conditions, is NOT allowed".into(),
+                })
+            } else {
+                // only upsert it if pre-conditions pass...
+                let etag = etag_from_str(&old_doc);
+                debug!("etag (old) = {}", etag);
+                match eval_preconditions!(&etag, c) {
+                    s if s != Status::Ok => Err(MyError::HTTP {
+                        status: s,
+                        info: "Failed pre-condition(s)".into(),
+                    }),
+                    _ => {
+                        // no point in invoking a DB op if old == new..
+                        if old_doc == doc {
+                            info!("Old + new State documents are identidal");
+                            Ok(no_content(&etag))
+                        } else {
+                            upsert(conn, &s, doc).await?;
                             let etag = etag_from_str(doc);
                             Ok(no_content(&etag))
                         }
-                        Err(x) => {
-                            error!("Failed insert State: {}", x);
-                            Err(Status::InternalServerError)
-                        }
                     }
-                }
-                Ok((Some(old_doc), _)) => {
-                    if c.has_no_conditionals() {
-                        error!("PUT a known resource, w/ no pre-conditions, is NOT allowed");
-                        Err(Status::Conflict)
-                    } else {
-                        // only upsert it if pre-conditions pass...
-                        let etag = etag_from_str(&old_doc);
-                        debug!("etag (old) = {}", etag);
-                        match eval_preconditions!(&etag, c) {
-                            s if s != Status::Ok => Err(s),
-                            _ => {
-                                // no point in invoking a DB op if old == new..
-                                if old_doc == doc {
-                                    info!("Old + new State documents are identidal");
-                                    Ok(no_content(&etag))
-                                } else {
-                                    match upsert(conn, &s, doc).await {
-                                        Ok(_) => {
-                                            let etag = etag_from_str(doc);
-                                            Ok(no_content(&etag))
-                                        }
-                                        Err(x) => {
-                                            error!("Failed replace State: {}", x);
-                                            Err(Status::InternalServerError)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(x) => {
-                    error!("Failed find State: {}", x);
-                    Err(Status::InternalServerError)
                 }
             }
-        }
-        _ => {
-            error!("Failed converting query parameters");
-            Err(Status::BadRequest)
         }
     }
 }
@@ -161,109 +141,77 @@ async fn post(
     doc: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- post ----- {}", user);
     user.can_use_xapi()?;
 
-    // it's an error if the document is an empty string
     if doc.is_empty() {
-        error!("Document must NOT be an empty string");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Document must NOT be an empty string".into(),
+        });
     }
 
     // NOTE (rsn) 20241104 - it's an error if JSON is claimed but document isn't
     if c.is_json_content() {
-        // FIXME (rsn) 20241104 - we do the same thing again later :(
-        match serde_json::from_str::<Map<String, Value>>(doc) {
-            Ok(_) => (),
-            Err(x) => {
-                error!("POST w/ JSON CT but document isn't: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        serde_json::from_str::<Map<String, Value>>(doc)
+            .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     }
 
     let conn = db.pool();
-    match as_single(conn, activityId, agent, registration, stateId).await {
-        Ok(s) => {
-            debug!("s = {:?}", s);
-            match find(conn, &s).await {
-                Ok((None, _)) => {
-                    // insert it...
-                    match upsert(conn, &s, doc).await {
-                        Ok(_) => {
-                            let etag = etag_from_str(doc);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed insert State: {}", x);
-                            Err(Status::InternalServerError)
-                        }
+    let s = as_single(conn, activityId, agent, registration, stateId)
+        .map_err(|x| x.with_status(Status::BadRequest))
+        .await?;
+    debug!("s = {:?}", s);
+    let (x, _) = find(conn, &s).await?;
+    match x {
+        None => {
+            // insert it...
+            upsert(conn, &s, doc).await?;
+            let etag = etag_from_str(doc);
+            Ok(no_content(&etag))
+        }
+        Some(old_doc) => {
+            let etag = etag_from_str(&old_doc);
+            debug!("etag (old) = {}", etag);
+            if c.has_conditionals() {
+                match eval_preconditions!(&etag, c) {
+                    s if s != Status::Ok => {
+                        return Err(MyError::HTTP {
+                            status: s,
+                            info: "Failed pre-condition(s)".into(),
+                        })
                     }
-                }
-                Ok((Some(old_doc), _)) => {
-                    let etag = etag_from_str(&old_doc);
-                    debug!("etag (old) = {}", etag);
-                    if c.has_conditionals() {
-                        match eval_preconditions!(&etag, c) {
-                            s if s != Status::Ok => return Err(s),
-                            _ => (),
-                        }
-                    }
-
-                    // if either document is not JSON return 400
-                    let mut old: Map<String, Value> = match serde_json::from_str(&old_doc) {
-                        Ok(x) => x,
-                        Err(x) => {
-                            error!("Failed deserialize old document: {}", x);
-                            return Err(Status::BadRequest);
-                        }
-                    };
-                    let mut new: Map<String, Value> = match serde_json::from_str(doc) {
-                        Ok(x) => x,
-                        Err(x) => {
-                            error!("Failed deserialize new document: {}", x);
-                            return Err(Status::BadRequest);
-                        }
-                    };
-
-                    // both documents are JSON, are they different?
-                    if old == new {
-                        info!("Old + new State documents are identical");
-                        return Ok(no_content(&etag));
-                    }
-
-                    // merge...
-                    debug!("document (before) = '{}'", old_doc);
-                    for (k, v) in new.iter_mut() {
-                        let new_v = mem::take(v);
-                        old.insert(k.to_owned(), new_v);
-                    }
-                    // serialize updated 'old' so we can persist it...
-                    let merged =
-                        serde_json::to_string(&old).expect("Failed serialize merged document");
-                    debug!("document ( after) = '{}'", merged);
-
-                    match upsert(conn, &s, &merged).await {
-                        Ok(_) => {
-                            let etag = etag_from_str(&merged);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed update State: {}", x);
-                            Err(Status::InternalServerError)
-                        }
-                    }
-                }
-                Err(x) => {
-                    error!("Failed find State: {}", x);
-                    Err(Status::InternalServerError)
+                    _ => (),
                 }
             }
-        }
-        _ => {
-            error!("Failed converting query parameters");
-            Err(Status::BadRequest)
+
+            // if either document is not JSON return 400
+            let mut old: Map<String, Value> = serde_json::from_str(&old_doc)
+                .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
+
+            let mut new: Map<String, Value> = serde_json::from_str(doc)
+                .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
+
+            // both documents are JSON, are they different?
+            if old == new {
+                info!("Old + new State documents are identical");
+                return Ok(no_content(&etag));
+            }
+
+            // merge...
+            debug!("document (before) = '{}'", old_doc);
+            for (k, v) in new.iter_mut() {
+                let new_v = mem::take(v);
+                old.insert(k.to_owned(), new_v);
+            }
+            // serialize updated 'old' so we can persist it...
+            let merged = serde_json::to_string(&old).expect("Failed serialize merged document");
+            debug!("document ( after) = '{}'", merged);
+
+            upsert(conn, &s, &merged).await?;
+            let etag = etag_from_str(&merged);
+            Ok(no_content(&etag))
         }
     }
 }
@@ -277,43 +225,32 @@ async fn get(
     since: Option<&str>,
     db: &State<DB>,
     user: User,
-) -> Result<WithDocumentOrIDs, Status> {
+) -> Result<WithDocumentOrIDs, MyError> {
     debug!("----- get ----- {}", user);
     user.can_use_xapi()?;
 
     let conn = db.pool();
     let resource = if stateId.is_some() {
         if since.is_some() {
-            error!("Either `stateId` or `since` should be specified; not both");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Either `stateId` or `since` should be specified; not both".into(),
+            });
         }
 
-        match as_single(conn, activityId, agent, registration, stateId.unwrap()).await {
-            Ok(s) => {
-                debug!("s = {:?}", s);
-                let res = get_state(conn, &s).await?;
-                (res.0, Some(res.1))
-            }
-            _ => return Err(Status::BadRequest),
-        }
+        let s = as_single(conn, activityId, agent, registration, stateId.unwrap())
+            .map_err(|x| x.with_status(Status::BadRequest))
+            .await?;
+        debug!("s = {:?}", s);
+        let res = get_state(conn, &s).await?;
+        (res.0, Some(res.1))
     } else {
-        match as_many(conn, activityId, agent, registration, since).await {
-            Ok(s) => {
-                debug!("s = {:?}", s);
-                match find_ids(conn, &s).await {
-                    Ok(x) => {
-                        // IMPORTANT (rsn) 20241026 - always return an array even if
-                        // it's empty
-                        (serde_json::to_string(&x).unwrap(), None)
-                    }
-                    Err(x) => {
-                        error!("Failed finding N State(s): {}", x);
-                        return Err(Status::InternalServerError);
-                    }
-                }
-            }
-            _ => return Err(Status::BadRequest),
-        }
+        let s = as_many(conn, activityId, agent, registration, since)
+            .map_err(|x| x.with_status(Status::BadRequest))
+            .await?;
+        debug!("s = {:?}", s);
+        let x = find_ids(conn, &s).await?;
+        (serde_json::to_string(&x).unwrap(), None)
     };
 
     emit_doc_response(resource.0, resource.1).await
@@ -328,9 +265,9 @@ async fn delete(
     stateId: Option<&str>,
     db: &State<DB>,
     user: User,
-) -> Status {
+) -> Result<Status, MyError> {
     debug!("----- delete ----- {}", user);
-    let _ = user.can_use_xapi();
+    user.can_use_xapi()?;
 
     let conn = db.pool();
     if stateId.is_some() {
@@ -343,14 +280,14 @@ async fn delete(
 async fn get_state(
     conn: &PgPool,
     s: &SingleResourceParams<'_>,
-) -> Result<(String, DateTime<Utc>), Status> {
-    match find(conn, s).await {
-        Ok((None, _)) => Err(Status::NotFound),
-        Ok((Some(x), updated)) => Ok((x, updated)),
-        Err(x) => {
-            error!("Failed finding 1 State: {}", x);
-            Err(Status::InternalServerError)
-        }
+) -> Result<(String, DateTime<Utc>), MyError> {
+    let (x, updated) = find(conn, s).await?;
+    match x {
+        None => Err(MyError::HTTP {
+            status: Status::NotFound,
+            info: format!("State ({}) not found", s).into(),
+        }),
+        Some(y) => Ok((y, updated)),
     }
 }
 
@@ -361,30 +298,21 @@ async fn delete_one(
     agent: &str,
     registration: Option<&str>,
     state_id: &str,
-) -> Status {
-    match as_single(conn, activity_iri, agent, registration, state_id).await {
-        Ok(s) => {
-            debug!("s = {:?}", s);
-            match get_state(conn, &s).await {
-                Ok((doc, _)) => {
-                    let etag = etag_from_str(&doc);
-                    match eval_preconditions!(&etag, c) {
-                        s if s != Status::Ok => s,
-                        _ => match remove(conn, &s).await {
-                            Ok(_) => Status::NoContent,
-                            Err(x) => {
-                                error!("Failed while deleting state record: {}", x);
-                                Status::InternalServerError
-                            }
-                        },
-                    }
-                }
-                Err(x) => x,
-            }
-        }
+) -> Result<Status, MyError> {
+    let s = as_single(conn, activity_iri, agent, registration, state_id)
+        .map_err(|x| x.with_status(Status::BadRequest))
+        .await?;
+    debug!("s = {:?}", s);
+    let (doc, _) = get_state(conn, &s).await?;
+    let etag = etag_from_str(&doc);
+    match eval_preconditions!(&etag, c) {
+        s if s != Status::Ok => Err(MyError::HTTP {
+            status: s,
+            info: "Failed pre-condition(s)".into(),
+        }),
         _ => {
-            error!("Failed converting query parameters");
-            Status::BadRequest
+            remove(conn, &s).await?;
+            Ok(Status::NoContent)
         }
     }
 }
@@ -394,18 +322,11 @@ async fn delete_many(
     activity_iri: &str,
     agent: &str,
     registration: Option<&str>,
-) -> Status {
-    match as_single(conn, activity_iri, agent, registration, "").await {
-        Ok(s) => {
-            debug!("s = {:?}", s);
-            match remove_many(conn, &s).await {
-                Ok(_) => Status::NoContent,
-                Err(x) => {
-                    error!("Failed while deleting state records: {}", x);
-                    Status::InternalServerError
-                }
-            }
-        }
-        _ => Status::BadRequest,
-    }
+) -> Result<Status, MyError> {
+    let s = as_single(conn, activity_iri, agent, registration, "")
+        .map_err(|x| x.with_status(Status::BadRequest))
+        .await?;
+    debug!("s = {:?}", s);
+    remove_many(conn, &s).await?;
+    Ok(Status::NoContent)
 }

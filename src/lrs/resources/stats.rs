@@ -7,11 +7,12 @@
 //! * Avergae, and
 //! * Maximum durations in nano-seconds of servicing a request
 
+use crate::MyError;
 use dashmap::DashMap;
 use rocket::{
     fairing::{Fairing, Info, Kind},
     get,
-    http::{Method, Status},
+    http::Method,
     routes,
     serde::json::Json,
     Orbit, Rocket, Route,
@@ -156,7 +157,7 @@ struct StatsRecord {
 }
 
 #[get("/")]
-async fn stats() -> Result<Json<Vec<StatsRecord>>, Status> {
+async fn stats() -> Result<Json<Vec<StatsRecord>>, MyError> {
     let result = endpoints()
         .iter()
         .filter(|x| x.count.load(Ordering::Relaxed) > 0)

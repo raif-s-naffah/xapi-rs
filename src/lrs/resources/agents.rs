@@ -19,11 +19,12 @@ use crate::{
     db::actor::find_person,
     emit_response,
     lrs::{headers::Headers, resources::WithResource, User, DB},
+    MyError,
 };
 use rocket::{get, http::Status, routes, State};
 use sqlx::PgPool;
 use std::str::FromStr;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -36,37 +37,28 @@ async fn get(
     agent: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithResource<Person>, Status> {
+) -> Result<WithResource<Person>, MyError> {
     debug!("----- get ----- {}", user);
     user.can_use_xapi()?;
 
-    let agent = match Agent::from_str(agent) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing agent: {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let agent =
+        Agent::from_str(agent).map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
     debug!("agent = {}", agent);
     let resource = get_resource(db.pool(), &agent).await?;
     debug!("resource = {}", resource);
     emit_response!(c, resource => Person)
 }
 
-async fn get_resource(conn: &PgPool, agent: &Agent) -> Result<Person, Status> {
-    match find_person(conn, agent).await {
-        Ok(None) => {
+async fn get_resource(conn: &PgPool, agent: &Agent) -> Result<Person, MyError> {
+    let x = find_person(conn, agent).await?;
+    match x {
+        None => {
             // NOTE (rsn) 20241103 - CTS expects a Person object even when none
             // was found.  the spec only states "Returns: 200 OK, Person Object"
             // how clear is that :/
-            // Err(Status::NotFound)
             info!("No known Person");
             Ok(Person::unknown())
         }
-        Ok(Some(x)) => Ok(x),
-        Err(x) => {
-            error!("Failed finding Person: {}", x);
-            Err(Status::InternalServerError)
-        }
+        Some(x) => Ok(x),
     }
 }

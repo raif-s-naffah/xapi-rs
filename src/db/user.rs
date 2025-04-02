@@ -39,14 +39,20 @@ pub(crate) struct TUser {
 const FIND_ACTIVE_USER: &str = r#"SELECT * FROM users WHERE credentials = $1 AND enabled = true"#;
 
 /// Find active user w/ given credentials.
-pub(crate) async fn find_active_user(conn: &PgPool, credentials: u32) -> Result<User, MyError> {
+pub(crate) async fn find_active_user(
+    conn: &PgPool,
+    credentials: u32,
+) -> Result<Option<User>, MyError> {
     match sqlx::query_as::<_, TUser>(FIND_ACTIVE_USER)
         .bind(i64::from(credentials))
         .fetch_one(conn)
         .await
     {
-        Ok(x) => Ok(User::from(x)),
-        Err(x) => emit_db_error!(x, "Failed finding User w/ credentials {}", credentials),
+        Ok(x) => Ok(Some(User::from(x))),
+        Err(x) => match x {
+            sqlx::Error::RowNotFound => Ok(None),
+            x => emit_db_error!(x, "Failed find_active_user(..., {})", credentials),
+        },
     }
 }
 
@@ -68,20 +74,23 @@ pub(crate) async fn insert_user(
         .await
     {
         Ok(x) => Ok(User::from(x)),
-        Err(x) => emit_db_error!(x, "Failed creating user <{}>", user.0),
+        Err(x) => emit_db_error!(x, "Failed insert_user(..., ({}, ...))", user.0),
     }
 }
 
 const FIND_USER: &str = r#"SELECT * FROM users WHERE id = $1"#;
 
-pub(crate) async fn find_user(conn: &PgPool, id: i32) -> Result<User, MyError> {
+pub(crate) async fn find_user(conn: &PgPool, id: i32) -> Result<Option<User>, MyError> {
     match sqlx::query_as::<_, TUser>(FIND_USER)
         .bind(id)
         .fetch_one(conn)
         .await
     {
-        Ok(x) => Ok(User::from(x)),
-        Err(x) => emit_db_error!(x, "Failed finding User #{}", id),
+        Ok(x) => Ok(Some(User::from(x))),
+        Err(x) => match x {
+            sqlx::Error::RowNotFound => Ok(None),
+            x => emit_db_error!(x, "Failed find_user(..., {})", id),
+        },
     }
 }
 
@@ -91,20 +100,18 @@ pub(crate) async fn find_group_user(
     conn: &PgPool,
     id: i32,
     manager_id: i32,
-) -> Result<User, MyError> {
+) -> Result<Option<User>, MyError> {
     match sqlx::query_as::<_, TUser>(FIND_GROUP_USER)
         .bind(id)
         .bind(manager_id)
         .fetch_one(conn)
         .await
     {
-        Ok(x) => Ok(User::from(x)),
-        Err(x) => emit_db_error!(
-            x,
-            "Failed finding User #{} (managed by Admin #{})",
-            id,
-            manager_id
-        ),
+        Ok(x) => Ok(Some(User::from(x))),
+        Err(x) => match x {
+            sqlx::Error::RowNotFound => Ok(None),
+            x => emit_db_error!(x, "Failed find_group_user(..., {}, {})", id, manager_id),
+        },
     }
 }
 
@@ -120,7 +127,7 @@ pub(crate) async fn find_all_ids(conn: &PgPool) -> Result<Vec<i32>, MyError> {
             let result = x.iter().map(|y| y.0).collect::<Vec<i32>>();
             Ok(result)
         }
-        Err(x) => emit_db_error!(x, "Failed finding user IDs"),
+        Err(x) => emit_db_error!(x, "Failed find_all_ids(...)"),
     }
 }
 
@@ -136,7 +143,7 @@ pub(crate) async fn find_group_member_ids(conn: &PgPool, id: i32) -> Result<Vec<
             let result = x.iter().map(|y| y.0).collect::<Vec<i32>>();
             Ok(result)
         }
-        Err(x) => emit_db_error!(x, "Failed finding group user IDs"),
+        Err(x) => emit_db_error!(x, "Failed find_group_member_ids(..., {})", id),
     }
 }
 
@@ -186,8 +193,7 @@ pub(crate) async fn update_user(
             // FIXME (rsn) 20250318 - should be bad-request if error is
             // caused by DB constraint violation; e.g. email or
             // credentials not unique...
-            println!("error = {:?}", x);
-            emit_db_error!(x, "Failed updating User @{}", id)
+            emit_db_error!(x, "Failed update_user(..., {}, ...)", id)
         }
     }
 }
@@ -212,7 +218,7 @@ pub(crate) async fn batch_update_users(
                 info!("Success: {:?}", x);
                 Ok(())
             }
-            Err(x) => emit_db_error!(x, "Failed batch-updating enabled"),
+            Err(x) => emit_db_error!(x, "Failed batch_update_users(..., enabled)"),
         }
     } else if form.role.is_some() {
         let sql = format!("UPDATE users SET role = $1 {}", where_clause);
@@ -222,7 +228,7 @@ pub(crate) async fn batch_update_users(
                 info!("Success: {:?}", x);
                 Ok(())
             }
-            Err(x) => emit_db_error!(x, "Failed batch-updating role"),
+            Err(x) => emit_db_error!(x, "Failed batch_update_users(..., role)"),
         }
     } else if form.manager_id.is_some() {
         let sql = format!("UPDATE users SET manager_id = $1 {}", where_clause);
@@ -232,9 +238,9 @@ pub(crate) async fn batch_update_users(
                 info!("Success: {:?}", x);
                 Ok(())
             }
-            Err(x) => emit_db_error!(x, "Failed batch-updating role"),
+            Err(x) => emit_db_error!(x, "Failed batch_update_users(..., manager_id)"),
         }
     } else {
-        panic!("Unexpected batch_update call");
+        panic!("Unexpected batch_update_users(..., {:?}) call", form);
     }
 }

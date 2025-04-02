@@ -15,7 +15,7 @@ pub mod verbs;
 
 use crate::{
     lrs::{server::get_consistent_thru, Headers},
-    MyError,
+    DataError, MyError,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use etag::EntityTag;
@@ -25,7 +25,7 @@ use rocket::{
     Responder,
 };
 use serde::Serialize;
-use tracing::error;
+use tracing::debug;
 
 /// A derived Rocket Responder structure w/ an OK Status, a body consisting
 /// of the JSON Serialized string of a generic type `T`, an `Etag` and
@@ -68,11 +68,7 @@ where
     T: ?Sized + Serialize,
 {
     // serialize it...
-    let json = serde_json::to_string(res).map_err(|x| {
-        let msg = format!("Failed serializing resource: {}", x);
-        error!("{}", msg);
-        MyError::Runtime(msg.into())
-    })?;
+    let json = serde_json::to_string(res).map_err(|x| MyError::Data(DataError::JSON(x)))?;
     Ok(etag_from_str(&json))
 }
 
@@ -86,15 +82,9 @@ pub(crate) async fn do_emit_response<T: Serialize>(
     c: Headers,
     resource: T,
     timestamp: Option<DateTime<Utc>>,
-) -> Result<WithResource<T>, Status> {
-    let etag = match compute_etag(&resource) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed computing ETag: {}", x);
-            return Err(Status::InternalServerError);
-        }
-    };
-    tracing::debug!("Etag = '{}'", etag);
+) -> Result<WithResource<T>, MyError> {
+    let etag = compute_etag(&resource)?;
+    debug!("Etag = '{}'", etag);
 
     let last_modified = if let Some(x) = timestamp {
         x.to_rfc3339_opts(SecondsFormat::Millis, true)
@@ -103,33 +93,40 @@ pub(crate) async fn do_emit_response<T: Serialize>(
             .await
             .to_rfc3339_opts(SecondsFormat::Millis, true)
     };
-    tracing::debug!("Last-Modified = '{}'", last_modified);
+    debug!("Last-Modified = '{}'", last_modified);
 
     let response = Ok(WithResource {
-        inner: rocket::serde::json::Json(resource),
-        etag: rocket::http::Header::new(header::ETAG.as_str(), etag.to_string()),
-        last_modified: rocket::http::Header::new(header::LAST_MODIFIED.as_str(), last_modified),
+        inner: Json(resource),
+        etag: Header::new(header::ETAG.as_str(), etag.to_string()),
+        last_modified: Header::new(header::LAST_MODIFIED.as_str(), last_modified),
     });
 
     if !c.has_conditionals() {
-        tracing::debug!("Request has no If-xxx headers");
-        return response;
-    }
-    if c.has_if_match() {
-        if c.pass_if_match(&etag) {
-            tracing::debug!("ETag passed If-Match pre-condition");
-            return response;
-        }
-        tracing::debug!("ETag failed If-Match pre-condition");
-        return Err(Status::PreconditionFailed);
-    }
-    if c.pass_if_none_match(&etag) {
-        tracing::debug!("ETag passed If-None-Match pre-condition");
+        debug!("Request has no If-xxx headers");
         return response;
     }
 
-    tracing::debug!("ETag failed If-None-Match pre-condition");
-    Err(Status::NotModified)
+    if c.has_if_match() {
+        if c.pass_if_match(&etag) {
+            debug!("ETag passed If-Match pre-condition");
+            return response;
+        }
+
+        return Err(MyError::HTTP {
+            status: Status::PreconditionFailed,
+            info: "ETag failed If-Match pre-condition".into(),
+        });
+    }
+
+    if c.pass_if_none_match(&etag) {
+        debug!("ETag passed If-None-Match pre-condition");
+        return response;
+    }
+
+    Err(MyError::HTTP {
+        status: Status::NotModified,
+        info: "ETag failed If-None-Match pre-condition".into(),
+    })
 }
 
 /// Given `$resource` of type `$type` that is `serde` _Serializable_ and
@@ -159,9 +156,9 @@ macro_rules! emit_response {
 pub(crate) async fn emit_doc_response(
     resource: String,
     timestamp: Option<DateTime<Utc>>,
-) -> Result<WithDocumentOrIDs, Status> {
+) -> Result<WithDocumentOrIDs, MyError> {
     let etag = etag_from_str(&resource);
-    tracing::debug!("etag = '{}'", etag);
+    debug!("etag = '{}'", etag);
     let last_modified = if let Some(x) = timestamp {
         x.to_rfc3339_opts(SecondsFormat::Millis, true)
     } else {
@@ -172,8 +169,8 @@ pub(crate) async fn emit_doc_response(
 
     Ok(WithDocumentOrIDs {
         inner: resource,
-        etag: rocket::http::Header::new(header::ETAG.as_str(), etag.to_string()),
-        last_modified: rocket::http::Header::new(header::LAST_MODIFIED.as_str(), last_modified),
+        etag: Header::new(header::ETAG.as_str(), etag.to_string()),
+        last_modified: Header::new(header::LAST_MODIFIED.as_str(), last_modified),
     })
 }
 

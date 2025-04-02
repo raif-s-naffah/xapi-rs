@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::data::DataError;
+use rocket::{
+    http::Status,
+    response::{self, Responder},
+    Request, Response,
+};
+use serde_json::json;
 use std::{borrow::Cow, io};
 use thiserror::Error;
-use tracing::error;
+use tracing::{error, info};
 
 /// Enumeration of different error types raised by this crate.
 #[derive(Debug, Error)]
@@ -92,4 +98,50 @@ pub enum MyError {
         #[from]
         josekit::JoseError,
     ),
+
+    /// Rocket-fiendly handler error.
+    #[error("Rocket handler error ({status}): {info}")]
+    HTTP {
+        /// HTTP Status code.
+        status: Status,
+        /// Text message giving more context to the reason this error was raised.
+        info: Cow<'static, str>,
+    },
+}
+
+impl MyError {
+    /// Return a new instance that is an HTTP variant w/ the designated Status
+    /// code and the original error string.
+    pub fn with_status(self, s: Status) -> Self {
+        match self {
+            MyError::HTTP { status, info } => {
+                info!("Replace status {} w/ {}", status, s);
+                MyError::HTTP { status: s, info }
+            }
+            _ => MyError::HTTP {
+                status: s,
+                info: self.to_string().into(),
+            },
+        }
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> Responder<'r, 'static> for MyError {
+    fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
+        let status = match self {
+            MyError::HTTP { status, .. } => status,
+            _ => Status::InternalServerError,
+        };
+        error!("Failed: {}", &self);
+        Response::build_from(
+            json!({
+                "status": status.code,
+                "info": format!("{}", self),
+            })
+            .respond_to(req)?,
+        )
+        .status(status)
+        .ok()
+    }
 }

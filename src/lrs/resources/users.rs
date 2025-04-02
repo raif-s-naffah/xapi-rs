@@ -12,17 +12,19 @@ use crate::{
         etag_from_str, resources::WithResource, server::get_consistent_thru, Headers, Role, User,
         DB,
     },
+    DataError, MyError,
 };
 use chrono::SecondsFormat;
 use rocket::{
     form::Form,
+    futures::TryFutureExt,
     get,
     http::{hyper::header, Header, Status},
     post, put, routes,
     serde::json::Json,
     FromForm, Route, State,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 /// Form to use when creating new users.
 #[derive(Debug, FromForm)]
@@ -78,7 +80,7 @@ async fn post(
     form: Form<CreateForm<'_>>,
     db: &State<DB>,
     user: User,
-) -> Result<WithResource<User>, Status> {
+) -> Result<WithResource<User>, MyError> {
     debug!("----- post ----- {}", user);
     user.can_manage_users()?;
 
@@ -91,18 +93,14 @@ async fn post(
     if !user.is_root() {
         // it's an admin.  they can create users w/ User | AuthUser roles only
         if !matches!(z_role, Role::User | Role::AuthUser) {
-            error!("Admin ({}) can only create users w/ [Auth]User roles", user);
-            return Err(Status::Forbidden);
+            return Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: format!("Admin ({}) can only create users w/ [Auth]User roles", user).into(),
+            });
         }
     }
-    let conn = db.pool();
-    match insert_user(conn, (form.email, form.password, z_role, user.id)).await {
-        Ok(x) => emit_user_response(x, false).await,
-        Err(x) => {
-            error!("Failed creating user: {}", x);
-            Err(Status::InternalServerError)
-        }
-    }
+    let x = insert_user(db.pool(), (form.email, form.password, z_role, user.id)).await?;
+    emit_user_response(x, false).await
 }
 
 /// Fetch the user w/ the designated ID if it exists.
@@ -111,58 +109,62 @@ async fn post(
 /// but only an _Admin_ and the targeted user was found but is managed by a
 /// different _Admin_, then the call will fail w/ a 404 _Status_.
 #[get("/<id>")]
-async fn get_one(id: i32, db: &State<DB>, user: User) -> Result<WithResource<User>, Status> {
+async fn get_one(id: i32, db: &State<DB>, user: User) -> Result<WithResource<User>, MyError> {
     debug!("----- get_one ----- {}", user);
     user.can_manage_users()?;
 
     if user.is_root() {
-        match find_user(db.pool(), id).await {
-            Ok(x) => emit_response!(Headers::default(), x => User),
-            Err(x) => {
-                error!("Failed finding user: {}", x);
-                Err(Status::NotFound)
-            }
+        let x = find_user(db.pool(), id)
+            .map_err(|x| x.with_status(Status::NotFound))
+            .await?;
+        match x {
+            Some(y) => emit_response!(Headers::default(), y => User),
+            None => Err(MyError::HTTP {
+                status: Status::NotFound,
+                info: format!("User #{} not found", id).into(),
+            }),
         }
     } else if user.is_admin() {
-        match find_group_user(db.pool(), id, user.id).await {
-            Ok(x) => emit_response!(Headers::default(), x => User),
-            Err(x) => {
-                error!("Failed finding group user: {}", x);
-                Err(Status::NotFound)
-            }
+        let x = find_group_user(db.pool(), id, user.id)
+            .map_err(|x| x.with_status(Status::NotFound))
+            .await?;
+        match x {
+            Some(y) => emit_response!(Headers::default(), y => User),
+            None => Err(MyError::HTTP {
+                status: Status::NotFound,
+                info: format!("User #{} not found", id).into(),
+            }),
         }
     } else {
-        error!("Only Root and Admins can fetch users");
-        Err(Status::Forbidden)
+        Err(MyError::HTTP {
+            status: Status::Forbidden,
+            info: "Only Root and Admins can fetch users".into(),
+        })
     }
 }
 
 /// Fetch all user IDs managed by the requesting authenticated user if they
 /// are an _Admin_ or simply all user IDs if it was _Root_.
 #[get("/")]
-async fn get_ids(db: &State<DB>, user: User) -> Result<Json<Vec<i32>>, Status> {
+async fn get_ids(db: &State<DB>, user: User) -> Result<Json<Vec<i32>>, MyError> {
     debug!("----- get_ids ----- {}", user);
     user.can_manage_users()?;
 
     if user.is_root() {
-        match find_all_ids(db.pool()).await {
-            Ok(x) => Ok(Json(x)),
-            Err(x) => {
-                error!("Failed finding all user IDs: {}", x);
-                Err(Status::NotFound)
-            }
-        }
+        let x = find_all_ids(db.pool())
+            .map_err(|x| x.with_status(Status::NotFound))
+            .await?;
+        Ok(Json(x))
     } else if user.is_admin() {
-        match find_group_member_ids(db.pool(), user.id).await {
-            Ok(x) => Ok(Json(x)),
-            Err(x) => {
-                error!("Failed finding group user IDs: {}", x);
-                Err(Status::NotFound)
-            }
-        }
+        let x = find_group_member_ids(db.pool(), user.id)
+            .map_err(|x| x.with_status(Status::NotFound))
+            .await?;
+        Ok(Json(x))
     } else {
-        error!("Only Root and Admins can fetch user IDs");
-        Err(Status::Forbidden)
+        Err(MyError::HTTP {
+            status: Status::Forbidden,
+            info: "Only Root and Admins can fetch users IDs".into(),
+        })
     }
 }
 
@@ -181,23 +183,28 @@ async fn update_one(
     form: Form<UpdateForm<'_>>,
     db: &State<DB>,
     user: User,
-) -> Result<WithResource<User>, Status> {
+) -> Result<WithResource<User>, MyError> {
     debug!("----- update_one ----- {}", user);
-
     debug!("form = {:?}", form);
 
-    let old_user = match find_user(db.pool(), id).await {
-        Ok(x) => x,
-        Err(x) => {
-            error!("No such user: {}", x);
-            return Err(Status::NotFound);
+    let x = find_user(db.pool(), id)
+        .map_err(|x| x.with_status(Status::NotFound))
+        .await?;
+    let old_user = match x {
+        Some(y) => y,
+        None => {
+            return Err(MyError::HTTP {
+                status: Status::NotFound,
+                info: format!("User #{} not found", id).into(),
+            })
         }
     };
     debug!("old_user = {}", old_user);
-
     if old_user.is_root() {
-        error!("Root properties are immutable");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Root properties are immutable".into(),
+        });
     }
 
     // we do not allow combined updates --except for the special case of the
@@ -206,8 +213,10 @@ async fn update_one(
     if form.enabled.is_some_and(|x| x != old_user.enabled) {
         // only root and current admin can alter enabled flag...
         if !(user.is_root() || user.id == old_user.manager_id) {
-            error!("Only Root and the user's Admin can alter enabled flag");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Only Root and the user's Admin can alter enabled flag".into(),
+            });
         }
         debug!("Will update enabled flag...")
     } else if form
@@ -220,66 +229,73 @@ async fn update_one(
         // users they manage...
         if !user.is_root() {
             if user.id != old_user.manager_id {
-                error!("Only Root and the user's Admin can alter roles");
-                return Err(Status::Forbidden);
+                return Err(MyError::HTTP {
+                    status: Status::Forbidden,
+                    info: "Only Root and the user's Admin can alter roles".into(),
+                });
             }
 
             let new_role = Role::from(form.role.as_ref().unwrap().0);
             if !matches!(new_role, Role::User | Role::AuthUser) {
-                error!("Admins can alter roles from User to AuthUser or vice-versa only");
-                return Err(Status::BadRequest);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: "Admins can alter roles from User to AuthUser or vice-versa only".into(),
+                });
             }
         }
         debug!("Will update role...")
     } else if form.manager_id.is_some_and(|x| x != old_user.manager_id) {
         // only root can re-assign manager_id...
         if !user.is_root() {
-            error!("Only Root can alter manager_id");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Only Root can alter manager_id".into(),
+            });
         }
         debug!("Will update manager_id...")
     } else if form.email.is_some() || form.password.is_some() {
         // both must be provided...
         if form.email.is_none() || form.password.is_none() {
-            error!("When updating either 'email' or 'password' both values must be provided");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "When updating either 'email' or 'password' both values must be provided"
+                    .into(),
+            });
         }
         // only a non-root user can change their email and/or password...
         if !(user.is_root() || user.id != id) {
-            error!("Only non-Root user can alter their 'email' + 'password' fields");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Only non-Root user can alter their 'email' + 'password' fields".into(),
+            });
         }
         debug!("Will update email + credentials...")
     } else {
-        error!("You're wasting my time :(");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "You're wasting my time :(".into(),
+        });
     }
 
     // continue if pre-conditions exist + pass...
     if c.has_no_conditionals() {
-        error!("Update User w/ no pre-conditions is NOT allowed");
-        Err(Status::Conflict)
+        Err(MyError::HTTP {
+            status: Status::Conflict,
+            info: "Update User w/ no pre-conditions is NOT allowed".into(),
+        })
     } else {
-        let etag = match serde_json::to_string(&old_user) {
-            Ok(x) => etag_from_str(&x),
-            Err(x) => {
-                error!("Failed serializing User: {}", x);
-                return Err(Status::InternalServerError);
-            }
-        };
+        let x = serde_json::to_string(&old_user).map_err(|x| MyError::Data(DataError::JSON(x)))?;
+        let etag = etag_from_str(&x);
         debug!("etag (old) = {}", etag);
         match eval_preconditions!(&etag, c) {
-            s if s != Status::Ok => Err(s),
-            _ => match update_user(db.pool(), id, form.into_inner()).await {
-                Ok(x) => emit_user_response(x, true).await,
-                Err(x) => {
-                    error!("Failed updating User: {}", x);
-                    // FIXME (rsn) 20250318 - should be bad-request if error is
-                    // caused by DB constraint violation; e.g. email or
-                    // credentials not unique...
-                    Err(Status::InternalServerError)
-                }
-            },
+            s if s != Status::Ok => Err(MyError::HTTP {
+                status: s,
+                info: "Failed pre-condition(s)".into(),
+            }),
+            _ => {
+                let x = update_user(db.pool(), id, form.into_inner()).await?;
+                emit_user_response(x, true).await
+            }
         }
     }
 }
@@ -299,7 +315,7 @@ async fn update_many(
     form: Form<BatchUpdateForm>,
     db: &State<DB>,
     user: User,
-) -> Result<Status, Status> {
+) -> Result<Status, MyError> {
     debug!("----- update_one ----- {}", user);
     user.can_manage_users()?;
 
@@ -315,19 +331,13 @@ async fn update_many(
     let conn = db.pool();
     // if user is Admin, ensures all IDs are for users they manage...
     if user.is_admin() {
-        match find_group_member_ids(conn, user.id).await {
-            Ok(x) => {
-                // let ok = x.iter().all(|x| ids.contains(x));
-                let ok = ids.iter().all(|id| x.contains(id));
-                if !ok {
-                    error!("Admins can only do batch updates for users they manage");
-                    return Err(Status::BadRequest);
-                }
-            }
-            Err(x) => {
-                error!("Failed fetching group IDs for Admin #{}: {}", user.id, x);
-                return Err(Status::InternalServerError);
-            }
+        let x = find_group_member_ids(conn, user.id).await?;
+        let ok = ids.iter().all(|id| x.contains(id));
+        if !ok {
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Admins can only do batch updates for users they manage".into(),
+            });
         }
 
         // Admins can only change Role to User or AuthUser...
@@ -336,56 +346,46 @@ async fn update_many(
             .as_ref()
             .is_some_and(|x| !matches!(Role::from(x.0), Role::User | Role::AuthUser))
         {
-            error!("Admins can only toggle role between User and AuthUser");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Admins can only toggle role between User and AuthUser".into(),
+            });
         }
 
         // only Root can alter manager_id...
         if form.manager_id.is_some() {
-            error!("Only Root can re-assign manager ID");
-            return Err(Status::Forbidden);
+            return Err(MyError::HTTP {
+                status: Status::Forbidden,
+                info: "Only Root can re-assign manager ID".into(),
+            });
         }
     }
 
-    match batch_update_users(db.pool(), form.into_inner()).await {
-        Ok(_) => {
-            // NOTE (rsn) 20250317 - the safest course of action here is to
-            // clear the LRU cache.
-            User::clear_cache().await;
+    batch_update_users(db.pool(), form.into_inner()).await?;
+    // NOTE (rsn) 20250317 - the safest course of action here is to
+    // clear the LRU cache.
+    User::clear_cache().await;
 
-            Ok(Status::Ok)
-        }
-        Err(x) => {
-            error!("Failed batch updating users: {}", x);
-            Err(Status::InternalServerError)
-        }
-    }
+    Ok(Status::Ok)
 }
 
 /// Construct and return a response based on the User `u`. If in addition,
 /// `uncache` is TRUE then also evict said User from the LRU cache.
-async fn emit_user_response(u: User, uncache: bool) -> Result<WithResource<User>, Status> {
-    match serde_json::to_string(&u) {
-        Ok(x) => {
-            let etag = etag_from_str(&x);
-            debug!("etag (new) = {}", etag);
-            let last_modified = get_consistent_thru()
-                .await
-                .to_rfc3339_opts(SecondsFormat::Millis, true);
+async fn emit_user_response(u: User, uncache: bool) -> Result<WithResource<User>, MyError> {
+    let x = serde_json::to_string(&u).map_err(|x| MyError::Data(DataError::JSON(x)))?;
+    let etag = etag_from_str(&x);
+    debug!("etag (new) = {}", etag);
+    let last_modified = get_consistent_thru()
+        .await
+        .to_rfc3339_opts(SecondsFormat::Millis, true);
 
-            if uncache {
-                u.uncache().await
-            }
-
-            Ok(WithResource {
-                inner: rocket::serde::json::Json(u),
-                etag: Header::new(header::ETAG.as_str(), etag.to_string()),
-                last_modified: Header::new(header::LAST_MODIFIED.as_str(), last_modified),
-            })
-        }
-        Err(x) => {
-            error!("Failed serializing User response: {}", x);
-            Err(Status::InternalServerError)
-        }
+    if uncache {
+        u.uncache().await
     }
+
+    Ok(WithResource {
+        inner: rocket::serde::json::Json(u),
+        etag: Header::new(header::ETAG.as_str(), etag.to_string()),
+        last_modified: Header::new(header::LAST_MODIFIED.as_str(), last_modified),
+    })
 }

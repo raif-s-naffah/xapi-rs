@@ -14,13 +14,13 @@ use crate::{
     config::config,
     emit_response,
     lrs::resources::{Headers, WithResource},
-    About, DataError, Extensions, MyVersion, EXT_STATS, EXT_USERS, EXT_VERBS, STATS_EXT_BASE,
-    USERS_EXT_BASE, V200, VERBS_EXT_BASE,
+    About, DataError, Extensions, MyError, MyVersion, EXT_STATS, EXT_USERS, EXT_VERBS,
+    STATS_EXT_BASE, USERS_EXT_BASE, V200, VERBS_EXT_BASE,
 };
-use rocket::{get, http::Status, routes};
+use rocket::{get, routes};
 use serde_json::Value;
 use std::str::FromStr;
-use tracing::{debug, error};
+use tracing::debug;
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
@@ -31,16 +31,11 @@ pub fn routes() -> Vec<rocket::Route> {
 // NOTE (rsn) 2024097 - removed the Headers guard to allow /about calls w/o an
 // xapi version header...
 #[get("/")]
-async fn get() -> Result<WithResource<About>, Status> {
+async fn get() -> Result<WithResource<About>, MyError> {
     debug!("----- get -----");
 
-    match build_about() {
-        Ok(x) => emit_response!(Headers::default(), x => About),
-        Err(x) => {
-            error!("Failed instantiating About: {}", x);
-            Err(Status::InternalServerError)
-        }
-    }
+    let x = build_about().map_err(MyError::Data)?;
+    emit_response!(Headers::default(), x => About)
 }
 
 fn build_about() -> Result<About, DataError> {

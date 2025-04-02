@@ -31,14 +31,14 @@ use crate::{
         server::{get_consistent_thru, qp},
         Signature, User, DB,
     },
-    MyError,
+    DataError, MyError,
 };
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use chrono::{DateTime, SecondsFormat, Utc};
 use mime::{Mime, APPLICATION_JSON};
 use openssl::sha::Sha256;
 use rocket::{
-    futures::Stream,
+    futures::{Stream, TryFutureExt},
     get,
     http::{hyper::header, ContentType, Header, Status},
     post, put,
@@ -266,17 +266,12 @@ async fn put_mixed(
     data: MultipartReader<'_>,
     db: &State<DB>,
     user: User,
-) -> Result<PutResponse, Status> {
+) -> Result<PutResponse, MyError> {
     debug!("----- put_mixed ----- {}", user);
     user.can_use_xapi()?;
 
-    let uuid = match Uuid::parse_str(statementId) {
-        Err(x) => {
-            error!("Statement ID is not a valid UUID: {}", x);
-            return Err(Status::BadRequest);
-        }
-        Ok(x) => x,
-    };
+    let uuid = Uuid::parse_str(statementId)
+        .map_err(|x| MyError::Data(DataError::UUID(x)).with_status(Status::BadRequest))?;
     debug!("Statement UUID = {}", uuid);
 
     // we use this here for a single Statement as w/ POST for multiple ones
@@ -287,8 +282,10 @@ async fn put_mixed(
     if statement.id().is_none() {
         statement.set_id(uuid)
     } else if *statement.id().unwrap() != uuid {
-        error!("Statement ID in URL does not match one in body");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Statement ID in URL does not match one in body".into(),
+        });
     }
 
     return persist_one(db.pool(), c, statement, &user).await;
@@ -301,26 +298,16 @@ async fn put_json(
     json: &str,
     db: &State<DB>,
     user: User,
-) -> Result<PutResponse, Status> {
+) -> Result<PutResponse, MyError> {
     debug!("----- put_json ----- {}", user);
     user.can_use_xapi()?;
 
-    let uuid = match Uuid::parse_str(statementId) {
-        Err(x) => {
-            error!("Statement ID is not a valid UUID: {}", x);
-            return Err(Status::BadRequest);
-        }
-        Ok(x) => x,
-    };
+    let uuid = Uuid::parse_str(statementId)
+        .map_err(|x| MyError::Data(DataError::UUID(x)).with_status(Status::BadRequest))?;
     debug!("statement UUID = {}", uuid);
 
-    let mut statement = match Statement::from_str(json) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed unmarshalling Statement: {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let mut statement =
+        Statement::from_str(json).map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
 
     // NOTE (rsn) 202410004 /4.1.3 Content Types/ - When receiving a PUT or
     // POST request with application/json content-type, an LRS shall respond
@@ -334,14 +321,19 @@ async fn put_json(
     }
     if count > 0 {
         error!("Found {} Attachment(s) w/ unpopulated 'fileUrl'", count);
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: format!("Found {} Attachment(s) w/ unpopulated 'fileUrl'", count).into(),
+        });
     }
 
     if statement.id().is_none() {
         statement.set_id(uuid)
     } else if *statement.id().unwrap() != uuid {
-        error!("Statement ID in URL does not match one in body");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Statement ID in URL does not match one in body".into(),
+        });
     }
 
     return persist_one(db.pool(), c, &mut statement, &user).await;
@@ -374,7 +366,7 @@ async fn post_mixed(
     data: MultipartReader<'_>,
     db: &State<DB>,
     user: User,
-) -> Result<PostResponse, Status> {
+) -> Result<PostResponse, MyError> {
     debug!("----- post_mixed ----- {}", user);
     user.can_use_xapi()?;
 
@@ -390,20 +382,16 @@ async fn post_json(
     json: Json<Statements>,
     db: &State<DB>,
     user: User,
-) -> Result<PostResponse, Status> {
+) -> Result<PostResponse, MyError> {
     debug!("----- post_json ----- {}", user);
     user.can_use_xapi()?;
 
     debug!("c = {:?}", c);
     let mut statements = vec![];
     for map in json.0 .0 {
-        match Statement::from_json_obj(map) {
-            Ok(x) => statements.push(x),
-            Err(x) => {
-                error!("Failed unmarshalling a Statement: {}", x);
-                return Err(Status::BadRequest);
-            }
-        }
+        let x = Statement::from_json_obj(map)
+            .map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
+        statements.push(x)
     }
 
     // NOTE (rsn) 202410004 /4.1.3 Content Types/ - When receiving a PUT or
@@ -419,8 +407,10 @@ async fn post_json(
         }
     }
     if count > 0 {
-        error!("Statement w/ {} unresolved Attachment(s)", count);
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: format!("Statement w/ {} unresolved Attachment(s)", count).into(),
+        });
     }
 
     persist_many(db.pool(), c, statements, &user).await
@@ -430,17 +420,22 @@ async fn post_json(
 // are sent to the LRS.  unfortunately however Rocket responds to those requests
 // w/ a 404 not 400 :(  this is a stop-gap to catch such requests...
 #[post("/", data = "<ignored>", rank = 1)]
-async fn __post(ignored: &str) -> Status {
+async fn __post(ignored: &str) -> Result<PostResponse, MyError> {
     debug!("----- __post -----");
     let _ = ignored;
-    Status::BadRequest
+    Err(MyError::HTTP {
+        status: Status::BadRequest,
+        info: "Rocket-specific stopgap. Redirect 404 to 400".into(),
+    })
 }
 
 #[post("/", format = "multipart/form-data")]
-async fn post_form() -> Result<PostResponse, Status> {
+async fn post_form() -> Result<PostResponse, MyError> {
     debug!("----- post_form -----");
-    error!("Abort. xAPI V2 does not support multipart/form-data");
-    Err(Status::BadRequest)
+    Err(MyError::HTTP {
+        status: Status::BadRequest,
+        info: "Abort. xAPI V2 does not support multipart/form-data".into(),
+    })
 }
 
 const VALID_GET_PARAMS: [&str; 14] = [
@@ -477,7 +472,7 @@ async fn get_some<'r>(
     mut extras: HashMap<&'r str, &'r str>,
     db: &State<DB>,
     user: User,
-) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, MyError> {
     debug!("----- get_some ----- {}", user);
     user.can_use_xapi()?;
 
@@ -488,25 +483,24 @@ async fn get_some<'r>(
     extras.retain(|k, _| !VALID_GET_PARAMS.contains(k));
     debug!("extras = {:?}", extras);
     if !extras.is_empty() {
-        error!("Received extraneous query string parameters: {:?}", extras);
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: format!("Received extraneous query string parameters: {:?}", extras).into(),
+        });
     }
 
     // The LRS shall reject with a 400 Bad Request error any requests to this
     // resource which contain both statementId and voidedStatementId parameters.
     if let (Some(_), Some(_)) = (q.statement_id, q.voided_statement_id) {
-        error!("Either 'statementId' or 'voidedStatementId' should be present. Not both");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Either 'statementId' or 'voidedStatementId' should be present. Not both".into(),
+        });
     }
 
     let with_attachments = q.attachments.unwrap_or(false);
-    let format = match Format::new(q.format.unwrap_or("exact"), c.languages().to_vec()) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing 'format': {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let format = Format::new(q.format.unwrap_or("exact"), c.languages().to_vec())
+        .map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
 
     let single = q.statement_id.is_some() || q.voided_statement_id.is_some();
     let resource = if single {
@@ -525,8 +519,12 @@ async fn get_some<'r>(
             || q.limit.is_some()
             || q.ascending.is_some()
         {
-            error!("Only 'attachments' and 'format' can be present when 1 Statement is requested");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info:
+                    "Only 'attachments' and 'format' can be present when 1 Statement is requested"
+                        .into(),
+            });
         }
 
         let (voided, uuid) = if q.statement_id.is_some() {
@@ -534,17 +532,13 @@ async fn get_some<'r>(
         } else {
             (true, q.voided_statement_id.unwrap())
         };
-        let uuid = match Uuid::from_str(uuid) {
-            Ok(x) => x,
-            Err(x) => {
-                error!("Failed parsing 'statementId' or 'voidedStatementId': {}", x);
-                return Err(Status::BadRequest);
-            }
-        };
+
+        let uuid = Uuid::from_str(uuid)
+            .map_err(|x| MyError::Data(DataError::UUID(x)).with_status(Status::BadRequest))?;
 
         get_one(db.pool(), uuid, voided, &format).await
     } else {
-        let filter = match Filter::from(
+        let filter = Filter::from(
             db.pool(),
             q.agent,
             q.verb,
@@ -558,13 +552,7 @@ async fn get_some<'r>(
             q.ascending,
         )
         .await
-        {
-            Ok(x) => x,
-            Err(x) => {
-                error!("Failed processing request params: {}", x);
-                return Err(Status::BadRequest);
-            }
-        };
+        .map_err(|x| x.with_status(Status::BadRequest))?;
 
         get_many(db.pool(), filter, &format, with_attachments).await
     };
@@ -573,10 +561,8 @@ async fn get_some<'r>(
     debug!("resource = {:?}", resource);
     if !with_attachments {
         let stored = resource.stored();
-        match emit_response!(c, resource => StatementType, stored) {
-            Ok(x) => Ok(EitherOr::JsonX(GetResponse { inner: x })),
-            Err(x) => Err(x),
-        }
+        let x = emit_response!(c, resource => StatementType, stored)?;
+        Ok(EitherOr::JsonX(GetResponse { inner: x }))
     } else {
         send_multipart(&resource).await
     }
@@ -584,7 +570,7 @@ async fn get_some<'r>(
 
 async fn send_multipart(
     resource: &StatementType,
-) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, MyError> {
     let mut server_last_modified = get_consistent_thru().await;
     let stored = resource.stored();
     if stored > server_last_modified {
@@ -625,7 +611,7 @@ async fn get_more(
     attachments: bool,
     db: &State<DB>,
     user: User,
-) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, Status> {
+) -> Result<EitherOr<impl Stream<Item = MultipartSection<'static>> + use<>>, MyError> {
     debug!("----- get_more ----- {}", user);
     user.can_use_xapi()?;
 
@@ -637,45 +623,35 @@ async fn get_more(
     debug!("format = {}", format);
     debug!("attachments? {}", attachments);
 
-    let format = match Format::new(format, c.languages().to_vec()) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing 'format': {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let format = Format::new(format, c.languages().to_vec())
+        .map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
 
-    let resource = match find_more_statements(db.pool(), sid, count, offset, limit, &format).await {
-        Ok((mut x, y)) => {
-            if y.is_some() {
-                let pi = y.unwrap();
-                let more =
-                    format!(
-                    "statements/more/?sid={}&count={}&offset={}&limit={}&format={}&attachments={}",
-                    sid, pi.count, pi.offset, pi.limit, format.as_param(), attachments
-                );
-                let url = config().to_external_url(&more);
-                debug!("more URL = '{}'", url);
-                if let Err(z) = &x.set_more(&url) {
-                    warn!("Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}", z);
-                }
-            }
-            x
+    let (mut resource, y) =
+        find_more_statements(db.pool(), sid, count, offset, limit, &format).await?;
+    if y.is_some() {
+        let pi = y.unwrap();
+        let more = format!(
+            "statements/more/?sid={}&count={}&offset={}&limit={}&format={}&attachments={}",
+            sid,
+            pi.count,
+            pi.offset,
+            pi.limit,
+            format.as_param(),
+            attachments
+        );
+        let url = config().to_external_url(&more);
+        debug!("more URL = '{}'", url);
+        if let Err(z) = &resource.set_more(&url) {
+            warn!("Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}", z);
         }
-        Err(x) => {
-            error!("Failed finding more Statements: {}", x);
-            return Err(Status::InternalServerError);
-        }
-    };
+    }
 
     if attachments {
         send_multipart(&resource).await
     } else {
         let last_modified = get_consistent_thru().await;
-        match emit_response!(c, resource => StatementType, last_modified) {
-            Ok(x) => Ok(EitherOr::JsonX(GetResponse { inner: x })),
-            Err(x) => Err(x),
-        }
+        let x = emit_response!(c, resource => StatementType, last_modified)?;
+        Ok(EitherOr::JsonX(GetResponse { inner: x }))
     }
 }
 
@@ -717,7 +693,7 @@ async fn as_json<T: DeserializeOwned>(
 async fn ingest_multipart(
     mut data: MultipartReader<'_>,
     force_ids: bool,
-) -> Result<Vec<Statement>, Status> {
+) -> Result<Vec<Statement>, MyError> {
     debug!("content-type: {}", data.content_type().0);
     debug!("force_ids? {}", force_ids);
 
@@ -741,39 +717,28 @@ async fn ingest_multipart(
     {
         if ndx == 0 {
             // 1st part.  always one or more Statement...
-            let tmp = as_json::<Statements>(&mut part).await;
-            match tmp {
-                Ok(x) => {
-                    for map in x.0 {
-                        let tmp2 = Statement::from_json_obj(map);
-                        match tmp2 {
-                            Ok(x) => statements.push(x),
-                            Err(x) => {
-                                error!("Failed unmarshalling a Statement: {}", x);
-                                return Err(Status::BadRequest);
-                            }
-                        }
-                    }
-                    // * When receiving a PUT or POST with a document type of
-                    //   multipart/mixed, an LRS shall accept batches of
-                    //   Statements which contain only Attachment Objects with
-                    //   a populated fileUrl."
-                    for s in &mut statements {
-                        if s.id().is_none() && force_ids {
-                            s.set_id(Uuid::now_v7())
-                        }
-                        for att in s.attachments() {
-                            total += 1;
-                            if att.file_url().is_none() {
-                                unpopulated += 1
-                            }
-                            included.push(InPartInfo::from(att))
-                        }
-                    }
+            let x = as_json::<Statements>(&mut part)
+                .map_err(|x| x.with_status(Status::BadRequest))
+                .await?;
+            for map in x.0 {
+                let y = Statement::from_json_obj(map)
+                    .map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
+                statements.push(y)
+            }
+            // * When receiving a PUT or POST with a document type of
+            //   multipart/mixed, an LRS shall accept batches of
+            //   Statements which contain only Attachment Objects with
+            //   a populated fileUrl."
+            for s in &mut statements {
+                if s.id().is_none() && force_ids {
+                    s.set_id(Uuid::now_v7())
                 }
-                Err(x) => {
-                    error!("Failed unmarshalling (Statements) 1st Part: {}", x);
-                    return Err(Status::BadRequest);
+                for att in s.attachments() {
+                    total += 1;
+                    if att.file_url().is_none() {
+                        unpopulated += 1
+                    }
+                    included.push(InPartInfo::from(att))
                 }
             }
         } else if total == 0 {
@@ -781,15 +746,19 @@ async fn ingest_multipart(
             //   mixed, an LRS shall reject batches of Statements having Attachments
             //   that neither contain a fileUrl nor match a received Attachment
             //   part based on their hash.
-            error!("This is the 2nd Part but we have no Attachments to match");
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "This is the 2nd Part but we have no Attachments to match".into(),
+            });
         } else {
             // * shall include an X-Experience-API-Hash parameter in each part's
             //   header after the first (Statements) part.
             let hash = part.headers().get_one(HASH_HDR);
             if hash.is_none() {
-                error!("Missing Hash header");
-                return Err(Status::BadRequest);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: "Missing Hash header".into(),
+                });
             }
             let hash = hash.unwrap().to_owned();
             debug!("-- x-experience-api-hash: '{}'", hash);
@@ -798,14 +767,18 @@ async fn ingest_multipart(
             //   'binary' in each part's header after the first (Statements) part.
             let cte = part.headers().get_one(CONTENT_TRANSFER_ENCODING_HDR);
             if cte.is_none() {
-                error!("Missing CTE header");
-                return Err(Status::BadRequest);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: "Missing CTE header".into(),
+                });
             }
             let enc = cte.unwrap().trim();
             debug!("-- content-transfer-encoding: {}", enc);
             if enc != "binary" {
-                error!("Expected 'binary' CTE but found '{}'", enc);
-                return Err(Status::BadRequest);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: format!("Expected 'binary' CTE but found '{}'", enc).into(),
+                });
             }
 
             // size only enters into the equation if a Content-Length is present...
@@ -819,13 +792,9 @@ async fn ingest_multipart(
             // TODO (rsn) 20240909 - this conversion must not fail.  to that end
             // ensure that Rocket multipart limits accomodate usize::MAX and use
             // an i128 data type for the Attachment.length property.
-            let size = match i64::try_from(size) {
-                Ok(x) => x,
-                Err(x) => {
-                    error!("Failed converting {} to i64: {}", size, x);
-                    return Err(Status::InternalServerError);
-                }
-            };
+            let size = i64::try_from(size).map_err(|x| {
+                MyError::Runtime(format!("Failed converting {} to i64: {}", size, x).into())
+            })?;
 
             // does the part match any of our `included` items?
             if let Some(ac) = included.iter_mut().find(|x| x.sha2 == hash) {
@@ -842,16 +811,21 @@ async fn ingest_multipart(
                         Ok(cl) => {
                             debug!("-- content-length: {}", cl);
                             if ac.len != cl {
-                                error!(
-                                    "Part #{} CL ({}) doesn't match declared ({}) value",
-                                    ndx, cl, ac.len
-                                );
-                                return Err(Status::BadRequest);
+                                return Err(MyError::HTTP {
+                                    status: Status::BadRequest,
+                                    info: format!(
+                                        "Part #{} CL ({}) doesn't match declared ({}) value",
+                                        ndx, cl, ac.len
+                                    )
+                                    .into(),
+                                });
                             }
                         }
                         Err(x) => {
-                            error!("Failed parsing Part #{} CL: {}", ndx, x);
-                            return Err(Status::BadRequest);
+                            return Err(MyError::HTTP {
+                                status: Status::BadRequest,
+                                info: format!("Failed parsing Part #{} CL: {}", ndx, x).into(),
+                            });
                         }
                     },
                     None => info!("Part #{} has no CL", ndx),
@@ -863,16 +837,21 @@ async fn ingest_multipart(
                         Ok(ct) => {
                             debug!("-- content-type: {}", ct);
                             if ac.mime != ct {
-                                error!(
-                                    "Part #{} CT ({}) doesn't match declared MIME ({})",
-                                    ndx, ct, ac.mime
-                                );
-                                return Err(Status::BadRequest);
+                                return Err(MyError::HTTP {
+                                    status: Status::BadRequest,
+                                    info: format!(
+                                        "Part #{} CT ({}) doesn't match declared MIME ({})",
+                                        ndx, ct, ac.mime
+                                    )
+                                    .into(),
+                                });
                             }
                         }
                         Err(x) => {
                             error!("Failed parsing Part #{} CT: {}", ndx, x);
-                            return Err(Status::BadRequest);
+                            return Err(
+                                MyError::Data(DataError::MIME(x)).with_status(Status::BadRequest)
+                            );
                         }
                     },
                     None => info!("Part #{} has no CT", ndx),
@@ -883,15 +862,17 @@ async fn ingest_multipart(
                     debug!("Found a JWS Signature!");
                     let sig = Signature::from(buf).map_err(|x| {
                         error!("Failed processing JWS signature part: {}", x);
-                        Status::BadRequest
+                        x.with_status(Status::BadRequest)
                     })?;
                     if statements.iter().any(|s| sig.verify(s)) {
                         info!("Matched JWS Signature to its Statement");
                         matched += 1;
                         matched_unpopulated += 1;
                     } else {
-                        error!("Failed matching any Statement to a JWS Signature");
-                        return Err(Status::BadRequest);
+                        return Err(MyError::HTTP {
+                            status: Status::BadRequest,
+                            info: "Failed matching any Statement to a JWS Signature".into(),
+                        });
                     }
                 } else {
                     debug!("Found an Attachment candidate!");
@@ -904,9 +885,10 @@ async fn ingest_multipart(
                     }
                 }
             } else {
-                // NOTE (rsn) 20241102 - this may change when i add support for signatures
-                error!("Part #{} is not an attachment", ndx);
-                return Err(Status::BadRequest);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: format!("Part #{} is not an attachment", ndx).into(),
+                });
             }
         }
 
@@ -934,12 +916,13 @@ async fn ingest_multipart(
     //
     // [1]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#lrs-requirements
     //
-    // let problem = (total > 0) && (unpopulated > 0 || unmatched > 0);
     let problem = (unpopulated > 0) && (unpopulated != matched_unpopulated);
     debug!("problem? {}", problem);
     if problem {
-        error!("Houston, we have a problem");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Houston, we have a problem".into(),
+        });
     }
 
     Ok(statements)
@@ -950,18 +933,21 @@ async fn persist_one(
     c: Headers,
     statement: &mut Statement,
     user: &User,
-) -> Result<PutResponse, Status> {
+) -> Result<PutResponse, MyError> {
     debug!("statement = {}", statement);
 
     let uuid = statement.id().unwrap();
-    match statement_exists(conn, uuid).await {
-        Ok(None) => (),
-        Ok(Some(_fingerprint)) => {
+    let x = statement_exists(conn, uuid).await?;
+    match x {
+        None => (),
+        Some(_fingerprint) => {
             // we already have a statement w/ the same UUID; what we do next
             // depends on the pre-conditions
             if c.has_no_conditionals() {
-                // TODO (rsn) 20240727 - add a body to the response...
-                return Err(Status::Conflict);
+                return Err(MyError::HTTP {
+                    status: Status::Conflict,
+                    info: "Missing pre-condition(s)".into(),
+                });
             } else {
                 // request contains pre-conditions, however we already found a
                 // statement w/ same UUID.
@@ -969,26 +955,21 @@ async fn persist_one(
                 // Statement (with the same UUID) produces a different ETag than
                 // the one previously stored.
                 // for now, just note the fact but do nothing about it...
-                return match compute_etag::<Statement>(statement) {
-                    Err(x) => {
-                        error!("Failed computing ETag: {}", x);
-                        Err(Status::InternalServerError)
-                    }
-                    Ok(etag) => match eval_preconditions!(&etag, c) {
-                        s if s != Status::Ok => Err(s),
-                        _ => Ok(PutResponse {
-                            inner: WithETag {
-                                inner: Status::NoContent,
-                                etag: Header::new(header::ETAG.as_str(), etag.to_string()),
-                            },
-                        }),
-                    },
+                // return match compute_etag::<Statement>(statement) {
+                let etag = compute_etag::<Statement>(statement)?;
+                return match eval_preconditions!(&etag, c) {
+                    s if s != Status::Ok => Err(MyError::HTTP {
+                        status: s,
+                        info: "Failed pre-condition(s)".into(),
+                    }),
+                    _ => Ok(PutResponse {
+                        inner: WithETag {
+                            inner: Status::NoContent,
+                            etag: Header::new(header::ETAG.as_str(), etag.to_string()),
+                        },
+                    }),
                 };
             }
-        }
-        Err(x) => {
-            error!("Failed: {}", x);
-            return Err(Status::InternalServerError);
         }
     }
 
@@ -1009,50 +990,47 @@ async fn persist_one(
     if statement.is_verb_voided() {
         if let Some(target_uuid) = statement.voided_target() {
             // target Statement, if known, should not be a voiding one...
-            match find_statement_to_void(conn, &target_uuid).await {
-                Ok((found, valid, id)) => {
-                    if found {
-                        if valid {
-                            to_void_id = Some(id)
-                        } else {
-                            error!("Target of voiding statement ({}) is invalid", target_uuid);
-                            return Err(Status::BadRequest);
-                        }
-                    }
+            let (found, valid, id) = find_statement_to_void(conn, &target_uuid).await?;
+            if found {
+                if valid {
+                    to_void_id = Some(id)
+                } else {
+                    return Err(MyError::HTTP {
+                        status: Status::BadRequest,
+                        info: format!("Target of voiding statement ({}) is invalid", target_uuid)
+                            .into(),
+                    });
                 }
-                Err(_) => return Err(Status::InternalServerError),
             }
         } else {
-            error!("Invalid voiding statement {}", statement);
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: format!("Invalid voiding statement {}", statement).into(),
+            });
         }
     }
 
-    if let Err(x) = insert_statement(conn, statement).await {
-        error!("Failed: {}", x);
-        return Err(Status::InternalServerError);
-    }
+    insert_statement(conn, statement).await?;
 
     // NOTE (rsn) 20240910 -if the Verb is 'voided' then void the target Statement...
     if let Some(id) = to_void_id {
         debug!("About to void Statement #{}", id);
-        match void_statement(conn, id).await {
-            Ok(_) => info!("Voided Statement #{}", id),
-            Err(_) => return Err(Status::InternalServerError),
-        }
+        void_statement(conn, id).await?;
+        info!("Voided Statement #{}", id)
     }
 
-    match compute_etag::<Statement>(statement) {
-        Err(_) => Err(Status::InternalServerError),
-        Ok(etag) => match eval_preconditions!(&etag, c) {
-            s if s != Status::Ok => Err(s),
-            _ => Ok(PutResponse {
-                inner: WithETag {
-                    inner: Status::NoContent,
-                    etag: Header::new(header::ETAG.as_str(), etag.to_string()),
-                },
-            }),
-        },
+    let etag = compute_etag::<Statement>(statement)?;
+    match eval_preconditions!(&etag, c) {
+        s if s != Status::Ok => Err(MyError::HTTP {
+            status: s,
+            info: "Failed pre-condition(s)".into(),
+        }),
+        _ => Ok(PutResponse {
+            inner: WithETag {
+                inner: Status::NoContent,
+                etag: Header::new(header::ETAG.as_str(), etag.to_string()),
+            },
+        }),
     }
 }
 
@@ -1073,7 +1051,7 @@ async fn persist_many(
     c: Headers,
     mut statements: Vec<Statement>,
     user: &User,
-) -> Result<PostResponse, Status> {
+) -> Result<PostResponse, MyError> {
     debug!("statements = {:?}", statements);
 
     // not every statement has a UUID; if it doesn't assign it one...
@@ -1089,8 +1067,10 @@ async fn persist_many(
             }
         };
         if uuids.contains(&uuid) {
-            error!("Found Statements w/ same ID: {}", uuid);
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: format!("Found Statements w/ same ID: {}", uuid).into(),
+            });
         }
 
         uuids.push(uuid)
@@ -1103,31 +1083,33 @@ async fn persist_many(
     while i < statements.len() {
         let s = &statements[i];
         let uuid = s.id().unwrap();
-        let tmp = statement_exists(conn, uuid).await;
+        let tmp = statement_exists(conn, uuid).await?;
         match tmp {
-            Ok(None) => i += 1,
-            Ok(Some(x)) => {
+            None => i += 1,
+            Some(x) => {
                 // if fingerprints match, drop `s`; otherwise return Conflict
                 let s_uid = s.uid();
                 if s_uid != x {
-                    warn!(
-                        "Already have a Statement w/ same UUID ({}) but different FP. Conflict",
-                        uuid
-                    );
-                    return Err(Status::Conflict);
+                    return Err(MyError::HTTP {
+                        status: Status::Conflict,
+                        info: format!(
+                            "Already have a Statement w/ same UUID ({}) but different FP. Conflict",
+                            uuid
+                        )
+                        .into(),
+                    });
                 }
                 let dup = statements.remove(i);
                 info!("Drop duplicate {}", dup);
-            }
-            Err(x) => {
-                error!("Failed checking Statement existence: {}", x);
-                return Err(Status::InternalServerError);
             }
         }
     }
     // if we end-up w/ no Statements, return NoContent...
     if statements.is_empty() {
-        return Err(Status::NoContent);
+        return Err(MyError::HTTP {
+            status: Status::NoContent,
+            info: "No new Statements left".into(),
+        });
     }
 
     // at this point all statements have an UUID and a timestamp.  before
@@ -1137,23 +1119,26 @@ async fn persist_many(
         if s.is_verb_voided() {
             if let Some(target_uuid) = s.voided_target() {
                 // target Statement, if known, should not be a voiding one...
-                let tmp = find_statement_to_void(conn, &target_uuid).await;
-                match tmp {
-                    Ok((found, valid, id)) => {
-                        if found {
-                            if valid {
-                                ids_to_void.push(id)
-                            } else {
-                                error!("Target of voiding statement ({}) is invalid", target_uuid);
-                                return Err(Status::BadRequest);
-                            }
-                        }
+                let (found, valid, id) = find_statement_to_void(conn, &target_uuid).await?;
+                if found {
+                    if valid {
+                        ids_to_void.push(id)
+                    } else {
+                        return Err(MyError::HTTP {
+                            status: Status::BadRequest,
+                            info: format!(
+                                "Target of voiding statement ({}) is invalid",
+                                target_uuid
+                            )
+                            .into(),
+                        });
                     }
-                    Err(_) => return Err(Status::InternalServerError),
                 }
             } else {
-                error!("Invalid voiding statement {}", s);
-                return Err(Status::BadRequest);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: format!("Invalid voiding statement {}", s).into(),
+                });
             }
         }
     }
@@ -1176,21 +1161,16 @@ async fn persist_many(
 
         ensure_authority(&mut s, user)?;
 
-        if let Err(x) = insert_statement(conn, &s).await {
-            error!("Failed persisting Statement #{} (1 of {}): {}", uuid, n, x);
-            return Err(Status::InternalServerError);
-        }
+        debug!("Persisting Statement #{} (1 of {})...", uuid, n);
+        insert_statement(conn, &s).await?;
         uuids.push(uuid);
     }
 
     // finally, void statements...
     for id in ids_to_void {
         debug!("About to void Statement #{}", id);
-        let tmp = void_statement(conn, id).await;
-        match tmp {
-            Ok(_) => info!("Voided Statement #{}", id),
-            Err(_) => return Err(Status::InternalServerError),
-        }
+        void_statement(conn, id).await?;
+        info!("Voided Statement #{}", id)
     }
 
     // and return their UUIDs...
@@ -1209,18 +1189,18 @@ async fn get_one(
     uuid: Uuid,
     voided: bool,
     format: &Format,
-) -> Result<StatementType, Status> {
+) -> Result<StatementType, MyError> {
     debug!("uuid = {}", uuid);
     debug!("voided? {}", voided);
     debug!("format = {}", format);
 
-    match find_statement_by_uuid(conn, uuid, voided, format).await {
-        Ok(Some(x)) => Ok(x),
-        Ok(None) => Err(Status::NotFound),
-        Err(x) => {
-            error!("Failed finding one Statement by UUID: {}", x);
-            Err(Status::InternalServerError)
-        }
+    let x = find_statement_by_uuid(conn, uuid, voided, format).await?;
+    match x {
+        Some(x) => Ok(x),
+        None => Err(MyError::HTTP {
+            status: Status::NotFound,
+            info: "Statement not found".into(),
+        }),
     }
 }
 
@@ -1229,95 +1209,69 @@ async fn get_many(
     filter: Filter,
     format: &Format,
     with_attachments: bool,
-) -> Result<StatementType, Status> {
+) -> Result<StatementType, MyError> {
     debug!("filter = {}", filter);
     debug!("format = {}", format);
 
-    let sid = match register_new_filter(conn).await {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed registering new filter ID: {}", x);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let sid = register_new_filter(conn).await?;
     debug!("sid = {}", sid);
 
-    match find_statements_by_filter(conn, filter, format, sid).await {
-        Ok((mut x, y)) => {
-            if y.is_some() {
-                let pi = y.unwrap();
-                let more =
-                    format!(
-                    "statements/more/?sid={}&count={}&offset={}&limit={}&format={}&attachments={}",
-                    sid, pi.count, pi.offset, pi.limit, format.as_param(), with_attachments
-                );
-                let url = config().to_external_url(&more);
-                debug!("more URL = '{}'", url);
-                if let Err(z) = &x.set_more(&url) {
-                    warn!("Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}", z);
-                }
-            }
-            Ok(x)
-        }
-        Err(x) => {
-            error!("Failed fetching Statements by Filter: {}", x);
-            Err(Status::InternalServerError)
+    let (mut x, y) = find_statements_by_filter(conn, filter, format, sid).await?;
+    if y.is_some() {
+        let pi = y.unwrap();
+        let more = format!(
+            "statements/more/?sid={}&count={}&offset={}&limit={}&format={}&attachments={}",
+            sid,
+            pi.count,
+            pi.offset,
+            pi.limit,
+            format.as_param(),
+            with_attachments
+        );
+        let url = config().to_external_url(&more);
+        debug!("more URL = '{}'", url);
+        if let Err(z) = &x.set_more(&url) {
+            warn!("Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}", z);
         }
     }
+    Ok(x)
 }
 
 /// Write the JSON serialized form of the given Statement array to a named local
 /// file inside 'static/s' folder path rooted at this project's home dir.
 /// Return the file's path if/when successful.
-async fn save_statements(res: &StatementType) -> Result<PathBuf, Status> {
+async fn save_statements(res: &StatementType) -> Result<PathBuf, MyError> {
     let name = &format!("_{}", BASE64_URL_SAFE_NO_PAD.encode(Uuid::now_v7()));
     // create the temp file in 'static' dir, under a folder named 's'...
     let path = config().static_dir.join("s").join(name);
     let parent = path.parent().unwrap();
-    if let Err(x) = DirBuilder::new().recursive(true).create(parent).await {
-        error!("Failed creating {}'s parent(s): {}", name, x);
-        return Err(Status::InternalServerError);
-    }
+    DirBuilder::new()
+        .recursive(true)
+        .create(parent)
+        .map_err(MyError::IO)
+        .await?;
 
-    match File::create(&path).await {
-        Ok(mut file) => {
-            let json = match res {
-                StatementType::S(x) => {
-                    serde_json::to_string(x).expect("Failed serializing S to temp file")
-                }
-                StatementType::SId(x) => {
-                    serde_json::to_string(x).expect("Failed serializing SId to temp file")
-                }
-                StatementType::SR(x) => {
-                    serde_json::to_string(x).expect("Failed serializing SR to temp file")
-                }
-                StatementType::SRId(x) => {
-                    serde_json::to_string(x).expect("Failed serializing SRId to temp file")
-                }
-            };
-            if (file.write_all(json.as_bytes()).await).is_ok() {
-                match file.flush().await {
-                    Err(x) => {
-                        error!("Failed flushing {}: {}", name, x);
-                        Err(Status::InternalServerError)
-                    }
-                    _ => Ok(path),
-                }
-            } else {
-                error!("Failed writing {}", name);
-                Err(Status::InternalServerError)
-            }
+    let mut file = File::create(&path).map_err(MyError::IO).await?;
+    let json = match res {
+        StatementType::S(x) => serde_json::to_string(x).expect("Failed serializing S to temp file"),
+        StatementType::SId(x) => {
+            serde_json::to_string(x).expect("Failed serializing SId to temp file")
         }
-        _ => {
-            error!("Failed creating {}", name);
-            Err(Status::InternalServerError)
+        StatementType::SR(x) => {
+            serde_json::to_string(x).expect("Failed serializing SR to temp file")
         }
-    }
+        StatementType::SRId(x) => {
+            serde_json::to_string(x).expect("Failed serializing SRId to temp file")
+        }
+    };
+    file.write_all(json.as_bytes()).map_err(MyError::IO).await?;
+    file.flush().map_err(MyError::IO).await?;
+    Ok(path)
 }
 
 /// Write the given byte array `buf`fer to a local file system at the given
 /// `path`.
-async fn save_attachment(bytes: Vec<u8>, part: &InPartInfo) -> Result<(), Status> {
+async fn save_attachment(bytes: Vec<u8>, part: &InPartInfo) -> Result<(), MyError> {
     let path = &part.path;
     let name = path.to_string_lossy();
 
@@ -1328,31 +1282,16 @@ async fn save_attachment(bytes: Vec<u8>, part: &InPartInfo) -> Result<(), Status
     }
 
     let parent = path.parent().unwrap();
-    if let Err(x) = DirBuilder::new().recursive(true).create(parent).await {
-        error!("Failed creating {}'s parent(s): {}", name, x);
-        return Err(Status::InternalServerError);
-    }
+    DirBuilder::new()
+        .recursive(true)
+        .create(parent)
+        .map_err(MyError::IO)
+        .await?;
 
-    match File::create(path).await {
-        Ok(mut file) => {
-            if (file.write_all(&bytes).await).is_ok() {
-                match file.flush().await {
-                    Err(x) => {
-                        error!("Failed flushing {}: {}", name, x);
-                        Err(Status::InternalServerError)
-                    }
-                    _ => Ok(()),
-                }
-            } else {
-                error!("Failed writing {}", name);
-                Err(Status::InternalServerError)
-            }
-        }
-        _ => {
-            error!("Failed creating {}", name);
-            Err(Status::InternalServerError)
-        }
-    }
+    let mut file = File::create(path).map_err(MyError::IO).await?;
+    file.write_all(&bytes).map_err(MyError::IO).await?;
+    file.flush().map_err(MyError::IO).await?;
+    Ok(())
 }
 
 fn consistent_through(timestamp: DateTime<Utc>) -> Header<'static> {
@@ -1369,7 +1308,7 @@ fn last_modified(timestamp: DateTime<Utc>) -> Header<'static> {
     )
 }
 
-fn ensure_authority(s: &mut Statement, user: &User) -> Result<(), Status> {
+fn ensure_authority(s: &mut Statement, user: &User) -> Result<(), MyError> {
     if s.authority().is_none() {
         user.can_authorize_statement()?;
 

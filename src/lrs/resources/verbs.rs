@@ -14,7 +14,7 @@ use crate::{
     },
     eval_preconditions,
     lrs::{etag_from_str, no_content, resources::WithETag, Headers, User, DB},
-    MyError, MyLanguageTag, Validate, Verb,
+    DataError, MyError, MyLanguageTag, Validate, Verb,
 };
 use core::fmt;
 use iri_string::types::IriStr;
@@ -194,19 +194,16 @@ pub fn routes() -> Vec<rocket::Route> {
     ]
 }
 
-fn parse_verb(s: &str) -> Result<Verb, Status> {
+fn parse_verb(s: &str) -> Result<Verb, MyError> {
     if s.is_empty() {
-        error!("Body must NOT be empty");
-        return Err(Status::BadRequest);
+        return Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Body must NOT be empty".into(),
+        });
     }
 
-    let v = match serde_json::from_str::<Verb>(s) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed parsing body as Verb: {}", x);
-            return Err(Status::BadRequest);
-        }
-    };
+    let v = serde_json::from_str::<Verb>(s)
+        .map_err(|x| MyError::Data(DataError::JSON(x)).with_status(Status::BadRequest))?;
     debug!("v = {}", v);
     // a valid Verb may have a None or empty `display` language map.  this is
     // not acceptable here...
@@ -214,65 +211,59 @@ fn parse_verb(s: &str) -> Result<Verb, Status> {
         match v.display_as_map() {
             Some(x) => {
                 if x.is_empty() {
-                    error!("Verb's 'display' language map MUST not be empty");
-                    Err(Status::BadRequest)
+                    Err(MyError::HTTP {
+                        status: Status::BadRequest,
+                        info: "Verb's 'display' language map MUST not be empty".into(),
+                    })
                 } else {
                     Ok(v)
                 }
             }
-            None => {
-                error!("Verb's 'display' language map MUST not be null");
-                Err(Status::BadRequest)
-            }
+            None => Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: "Verb's 'display' language map MUST not be null".into(),
+            }),
         }
     } else {
-        // validity error messages should by now be printed in the logs
-        Err(Status::BadRequest)
+        Err(MyError::HTTP {
+            status: Status::BadRequest,
+            info: "Verb is invalid".into(),
+        })
     }
 }
 
 /// Create new Verb resource.
 #[post("/", data = "<body>")]
-async fn post(body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status> {
+async fn post(body: &str, db: &State<DB>, user: User) -> Result<WithETag, MyError> {
     debug!("----- post ----- {}", user);
-
-    // if user does not have right role, bail out...
     user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
-    match insert_verb(conn, &new_verb).await {
-        Ok(rid) => {
-            info!("Created Verb at #{}", rid);
-            let etag = etag_from_str(body);
-            Ok(WithETag {
-                inner: Status::Ok,
-                etag: Header::new(header::ETAG.as_str(), etag.to_string()),
-            })
-        }
-        Err(x) => {
-            error!("Failed creating Verb: {}", x);
-            Err(Status::BadRequest)
-        }
-    }
+    let rid = insert_verb(conn, &new_verb)
+        .await
+        .map_err(|x| x.with_status(Status::BadRequest))?;
+    info!("Created Verb at #{}", rid);
+    let etag = etag_from_str(body);
+    Ok(WithETag {
+        inner: Status::Ok,
+        etag: Header::new(header::ETAG.as_str(), etag.to_string()),
+    })
 }
 
 /// Update existing Verb replacing its `display` field.
 #[put("/", data = "<body>")]
-async fn put(c: Headers, body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status> {
+async fn put(c: Headers, body: &str, db: &State<DB>, user: User) -> Result<WithETag, MyError> {
     debug!("----- put ----- {}", user);
     user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
     // must already exist...
-    match ext_find_by_iri(conn, new_verb.id_as_str()).await {
-        Ok(x) => update_it(c, conn, x.rid, x.verb, new_verb).await,
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::NotFound)
-        }
-    }
+    let x = ext_find_by_iri(conn, new_verb.id_as_str())
+        .await
+        .map_err(|x| x.with_status(Status::NotFound))?;
+    update_it(c, conn, x.rid, x.verb, new_verb).await
 }
 
 #[put("/<rid>", data = "<body>")]
@@ -282,20 +273,17 @@ async fn put_rid(
     body: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- put_rid ----- {}", user);
     user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
     // must already exist...
-    match ext_find_by_rid(conn, rid).await {
-        Ok(old_verb) => update_it(c, conn, rid, old_verb, new_verb).await,
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::NotFound)
-        }
-    }
+    let old_verb = ext_find_by_rid(conn, rid)
+        .await
+        .map_err(|x| x.with_status(Status::NotFound))?;
+    update_it(c, conn, rid, old_verb, new_verb).await
 }
 
 async fn update_it(
@@ -304,46 +292,35 @@ async fn update_it(
     rid: i32,
     old_verb: Verb,
     new_verb: Verb,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     // only update if pre-conditions exist + pass...
     if c.has_no_conditionals() {
-        error!("Update existing Verb w/ no pre-conditions is NOT allowed");
-        Err(Status::Conflict)
+        Err(MyError::HTTP {
+            status: Status::Conflict,
+            info: "Update existing Verb w/ no pre-conditions is NOT allowed".into(),
+        })
     } else {
         debug!("old_verb = {}", old_verb);
-        let etag = match serde_json::to_string(&old_verb) {
-            Ok(x) => etag_from_str(&x),
-            Err(x) => {
-                error!("Failed serializing Verb: {}", x);
-                return Err(Status::InternalServerError);
-            }
-        };
+        let x = serde_json::to_string(&old_verb).map_err(|x| MyError::Data(DataError::JSON(x)))?;
+        let etag = etag_from_str(&x);
         debug!("etag (old) = {}", etag);
         match eval_preconditions!(&etag, c) {
-            s if s != Status::Ok => Err(s),
+            s if s != Status::Ok => Err(MyError::HTTP {
+                status: s,
+                info: "Failed pre-condition(s)".into(),
+            }),
             _ => {
                 if new_verb == old_verb {
                     info!("Old + new Verbs are identical. Pass");
                     Ok(no_content(&etag))
                 } else {
-                    match ext_update(conn, rid, &new_verb).await {
-                        // etag changed.  recompute...
-                        Ok(_) => {
-                            let etag = match serde_json::to_string(&new_verb) {
-                                Ok(x) => etag_from_str(&x),
-                                Err(x) => {
-                                    error!("Failed serializing updated Verb: {}", x);
-                                    return Err(Status::InternalServerError);
-                                }
-                            };
-                            debug!("etag (new) = {}", etag);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed updating Verb: {}", x);
-                            Err(Status::InternalServerError)
-                        }
-                    }
+                    ext_update(conn, rid, &new_verb).await?;
+                    // etag changed.  recompute...
+                    let x = serde_json::to_string(&new_verb)
+                        .map_err(|x| MyError::Data(DataError::JSON(x)))?;
+                    let etag = etag_from_str(&x);
+                    debug!("etag (new) = {}", etag);
+                    Ok(no_content(&etag))
                 }
             }
         }
@@ -352,20 +329,17 @@ async fn update_it(
 
 /// Update existing Verb merging `display` fields.
 #[patch("/", data = "<body>")]
-async fn patch(c: Headers, body: &str, db: &State<DB>, user: User) -> Result<WithETag, Status> {
+async fn patch(c: Headers, body: &str, db: &State<DB>, user: User) -> Result<WithETag, MyError> {
     debug!("----- patch ----- {}", user);
     user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
     // must already exist...
-    match ext_find_by_iri(conn, new_verb.id_as_str()).await {
-        Ok(x) => patch_it(c, conn, x.rid, x.verb, new_verb).await,
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::NotFound)
-        }
-    }
+    let x = ext_find_by_iri(conn, new_verb.id_as_str())
+        .await
+        .map_err(|x| x.with_status(Status::NotFound))?;
+    patch_it(c, conn, x.rid, x.verb, new_verb).await
 }
 
 /// Update existing Verb merging `display` fields.
@@ -376,20 +350,17 @@ async fn patch_rid(
     body: &str,
     db: &State<DB>,
     user: User,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     debug!("----- patch_rid ----- {}", user);
     user.can_use_verbs()?;
 
     let new_verb = parse_verb(body)?;
     let conn = db.pool();
     // must already exist...
-    match ext_find_by_rid(conn, rid).await {
-        Ok(old_verb) => patch_it(c, conn, rid, old_verb, new_verb).await,
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::NotFound)
-        }
-    }
+    let old_verb = ext_find_by_rid(conn, rid)
+        .await
+        .map_err(|x| x.with_status(Status::NotFound))?;
+    patch_it(c, conn, rid, old_verb, new_verb).await
 }
 
 async fn patch_it(
@@ -398,23 +369,23 @@ async fn patch_it(
     rid: i32,
     mut old_verb: Verb,
     new_verb: Verb,
-) -> Result<WithETag, Status> {
+) -> Result<WithETag, MyError> {
     // proceed if pre-conditions exist + pass...
     if c.has_no_conditionals() {
-        error!("Patching existing Verb w/ no pre-conditions is NOT allowed");
-        Err(Status::Conflict)
+        Err(MyError::HTTP {
+            status: Status::Conflict,
+            info: "Patching existing Verb w/ no pre-conditions is NOT allowed".into(),
+        })
     } else {
         debug!("old_verb = {}", old_verb);
-        let etag = match serde_json::to_string(&old_verb) {
-            Ok(x) => etag_from_str(&x),
-            Err(x) => {
-                error!("Failed serializing existing Verb: {}", x);
-                return Err(Status::InternalServerError);
-            }
-        };
+        let x = serde_json::to_string(&old_verb).map_err(|x| MyError::Data(DataError::JSON(x)))?;
+        let etag = etag_from_str(&x);
         debug!("etag (old) = {}", etag);
         match eval_preconditions!(&etag, c) {
-            s if s != Status::Ok => Err(s),
+            s if s != Status::Ok => Err(MyError::HTTP {
+                status: s,
+                info: "Failed pre-condition(s)".into(),
+            }),
             _ => {
                 if new_verb == old_verb {
                     info!("Old + new Verbs are identical. Pass");
@@ -424,23 +395,12 @@ async fn patch_it(
                     Ok(no_content(&etag))
                 } else {
                     debug!("patched_verb = {}", old_verb);
-                    match ext_update(conn, rid, &old_verb).await {
-                        Ok(_) => {
-                            let etag = match serde_json::to_string(&old_verb) {
-                                Ok(x) => etag_from_str(&x),
-                                Err(x) => {
-                                    error!("Failed serializing patched Verb: {}", x);
-                                    return Err(Status::InternalServerError);
-                                }
-                            };
-                            debug!("etag (new) = {}", etag);
-                            Ok(no_content(&etag))
-                        }
-                        Err(x) => {
-                            error!("Failed patching Verb: {}", x);
-                            Err(Status::InternalServerError)
-                        }
-                    }
+                    ext_update(conn, rid, &old_verb).await?;
+                    let x = serde_json::to_string(&old_verb)
+                        .map_err(|x| MyError::Data(DataError::JSON(x)))?;
+                    let etag = etag_from_str(&x);
+                    debug!("etag (new) = {}", etag);
+                    Ok(no_content(&etag))
                 }
             }
         }
@@ -448,7 +408,7 @@ async fn patch_it(
 }
 
 #[get("/?<iri>")]
-async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResource, Status> {
+async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResource, MyError> {
     debug!("----- get_iri ----- {}", user);
     user.can_use_verbs()?;
 
@@ -460,8 +420,10 @@ async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResourc
         let iri2 = format!("http://adlnet.gov/expapi/verbs/{}", iri);
         // is it valid now?
         if IriStr::new(&iri2).is_err() {
-            error!("Input <{}> is not a valid IRI nor an alias of one", iri);
-            return Err(Status::BadRequest);
+            return Err(MyError::HTTP {
+                status: Status::BadRequest,
+                info: format!("Input <{}> is not a valid IRI nor an alias of one", iri).into(),
+            });
         } else {
             iri2
         }
@@ -469,43 +431,30 @@ async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResourc
         iri.to_owned()
     };
 
-    match ext_find_by_iri(db.pool(), &iri).await {
-        Ok(x) => tag_n_bag_it::<Verb>(x.verb),
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::NotFound)
-        }
-    }
+    let x = ext_find_by_iri(db.pool(), &iri)
+        .await
+        .map_err(|x| x.with_status(Status::NotFound))?;
+    tag_n_bag_it::<Verb>(x.verb)
 }
 
 #[get("/<rid>")]
-async fn get_rid(rid: i32, db: &State<DB>, user: User) -> Result<ETaggedResource, Status> {
+async fn get_rid(rid: i32, db: &State<DB>, user: User) -> Result<ETaggedResource, MyError> {
     debug!("----- get_rid ----- {}", user);
     user.can_use_verbs()?;
 
-    match ext_find_by_rid(db.pool(), rid).await {
-        Ok(x) => tag_n_bag_it::<Verb>(x),
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::NotFound)
-        }
-    }
+    let x = ext_find_by_rid(db.pool(), rid)
+        .await
+        .map_err(|x| x.with_status(Status::NotFound))?;
+    tag_n_bag_it::<Verb>(x)
 }
 
 #[get("/aggregates")]
-async fn get_aggregates(db: &State<DB>, user: User) -> Result<ETaggedResource, Status> {
+async fn get_aggregates(db: &State<DB>, user: User) -> Result<ETaggedResource, MyError> {
     debug!("----- get_aggregates ----- {}", user);
-
-    // if user does not have right role, bail out...
     user.can_use_verbs()?;
 
-    match ext_compute_aggregates(db.pool()).await {
-        Ok(x) => tag_n_bag_it::<Aggregates>(x),
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::InternalServerError)
-        }
-    }
+    let x = ext_compute_aggregates(db.pool()).await?;
+    tag_n_bag_it::<Aggregates>(x)
 }
 
 #[get("/")]
@@ -513,28 +462,17 @@ async fn get_some(
     q: QueryParams<'_>,
     db: &State<DB>,
     user: User,
-) -> Result<ETaggedResource, Status> {
+) -> Result<ETaggedResource, MyError> {
     debug!("----- get_some ----- {}", user);
     user.can_use_verbs()?;
 
     debug!("q = {}", q);
-    match ext_find_some(db.pool(), q).await {
-        Ok(x) => tag_n_bag_it::<Vec<VerbUI>>(x),
-        Err(x) => {
-            error!("Failed: {}", x);
-            Err(Status::InternalServerError)
-        }
-    }
+    let x = ext_find_some(db.pool(), q).await?;
+    tag_n_bag_it::<Vec<VerbUI>>(x)
 }
 
-fn tag_n_bag_it<T: Serialize>(resource: T) -> Result<ETaggedResource, Status> {
-    let json = match serde_json::to_string(&resource) {
-        Ok(x) => x,
-        Err(x) => {
-            error!("Failed serializing resource: {}", x);
-            return Err(Status::InternalServerError);
-        }
-    };
+fn tag_n_bag_it<T: Serialize>(resource: T) -> Result<ETaggedResource, MyError> {
+    let json = serde_json::to_string(&resource).map_err(|x| MyError::Data(DataError::JSON(x)))?;
     debug!("json = {}", json);
     let etag = etag_from_str(&json);
     debug!("etag = {}", etag);
