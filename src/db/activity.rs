@@ -9,7 +9,6 @@ use crate::{
     emit_db_error, ActivityDefinition, MyError,
 };
 use iri_string::types::IriStr;
-use merge::Merge;
 use sqlx::{types::Json, PgPool};
 use std::mem;
 use tracing::debug;

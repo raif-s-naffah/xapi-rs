@@ -1,6 +1,6 @@
 # xapi-rs
 
-This project is an attempt at implementing a conformant [IEEE Std 9274.1.1][1], IEEE Standard for Learning Technology— JavaScript Object Notation (JSON) Data Model Format and Representational State Transfer (RESTful) Web Service for Learner Experience Data Tracking and Access 2.0.0 LRS.
+HTTP Server implementation of [IEEE Std 9274.1.1][1], IEEE Standard for Learning Technology— JavaScript Object Notation (JSON) Data Model Format and Representational State Transfer (RESTful) Web Service for Learner Experience Data Tracking and Access 2.0.0 LRS.
 
 There are 3 main modules in this project that cover:
 
@@ -136,23 +136,6 @@ _Extensions_ supported by **`LaRS`** are documented [here](./doc/EXTENSIONS.md).
 As of version 0.1.5 **`LaRS`** adds support for enforcing user authentication when accessing its xAPI Resources.
 
 See [Issue #5](https://github.com/raif-s-naffah/xapi-rs/issues/5) for background, and [here](./doc/USERS.md) for implementation details.
-
-
-## TODO
-
-In no particular order...
-
-- [x] Pass the [conformance tests][4].  Done 2024-11-21.
-- [x] Implement a Job scheduler to clean temporary database Views created when a GET request leads to more results that can fit into a page.  Done 2024-12-04.
-- [x] Clean up temporary files created when generating multipart response.  Done 2024-12-09.
-- [x] Add support for Authentication.  Done 2025-01-17.
-- [x] Add support for Authorization.  Done 2025-01-17.
-- [x] If the JWS header (of a signed Statement) includes an X.509 certificate, we should validate the signature against that certificate as defined in JWS. ~~We don't do that yet.~~  Done 2025-02-16.
-- ~~[ ] Remove `speedate` and re-write using `chrono`.~~<br/>
-NOTE (rsn) 20241220 - I'm not sure anymore about this. The amount of work to correctly parse an ISO Duration, and the total space savings of 33KB from a binary that's around 46MB, is IMO not worth it.
-- [ ] Introduce a configuration option to allow setting either a time or size limits on assets stored in `static`.
-- [ ] Optimize Pg SQL queries --may be using CTEs.
-- [ ] Minimize memory allocation by reducing the use of `String` types especially in custom deserializer implementations --e.g. consider using `DeserializeSeed`.
 
 
 ## License

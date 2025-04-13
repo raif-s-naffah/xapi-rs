@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 
 //!
-//! This project is an attempt at implementing a conformant xAPI 2.0.0 LRS.
+//! HTTP Server implementation of xAPI 2.0.0 LRS.
 //!
 //! It consists of three main modules that roughly map to (a) a data layer that
 //! defines the Rust bindings for the xAPI types, (b) a storage layer that

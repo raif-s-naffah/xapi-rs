@@ -9,7 +9,6 @@ use crate::{
 };
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
-use merge::Merge;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
@@ -90,18 +89,23 @@ impl Activity {
 
     /// Consumes `other`'s `definition` replacing or augmenting `self`'s.
     pub fn merge(&mut self, other: Activity) {
-        if self.definition.is_none() {
-            if other.definition.is_some() {
-                let x = mem::take(&mut other.definition.unwrap());
+        // FIXME (rsn) 20250412 - change the signature to return a Result
+        // raising an error if both arguments do not share the same ID instead
+        // of silently returning...
+        if self.id == other.id {
+            if self.definition.is_none() {
+                if other.definition.is_some() {
+                    let x = mem::take(&mut other.definition.unwrap());
+                    let mut z = Some(x);
+                    mem::swap(&mut self.definition, &mut z);
+                }
+            } else if other.definition.is_some() {
+                let mut x = mem::take(&mut self.definition).unwrap();
+                let y = other.definition.unwrap();
+                x.merge(y);
                 let mut z = Some(x);
                 mem::swap(&mut self.definition, &mut z);
             }
-        } else if other.definition.is_some() {
-            let mut x = mem::take(&mut self.definition).unwrap();
-            let y = other.definition.unwrap();
-            x.merge(y);
-            let mut z = Some(x);
-            mem::swap(&mut self.definition, &mut z);
         }
     }
 

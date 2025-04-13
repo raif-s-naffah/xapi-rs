@@ -3,15 +3,13 @@
 use crate::{
     add_language,
     data::{
-        extensions::merge_opt_xt, language_map::merge_opt_lm, validate::validate_irl, Canonical,
-        DataError, Extensions, InteractionComponent, InteractionType, LanguageMap, Validate,
-        ValidationError,
+        validate::validate_irl, Canonical, DataError, Extensions, InteractionComponent,
+        InteractionType, LanguageMap, Validate, ValidationError,
     },
-    emit_error, MyLanguageTag,
+    emit_error, merge_maps, MyLanguageTag,
 };
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
-use merge::Merge;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
@@ -19,12 +17,10 @@ use serde_with::skip_serializing_none;
 /// Structure that provides additional information (metadata) related to an
 /// [Activity][crate::Activity].
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, Deserialize, Merge, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityDefinition {
-    #[merge(strategy = merge_opt_lm)]
     name: Option<LanguageMap>,
-    #[merge(strategy = merge_opt_lm)]
     description: Option<LanguageMap>,
     #[serde(rename = "type")]
     type_: Option<IriString>,
@@ -39,8 +35,6 @@ pub struct ActivityDefinition {
     source: Option<Vec<InteractionComponent>>,
     target: Option<Vec<InteractionComponent>>,
     steps: Option<Vec<InteractionComponent>>,
-
-    #[merge(strategy = merge_opt_xt)]
     extensions: Option<Extensions>,
 }
 
@@ -174,6 +168,57 @@ impl ActivityDefinition {
         } else {
             self.extensions.as_ref().unwrap().get(key)
         }
+    }
+
+    /// Consume `other` merging it into `this`.
+    pub fn merge(&mut self, that: Self) {
+        // merge two Option<Vec<InteractionComponents>>...
+        fn merge_opt_collections(
+            dst: &mut Option<Vec<InteractionComponent>>,
+            src: Option<Vec<InteractionComponent>>,
+        ) {
+            match dst {
+                Some(lhs) => {
+                    if let Some(rhs) = src {
+                        InteractionComponent::merge_collections(lhs, rhs)
+                    }
+                }
+                None => *dst = src,
+            }
+        }
+
+        // extend b-tree maps...
+        merge_maps!(&mut self.name, that.name);
+        merge_maps!(&mut self.description, that.description);
+        merge_maps!(&mut self.extensions, that.extensions);
+        // overwrite if none...
+        if self.type_.is_none() {
+            self.type_ = that.type_
+        }
+        if self.more_info.is_none() {
+            self.more_info = that.more_info
+        }
+        if self.interaction_type.is_none() {
+            self.interaction_type = that.interaction_type
+        }
+        // combine string collections...
+        match &mut self.correct_responses_pattern {
+            Some(this_field) => {
+                if let Some(that_field) = that.correct_responses_pattern {
+                    this_field.extend(that_field);
+                    // NOTE (rsn) 20250412 - ensure no dups...
+                    this_field.sort();
+                    this_field.dedup();
+                }
+            }
+            None => self.correct_responses_pattern = that.correct_responses_pattern,
+        }
+        // merge optional collections of InteractionComponents...
+        merge_opt_collections(&mut self.choices, that.choices);
+        merge_opt_collections(&mut self.scale, that.scale);
+        merge_opt_collections(&mut self.source, that.source);
+        merge_opt_collections(&mut self.target, that.target);
+        merge_opt_collections(&mut self.steps, that.steps);
     }
 }
 

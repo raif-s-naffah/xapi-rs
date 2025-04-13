@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{
-    data::{Canonical, DataError, MultiLingual, MyLanguageTag},
-    merge_maps,
-};
+use crate::data::{Canonical, DataError, MultiLingual, MyLanguageTag};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -118,14 +115,6 @@ impl Canonical for LanguageMap {
             }
         }
     }
-}
-
-/// [Merge][1] Strategy to allow correct merging of 2 [LanguageMap] instances
-/// wrapped in [Option].
-///
-/// [1]: merge::Merge
-pub(crate) fn merge_opt_lm(dst: &mut Option<LanguageMap>, src: Option<LanguageMap>) {
-    merge_maps!(dst, src);
 }
 
 #[cfg(test)]

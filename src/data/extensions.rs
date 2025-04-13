@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{
-    data::{DataError, Fingerprint},
-    merge_maps,
-};
+use crate::data::{DataError, Fingerprint};
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
 use serde::{Deserialize, Serialize};
@@ -106,14 +103,6 @@ impl Fingerprint for Extensions {
     fn fingerprint<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state)
     }
-}
-
-/// [Merge][1] Strategy to allow correct merging of 2 [Extensions] instances
-/// wrapped in [Option].
-///
-/// [1]: merge::Merge
-pub(crate) fn merge_opt_xt(dst: &mut Option<Extensions>, src: Option<Extensions>) {
-    merge_maps!(dst, src);
 }
 
 #[cfg(test)]

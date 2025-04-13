@@ -3,7 +3,7 @@
 use crate::{
     add_language,
     data::{Canonical, DataError, LanguageMap, Validate, ValidationError},
-    emit_error, MyLanguageTag,
+    emit_error, merge_maps, MyLanguageTag,
 };
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,26 @@ impl InteractionComponent {
         match &self.description {
             Some(lm) => lm.get(tag),
             None => None,
+        }
+    }
+
+    /// Consume and iterate over elements in `src` combining them w/ those in `dst`.
+    ///
+    /// Merging is done on matching `id` values. If the instance is new to `dst`
+    /// it's added as is. Otherwise, its `description` is merged with the existing
+    /// one in `dst`.
+    pub(crate) fn merge_collections(
+        dst: &mut Vec<InteractionComponent>,
+        src: Vec<InteractionComponent>,
+    ) {
+        for src_ic in src {
+            match dst.iter().position(|x| x.id == src_ic.id) {
+                Some(n) => {
+                    let dst_ic = &mut dst[n];
+                    merge_maps!(&mut dst_ic.description, src_ic.description);
+                }
+                None => dst.push(src_ic),
+            }
         }
     }
 }
@@ -187,6 +207,65 @@ mod tests {
         assert!(de_result.is_ok());
         let ic2 = de_result.unwrap();
         assert_eq!(ic, ic2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_disjoint_collections() -> Result<(), DataError> {
+        let en = MyLanguageTag::from_str("en")?;
+        let it = MyLanguageTag::from_str("it")?;
+
+        let ic1 = InteractionComponent::builder()
+            .id("foo")?
+            .description(&en, "hello")?
+            .build()?;
+        let mut dst = vec![ic1];
+        assert_eq!(dst.len(), 1);
+
+        let ic2 = InteractionComponent::builder()
+            .id("bar")?
+            .description(&it, "ciao")?
+            .build()?;
+        let src = vec![ic2];
+        assert_eq!(src.len(), 1);
+
+        InteractionComponent::merge_collections(&mut dst, src);
+        // no common-ground. `src` is added to `dst`...
+        assert_eq!(dst.len(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_collections() -> Result<(), DataError> {
+        let en = MyLanguageTag::from_str("en")?;
+        let it = MyLanguageTag::from_str("it")?;
+        let de = MyLanguageTag::from_str("de")?;
+
+        let ic1 = InteractionComponent::builder()
+            .id("foo")?
+            .description(&en, "hello")?
+            .build()?;
+        let mut dst = vec![ic1];
+        assert_eq!(dst.len(), 1);
+
+        let ic2 = InteractionComponent::builder()
+            .id("foo")?
+            .description(&it, "ciao")?
+            .build()?;
+        let src = vec![ic2];
+        assert_eq!(src.len(), 1);
+
+        InteractionComponent::merge_collections(&mut dst, src);
+        // ic1 should remain the single member of `dst`...
+        assert_eq!(dst.len(), 1);
+        // ic1's description should now contain "ciao"...
+        assert!(dst[0].description.is_some());
+        assert_eq!(dst[0].description.as_ref().unwrap().len(), 2);
+        assert_eq!(dst[0].description(&en), Some("hello"));
+        assert_eq!(dst[0].description(&it), Some("ciao"));
+        assert_eq!(dst[0].description(&de), None);
 
         Ok(())
     }

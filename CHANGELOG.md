@@ -1,5 +1,10 @@
-# Unpublished (2025-04-03)
+# Version 0.1.11 (2025-04-13)
 
+* Fixed Issue #22.
+* .gitignore: Track Cargo.lock.
+* Cargo.toml: Pinned dependencies to latest version.
+* README.md: Updated.
+* src/lib.rs: Likewise.
 * Fixed Issue #21.
 * Cleanup dead code.
 * doc/EXT_USERS.md: Fixed spelling mistakes.
