@@ -33,7 +33,7 @@ take_mut = "0.2.2"
 # ----- db -----
 dotenvy = "0.15.7"
 tokio = { version = "1.44.2", features = ["full"] }
-sqlx = { version = "0.8.3", features = [
+sqlx = { version = "0.8.4", features = [
     "runtime-tokio",
     "tls-native-tls",
     "postgres",

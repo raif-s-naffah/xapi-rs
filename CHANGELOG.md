@@ -1,3 +1,8 @@
+# Unpublished (2025-04-15)
+
+* Upgrade `sqlx` to 0.8.4.
+* Use `anyhow` 1.0.98.
+
 # Version 0.1.11 (2025-04-13)
 
 * Fixed Issue #22.
