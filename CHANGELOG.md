@@ -1,5 +1,6 @@
 # Unpublished (2025-04-15)
 
+* Cargo.toml: Amended keyword list.
 * Upgrade `sqlx` to 0.8.4.
 * Use `anyhow` 1.0.98.
 

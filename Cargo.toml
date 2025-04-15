@@ -6,7 +6,7 @@ edition = "2021"
 description = "A conformant LRS implementation of xAPI 2.0.0"
 repository = "https://github.com/raif-s-naffah/xapi-rs"
 license = "GPL-3.0-or-later"
-keywords = ["E-learning", "xAPI", "TinCan", "LRS"]
+keywords = ["xAPI", "LRS", "web", "server"]
 categories = ["web-programming::http-server", "data-structures", "api-bindings"]
 
 [dependencies]
