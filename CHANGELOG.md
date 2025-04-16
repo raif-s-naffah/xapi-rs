@@ -1,7 +1,8 @@
-# Unpublished (2025-04-15)
+# Unpublished (2025-04-16)
 
+* Upgrade `sqlx` to 0.8.5.
+* Use `libc` 0.2.172.
 * Cargo.toml: Amended keyword list.
-* Upgrade `sqlx` to 0.8.4.
 * Use `anyhow` 1.0.98.
 
 # Version 0.1.11 (2025-04-13)
