@@ -25,7 +25,7 @@ The main software components required to make use of this project are:
 
 2. **PostgreSQL**
 
-    As mentioned in the documentation, this project relies on an installed _PostgreSQL_ database system. FWIW, as of the last edit date of this document, the version of _PostgreSQL_ was 16.3.
+    As mentioned in the documentation, this project relies on an installed _PostgreSQL_ database system. FWIW, as of the last edit date of this document, the version of _PostgreSQL_ was 16.8.
 
     You will need to configure a user w/ enough permissions to create databases and tables on the node where the RDBMS is running.
 

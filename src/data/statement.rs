@@ -2,9 +2,9 @@
 
 use crate::{
     data::{
-        check_for_nulls, fingerprint_it, statement_type::StatementType, stored_ser, Actor, ActorId,
-        Attachment, Context, ContextId, DataError, Fingerprint, MyTimestamp, MyVersion,
-        StatementObject, StatementObjectId, Validate, ValidationError, Verb, VerbId, XResult,
+        Actor, ActorId, Attachment, Context, ContextId, DataError, Fingerprint, MyTimestamp,
+        MyVersion, StatementObject, StatementObjectId, Validate, ValidationError, Verb, VerbId,
+        XResult, check_for_nulls, fingerprint_it, statement_type::StatementType, stored_ser,
     },
     emit_error,
 };
@@ -77,8 +77,44 @@ impl From<Statement> for StatementId {
     }
 }
 
+impl From<Box<Statement>> for StatementId {
+    fn from(value: Box<Statement>) -> Self {
+        StatementId {
+            id: value.id,
+            actor: ActorId::from(value.actor),
+            verb: value.verb.into(),
+            object: StatementObjectId::from(value.object),
+            result: value.result,
+            context: value.context.map(ContextId::from),
+            timestamp: value.timestamp,
+            stored: value.stored,
+            authority: value.authority.map(ActorId::from),
+            version: value.version,
+            attachments: value.attachments,
+        }
+    }
+}
+
 impl From<StatementId> for Statement {
     fn from(value: StatementId) -> Self {
+        Statement {
+            id: value.id,
+            actor: Actor::from(value.actor),
+            verb: Verb::from(value.verb),
+            object: StatementObject::from(value.object),
+            result: value.result,
+            context: value.context.map(Context::from),
+            timestamp: value.timestamp,
+            stored: value.stored,
+            authority: value.authority.map(Actor::from),
+            version: value.version,
+            attachments: value.attachments,
+        }
+    }
+}
+
+impl From<Box<StatementId>> for Statement {
+    fn from(value: Box<StatementId>) -> Self {
         Statement {
             id: value.id,
             actor: Actor::from(value.actor),
@@ -484,7 +520,7 @@ impl TryFrom<StatementType> for Statement {
 
     fn try_from(value: StatementType) -> Result<Self, Self::Error> {
         match value {
-            StatementType::S(x) => Ok(x),
+            StatementType::S(x) => Ok(*x),
             StatementType::SId(x) => Ok(Statement::from(x)),
             _ => Err(DataError::Validation(ValidationError::ConstraintViolation(
                 "Not a Statement".into(),
@@ -499,7 +535,7 @@ impl TryFrom<StatementType> for StatementId {
     fn try_from(value: StatementType) -> Result<Self, Self::Error> {
         match value {
             StatementType::S(x) => Ok(StatementId::from(x)),
-            StatementType::SId(x) => Ok(x),
+            StatementType::SId(x) => Ok(*x),
             _ => Err(DataError::Validation(ValidationError::ConstraintViolation(
                 "Not a StatementId".into(),
             ))),

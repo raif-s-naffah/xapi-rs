@@ -1,5 +1,48 @@
-# Unpublished (2025-04-16)
+# Unpublished (2025-05-16)
 
+* Fixed Issue #23.
+* Update README.md to reflect current PostgreSQL version.
+* Use `windows-strings` 0.4.1.
+* Use `windows-result` 0.3.3.
+* Use `windows-core` 0.61.1.
+* Use `errno` 0.3.12.
+* Use `bitflags` 2.9.1.
+* Use `tempfile` 3.20.0.
+* Use `getrandom` 0.2.16, 0.3.3.
+* Use `cc` 1.2.22.
+* Use `icu_*` v2.0.0.
+* Use `idna_adapter` v1.2.1.
+* Use `litemap` v0.8.0.
+* Use `potential_utf` v0.1.2.
+* Use `tinystr` v0.8.1.
+* Use `writeable` v0.6.1.
+* Use `yoke` + friends v0.8.0.
+* Use `zerotrie` v0.2.2.
+* Use `zerovec` v0.11.2.
+* Use `zerovec-derive` v0.11.1.
+* Use `crc` 3.3.0.
+* Use `libm` 0.2.15.
+* Use `winnow` 0.7.10.
+* Upgrade `tokio` to 1.45.0.
+* Use `backtrace` 0.3.75.
+* Use `hermit-abi` 0.5.0.
+* Use `libm` 0.2.14.
+* Use `hashbrown` 0.15.3.
+* Use `openssl-sys` 0.9.108.
+* Use `rustix` 1.0.7.
+* Use `sha2` 0.10.9.
+* Use `synstructure` 0.13.2.
+* Upgrade `chrono` to 0.4.41.
+* Use `toml` 0.8.22 + dependencies.
+* Use `syn` 2.0.101.
+* Use `zerocopy` 0.8.25.
+* Use `winnow` 0.7.7.
+* Edition changed to `2024`.
+* src/lib.rs: Remove `rust_2024_compatibility` warning lint.
+* Use `tokio-util` 0.7.15.
+* Use `signal-hook-registry` 1.4.5.
+* Use `der` 0.7.10.
+* Upgrade `rand` to 0.9.1.
 * Upgrade `sqlx` to 0.8.5.
 * Use `libc` 0.2.172.
 * Cargo.toml: Amended keyword list.

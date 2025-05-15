@@ -2,9 +2,9 @@
 
 use crate::{
     data::{
-        fingerprint_it, Actor, ActorId, Attachment, Context, ContextId, DataError, Fingerprint,
-        MyTimestamp, ObjectType, SubStatementObject, SubStatementObjectId, Validate,
-        ValidationError, Verb, VerbId, XResult,
+        Actor, ActorId, Attachment, Context, ContextId, DataError, Fingerprint, MyTimestamp,
+        ObjectType, SubStatementObject, SubStatementObjectId, Validate, ValidationError, Verb,
+        VerbId, XResult, fingerprint_it,
     },
     emit_error,
 };
@@ -50,6 +50,21 @@ pub(crate) struct SubStatementId {
 
 impl From<SubStatement> for SubStatementId {
     fn from(value: SubStatement) -> Self {
+        SubStatementId {
+            object_type: ObjectType::SubStatement,
+            actor: ActorId::from(value.actor),
+            verb: VerbId::from(value.verb),
+            object: SubStatementObjectId::from(value.object),
+            result: value.result,
+            context: value.context.map(ContextId::from),
+            timestamp: value.timestamp,
+            attachments: value.attachments,
+        }
+    }
+}
+
+impl From<Box<SubStatement>> for SubStatementId {
+    fn from(value: Box<SubStatement>) -> Self {
         SubStatementId {
             object_type: ObjectType::SubStatement,
             actor: ActorId::from(value.actor),

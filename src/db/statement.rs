@@ -3,11 +3,13 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
+    MyError, StatementResultId,
     data::{
-        statement_type::StatementType, Actor, Format, ObjectKind, Statement, StatementId,
-        StatementObject, StatementRef, StatementResult,
+        Actor, Format, ObjectKind, Statement, StatementId, StatementObject, StatementRef,
+        StatementResult, statement_type::StatementType,
     },
     db::{
+        Count, RowID,
         activity::{find_obj_activity, insert_activity},
         actor::{find_actor, find_actor_id, find_obj_agent, find_obj_group},
         attachment::{find_attachments, insert_attachment, link_attachment},
@@ -17,9 +19,8 @@ use crate::{
         schema::{TObjStatementRef, TStatement},
         sub_statement::{find_obj_sub_statement, insert_sub_statement},
         verb::{find_verb, update_verb},
-        Count, RowID,
     },
-    emit_db_error, handle_db_error, MyError, StatementResultId,
+    emit_db_error, handle_db_error,
 };
 use chrono::{SecondsFormat, Utc};
 use core::fmt;
@@ -778,7 +779,7 @@ async fn build_statement(
         stmt.set_stored(row.stored);
 
         debug!("stmt = {}", stmt);
-        return Ok(StatementType::S(stmt));
+        return Ok(StatementType::S(Box::new(stmt)));
     }
 
     let actor = find_actor(conn, row.actor_id, format).await?;
@@ -859,9 +860,9 @@ async fn build_statement(
     if format.is_ids() {
         let it = StatementId::from(res);
         debug!("it = {:?}", it);
-        Ok(StatementType::SId(it))
+        Ok(StatementType::SId(Box::new(it)))
     } else {
-        Ok(StatementType::S(res))
+        Ok(StatementType::S(Box::new(res)))
     }
 }
 
@@ -872,7 +873,7 @@ mod tests {
     use std::str::FromStr;
     use tracing::error;
     use tracing_test::traced_test;
-    use uuid::{uuid, Uuid};
+    use uuid::{Uuid, uuid};
 
     #[traced_test]
     #[tokio::test]

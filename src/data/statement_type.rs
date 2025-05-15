@@ -11,8 +11,8 @@ use tracing::error;
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub(crate) enum StatementType {
-    S(Statement),
-    SId(StatementId),
+    S(Box<Statement>),
+    SId(Box<StatementId>),
     SR(StatementResult),
     SRId(StatementResultId),
 }

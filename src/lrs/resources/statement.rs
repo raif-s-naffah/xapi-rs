@@ -14,10 +14,10 @@
 //! [1]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.xAPI%20Base%20Standard%20for%20LRSs.md#4161-statement-resource-statements
 
 use crate::{
-    config,
-    data::{statement_type::StatementType, Actor, Attachment, Format, Statement, StatementIDs},
+    DataError, MyError, config,
+    data::{Actor, Attachment, Format, Statement, StatementIDs, statement_type::StatementType},
     db::{
-        filter::{register_new_filter, Filter},
+        filter::{Filter, register_new_filter},
         statement::{
             find_more_statements, find_statement_by_uuid, find_statement_to_void,
             find_statements_by_filter, insert_statement, statement_exists, void_statement,
@@ -25,22 +25,21 @@ use crate::{
     },
     emit_response, eval_preconditions,
     lrs::{
-        compute_etag,
-        headers::{Headers, CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR},
+        DB, Signature, User, compute_etag,
+        headers::{CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR, Headers},
         resources::{WithETag, WithResource},
         server::{get_consistent_thru, qp},
-        Signature, User, DB,
     },
-    DataError, MyError,
 };
-use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
 use chrono::{DateTime, SecondsFormat, Utc};
-use mime::{Mime, APPLICATION_JSON};
+use mime::{APPLICATION_JSON, Mime};
 use openssl::sha::Sha256;
 use rocket::{
+    Request, Responder, State,
     futures::{Stream, TryFutureExt},
     get,
-    http::{hyper::header, ContentType, Header, Status},
+    http::{ContentType, Header, Status, hyper::header},
     post, put,
     request::{FromRequest, Outcome},
     response::stream::stream,
@@ -50,10 +49,9 @@ use rocket::{
         fs::{DirBuilder, File},
         io::{AsyncReadExt, AsyncWriteExt},
     },
-    Request, Responder, State,
 };
 use rocket_multipart::{MultipartReadSection, MultipartReader, MultipartSection, MultipartStream};
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Map, Value};
 use serde_with::serde_as;
 use sqlx::PgPool;
@@ -88,7 +86,7 @@ struct GetResponse {
 /// `multipart/mixed` depending on input query parameters.
 #[derive(Responder)]
 enum EitherOr<T> {
-    JsonX(GetResponse),
+    JsonX(Box<GetResponse>),
     Mixed(MultipartStream<T>),
 }
 
@@ -238,7 +236,9 @@ impl OutPartInfo {
 
 #[doc(hidden)]
 pub fn routes() -> Vec<rocket::Route> {
-    routes![put_mixed, put_json, post_mixed, post_json, __post, post_form, get_some, get_more]
+    routes![
+        put_mixed, put_json, post_mixed, post_json, __post, post_form, get_some, get_more
+    ]
 }
 
 /// From section 4.1.6.1 Statement Resource (/statements) [PUT Request][1]:
@@ -388,7 +388,7 @@ async fn post_json(
 
     debug!("c = {:?}", c);
     let mut statements = vec![];
-    for map in json.0 .0 {
+    for map in json.0.0 {
         let x = Statement::from_json_obj(map)
             .map_err(|x| MyError::Data(x).with_status(Status::BadRequest))?;
         statements.push(x)
@@ -562,7 +562,7 @@ async fn get_some<'r>(
     if !with_attachments {
         let stored = resource.stored();
         let x = emit_response!(c, resource => StatementType, stored)?;
-        Ok(EitherOr::JsonX(GetResponse { inner: x }))
+        Ok(EitherOr::JsonX(Box::new(GetResponse { inner: x })))
     } else {
         send_multipart(&resource).await
     }
@@ -642,7 +642,10 @@ async fn get_more(
         let url = config().to_external_url(&more);
         debug!("more URL = '{}'", url);
         if let Err(z) = &resource.set_more(&url) {
-            warn!("Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}", z);
+            warn!(
+                "Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}",
+                z
+            );
         }
     }
 
@@ -651,7 +654,7 @@ async fn get_more(
     } else {
         let last_modified = get_consistent_thru().await;
         let x = emit_response!(c, resource => StatementType, last_modified)?;
-        Ok(EitherOr::JsonX(GetResponse { inner: x }))
+        Ok(EitherOr::JsonX(Box::new(GetResponse { inner: x })))
     }
 }
 
@@ -1231,7 +1234,10 @@ async fn get_many(
         let url = config().to_external_url(&more);
         debug!("more URL = '{}'", url);
         if let Err(z) = &x.set_more(&url) {
-            warn!("Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}", z);
+            warn!(
+                "Failed updating `more` URL of StatementResult. Ignore + continue but StatementResult will be inaccurate: {}",
+                z
+            );
         }
     }
     Ok(x)

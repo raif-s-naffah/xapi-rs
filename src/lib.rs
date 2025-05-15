@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#![warn(rust_2024_compatibility)]
 #![warn(missing_docs)]
 
 //!
@@ -103,8 +102,8 @@ pub use data::*;
 pub use db::Aggregates;
 pub use error::MyError;
 pub use lrs::{
-    build, resources, verbs::VerbUI, Role, User, CONSISTENT_THRU_HDR,
-    CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR, TEST_USER_PLAIN_TOKEN, VERSION_HDR,
+    CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR, Role, TEST_USER_PLAIN_TOKEN,
+    User, VERSION_HDR, build, resources, verbs::VerbUI,
 };
 
 use tracing::error;

@@ -9,8 +9,8 @@ use crate::{
 };
 use core::fmt;
 use serde::{
-    de::{self},
     Deserialize, Serialize,
+    de::{self},
 };
 use serde_json::Value;
 use std::hash::Hasher;
@@ -45,7 +45,7 @@ pub enum StatementObject {
     /// The _object_ is a [Statement-Reference][StatementRef].
     StatementRef(StatementRef),
     /// The _object_ is a [Sub-Statement][SubStatement].
-    SubStatement(SubStatement),
+    SubStatement(Box<SubStatement>),
     /// The _object_ is an [Activity].
     Activity(Activity),
 }
@@ -57,7 +57,7 @@ pub(crate) enum StatementObjectId {
     Agent(AgentId),
     Group(GroupId),
     StatementRef(StatementRef),
-    SubStatement(SubStatementId),
+    SubStatement(Box<SubStatementId>),
 }
 
 impl From<StatementObject> for StatementObjectId {
@@ -67,7 +67,7 @@ impl From<StatementObject> for StatementObjectId {
             StatementObject::Group(group) => StatementObjectId::Group(group.into()),
             StatementObject::StatementRef(stmt_ref) => StatementObjectId::StatementRef(stmt_ref),
             StatementObject::SubStatement(sub_stmt) => {
-                StatementObjectId::SubStatement(sub_stmt.into())
+                StatementObjectId::SubStatement(Box::new(sub_stmt.into()))
             }
             StatementObject::Activity(activity) => StatementObjectId::Activity(activity.into()),
         }
@@ -82,7 +82,7 @@ impl From<StatementObjectId> for StatementObject {
             StatementObjectId::Group(x) => StatementObject::Group(Group::from(x)),
             StatementObjectId::StatementRef(x) => StatementObject::StatementRef(x),
             StatementObjectId::SubStatement(x) => {
-                StatementObject::SubStatement(SubStatement::from(x))
+                StatementObject::SubStatement(Box::new(SubStatement::from(*x)))
             }
         }
     }
@@ -129,7 +129,7 @@ impl<'de> Deserialize<'de> for StatementObject {
                         }
                     },
                     Some("SubStatement") => match SubStatement::deserialize(v) {
-                        Ok(x) => Ok(StatementObject::SubStatement(x)),
+                        Ok(x) => Ok(StatementObject::SubStatement(Box::new(x))),
                         Err(x) => {
                             let msg = format!("input is not SubStatement: {}", x);
                             error!("objectType is 'SubStatement', but {}", msg);
@@ -144,7 +144,9 @@ impl<'de> Deserialize<'de> for StatementObject {
                             Err(de::Error::custom(msg))
                         }
                     },
-                    _ => Err(de::Error::custom("Unknown 'objectType'. Expected Agent | Group | StatementRef | SubStatement | Activity")),
+                    _ => Err(de::Error::custom(
+                        "Unknown 'objectType'. Expected Agent | Group | StatementRef | SubStatement | Activity",
+                    )),
                 }
             }
             _ => Err(de::Error::custom("Expected JSON object")),
@@ -216,7 +218,7 @@ impl StatementObject {
 
     /// Construct a variant from the given [SubStatement] instance.
     pub fn from_sub_statement(obj: SubStatement) -> Self {
-        StatementObject::SubStatement(obj)
+        StatementObject::SubStatement(Box::new(obj))
     }
 
     /// Return TRUE if this is an [Activity][1] variant or FALSE otherwise.
@@ -295,11 +297,11 @@ impl StatementObject {
         }
     }
 
-    /// Return the targetif it was a [Sub-Statement][crate::SubStatement]. Raise
+    /// Return the target if it was a [Sub-Statement][crate::SubStatement]. Raise
     /// [DataError] otherwise.
     pub fn as_sub_statement(&self) -> Result<SubStatement, DataError> {
         match self {
-            StatementObject::SubStatement(x) => Ok(x.to_owned()),
+            StatementObject::SubStatement(x) => Ok(*x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
                 format!("This ({}) is NOT a Sub-Statement", self).into()
             ))),
