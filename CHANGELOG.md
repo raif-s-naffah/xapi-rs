@@ -1,5 +1,23 @@
-# Unpublished (2025-05-16)
+# Version 0.1.12 (2025-06-01)
 
+* Use `cc` 1.2.25.
+* Use `num_cpus` 1.17.0.
+* Use `lock_api` 0.4.13.
+* Use `parking_lot` 0.12.4.
+* Use `parking_lot_core` 0.9.11.
+* Upgrade `openssl` 0.10.73.
+* Use `openssl-sys` 0.9.109.
+* Upgrade `tokio` to 1.45.1.
+* Use `mio` 1.0.4.
+* Use `cc` 1.2.24.
+* Upgrade `uuid` to 1.17.0.
+* Use `rustversion` 1.0.21.
+* Upgrade `josekit` to 0.10.3.
+* Upgrade `sqlx` + friends to 0.8.6.
+* Use `windows-strings` 0.4.2.
+* Use `windows-result` 0.3.4.
+* Use `windows-core` 0.61.2.
+* Use `icu_properties` + friends 2.0.1.
 * Fixed Issue #23.
 * Update README.md to reflect current PostgreSQL version.
 * Use `windows-strings` 0.4.1.
@@ -9,7 +27,6 @@
 * Use `bitflags` 2.9.1.
 * Use `tempfile` 3.20.0.
 * Use `getrandom` 0.2.16, 0.3.3.
-* Use `cc` 1.2.22.
 * Use `icu_*` v2.0.0.
 * Use `idna_adapter` v1.2.1.
 * Use `litemap` v0.8.0.
@@ -23,7 +40,6 @@
 * Use `crc` 3.3.0.
 * Use `libm` 0.2.15.
 * Use `winnow` 0.7.10.
-* Upgrade `tokio` to 1.45.0.
 * Use `backtrace` 0.3.75.
 * Use `hermit-abi` 0.5.0.
 * Use `libm` 0.2.14.
@@ -43,7 +59,6 @@
 * Use `signal-hook-registry` 1.4.5.
 * Use `der` 0.7.10.
 * Upgrade `rand` to 0.9.1.
-* Upgrade `sqlx` to 0.8.5.
 * Use `libc` 0.2.172.
 * Cargo.toml: Amended keyword list.
 * Use `anyhow` 1.0.98.
