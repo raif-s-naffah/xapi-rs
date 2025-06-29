@@ -44,6 +44,7 @@ mod validate;
 mod verb;
 mod version;
 
+use crate::emit_error;
 pub use about::*;
 pub use account::*;
 pub use activity::*;
@@ -61,7 +62,7 @@ pub use context_group::*;
 pub use data_error::DataError;
 pub use duration::*;
 pub use email_address::*;
-pub use extensions::{Extensions, EMPTY_EXTENSIONS};
+pub use extensions::{EMPTY_EXTENSIONS, Extensions};
 pub use fingerprint::*;
 pub use format::*;
 pub use group::*;
@@ -75,6 +76,7 @@ pub use person::*;
 pub use result::*;
 pub use score::*;
 use serde::Serializer;
+use serde_json::Value;
 pub use statement::*;
 pub use statement_ids::*;
 pub use statement_object::*;
@@ -82,14 +84,10 @@ pub use statement_ref::*;
 pub use statement_result::*;
 pub use sub_statement::*;
 pub use sub_statement_object::*;
-
 pub use timestamp::MyTimestamp;
 pub use validate::*;
 pub use verb::*;
 pub use version::*;
-
-use crate::emit_error;
-use serde_json::Value;
 
 /// Given `$map` (a [LanguageMap] dictionary) insert `$label` keyed by `$tag`
 /// creating the collection in the process if it was `None`.
@@ -115,7 +113,7 @@ use serde_json::Value;
 /// [2]: https://crates.io/crates/language-tags
 #[macro_export]
 macro_rules! add_language {
-    ( $map: expr_2021, $tag: expr_2021, $label: expr_2021 ) => {
+    ( $map: expr, $tag: expr, $label: expr ) => {
         if !$label.trim().is_empty() {
             let label = $label.trim();
             if $map.is_none() {
@@ -136,7 +134,7 @@ macro_rules! add_language {
 /// [1]: [email_address::EmailAddress]
 #[macro_export]
 macro_rules! set_email {
-    ( $builder: expr_2021, $val: expr_2021 ) => {
+    ( $builder: expr, $val: expr ) => {
         if $val.trim().is_empty() {
             $crate::emit_error!(DataError::Validation(ValidationError::Empty("mbox".into())))
         } else {
@@ -159,7 +157,7 @@ macro_rules! set_email {
 /// [1]: std::collections::BTreeMap
 #[macro_export]
 macro_rules! merge_maps {
-    ( $dst: expr_2021, $src: expr_2021 ) => {
+    ( $dst: expr, $src: expr ) => {
         if $dst.is_none() {
             if $src.is_some() {
                 let x = std::mem::take(&mut $src.unwrap());
@@ -185,7 +183,7 @@ fn check_for_nulls(val: &Value) -> Result<(), ValidationError> {
         for (k, v) in obj.iter() {
             if v.is_null() {
                 emit_error!(ValidationError::ConstraintViolation(
-                    format!("Key '{}' is 'null'", k).into()
+                    format!("Key '{k}' is 'null'").into()
                 ))
             } else if k != "extensions" {
                 check_for_nulls(v)?

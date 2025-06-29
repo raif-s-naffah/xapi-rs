@@ -140,7 +140,7 @@ impl Statement {
             // extensions)."
             if v.is_null() {
                 emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                    format!("Key '{}' is null", k).into()
+                    format!("Key '{k}' is null").into()
                 )))
             } else if k != "extensions" {
                 check_for_nulls(v)?
@@ -405,7 +405,7 @@ impl fmt::Display for Statement {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Statement{{ {} }}", res)
+        write!(f, "Statement{{ {res} }}")
     }
 }
 

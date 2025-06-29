@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
-    add_language,
+    MyLanguageTag, add_language,
     data::{Canonical, DataError, LanguageMap, Validate, ValidationError},
-    emit_error, merge_maps, MyLanguageTag,
+    emit_error, merge_maps,
 };
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -81,7 +81,7 @@ impl fmt::Display for InteractionComponent {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "InteractionComponent{{ {} }}", res)
+        write!(f, "InteractionComponent{{ {res} }}")
     }
 }
 

@@ -3,26 +3,26 @@
 #![doc = include_str!("../../../doc/EXT_USERS.md")]
 
 use crate::{
+    DataError, MyError,
     db::user::{
         batch_update_users, find_all_ids, find_group_member_ids, find_group_user, find_user,
         insert_user, update_user,
     },
     emit_response, eval_preconditions,
     lrs::{
-        etag_from_str, resources::WithResource, server::get_consistent_thru, Headers, Role, User,
-        DB,
+        DB, Headers, Role, User, etag_from_str, resources::WithResource,
+        server::get_consistent_thru,
     },
-    DataError, MyError,
 };
 use chrono::SecondsFormat;
 use rocket::{
+    FromForm, Route, State,
     form::Form,
     futures::TryFutureExt,
     get,
-    http::{hyper::header, Header, Status},
+    http::{Header, Status, hyper::header},
     post, put, routes,
     serde::json::Json,
-    FromForm, Route, State,
 };
 use tracing::{debug, info};
 
@@ -95,7 +95,7 @@ async fn post(
         if !matches!(z_role, Role::User | Role::AuthUser) {
             return Err(MyError::HTTP {
                 status: Status::Forbidden,
-                info: format!("Admin ({}) can only create users w/ [Auth]User roles", user).into(),
+                info: format!("Admin ({user}) can only create users w/ [Auth]User roles").into(),
             });
         }
     }
@@ -121,7 +121,7 @@ async fn get_one(id: i32, db: &State<DB>, user: User) -> Result<WithResource<Use
             Some(y) => emit_response!(Headers::default(), y => User),
             None => Err(MyError::HTTP {
                 status: Status::NotFound,
-                info: format!("User #{} not found", id).into(),
+                info: format!("User #{id} not found").into(),
             }),
         }
     } else if user.is_admin() {
@@ -132,7 +132,7 @@ async fn get_one(id: i32, db: &State<DB>, user: User) -> Result<WithResource<Use
             Some(y) => emit_response!(Headers::default(), y => User),
             None => Err(MyError::HTTP {
                 status: Status::NotFound,
-                info: format!("User #{} not found", id).into(),
+                info: format!("User #{id} not found").into(),
             }),
         }
     } else {
@@ -195,8 +195,8 @@ async fn update_one(
         None => {
             return Err(MyError::HTTP {
                 status: Status::NotFound,
-                info: format!("User #{} not found", id).into(),
-            })
+                info: format!("User #{id} not found").into(),
+            });
         }
     };
     debug!("old_user = {}", old_user);

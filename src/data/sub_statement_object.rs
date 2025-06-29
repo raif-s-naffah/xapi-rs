@@ -5,7 +5,7 @@ use crate::data::{
     Validate, ValidationError,
 };
 use core::fmt;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 use std::hash::Hasher;
 
 /// Enumeration for a potential _Object_ of a [Statement][1] itself being the
@@ -116,7 +116,7 @@ impl SubStatementObject {
         match self {
             SubStatementObject::Agent(x) => Ok(x.to_owned()),
             _ => Err(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT an Agent", self).into(),
+                format!("This ({self}) is NOT an Agent").into(),
             ))),
         }
     }
@@ -127,7 +127,7 @@ impl SubStatementObject {
         match self {
             SubStatementObject::Group(x) => Ok(x.to_owned()),
             _ => Err(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT a Group", self).into(),
+                format!("This ({self}) is NOT a Group").into(),
             ))),
         }
     }
@@ -138,7 +138,7 @@ impl SubStatementObject {
         match self {
             SubStatementObject::StatementRef(x) => Ok(x.to_owned()),
             _ => Err(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT a StatementRef", self).into(),
+                format!("This ({self}) is NOT a StatementRef").into(),
             ))),
         }
     }
@@ -149,7 +149,7 @@ impl SubStatementObject {
         match self {
             SubStatementObject::Activity(x) => Ok(x.to_owned()),
             _ => Err(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT an Activity", self).into(),
+                format!("This ({self}) is NOT an Activity").into(),
             ))),
         }
     }
@@ -188,10 +188,10 @@ impl<'de> Deserialize<'de> for SubStatementObject {
 impl fmt::Display for SubStatementObject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SubStatementObject::Activity(x) => write!(f, "{}", x),
-            SubStatementObject::Agent(x) => write!(f, "{}", x),
-            SubStatementObject::Group(x) => write!(f, "{}", x),
-            SubStatementObject::StatementRef(x) => write!(f, "{}", x),
+            SubStatementObject::Activity(x) => write!(f, "{x}"),
+            SubStatementObject::Agent(x) => write!(f, "{x}"),
+            SubStatementObject::Group(x) => write!(f, "{x}"),
+            SubStatementObject::StatementRef(x) => write!(f, "{x}"),
         }
     }
 }

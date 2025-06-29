@@ -86,7 +86,7 @@ impl fmt::Display for Extensions {
 
         if !self.0.is_empty() {
             for (k, v) in self.0.iter() {
-                vec.push(format!("\"{}\": {}", k, v))
+                vec.push(format!("\"{k}\": {v}"))
             }
         }
 
@@ -95,7 +95,7 @@ impl fmt::Display for Extensions {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "{{ {} }}", res)
+        write!(f, "{{ {res} }}")
     }
 }
 

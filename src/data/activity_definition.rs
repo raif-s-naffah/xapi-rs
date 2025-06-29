@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
-    add_language,
+    MyLanguageTag, add_language,
     data::{
-        validate::validate_irl, Canonical, DataError, Extensions, InteractionComponent,
-        InteractionType, LanguageMap, Validate, ValidationError,
+        Canonical, DataError, Extensions, InteractionComponent, InteractionType, LanguageMap,
+        Validate, ValidationError, validate::validate_irl,
     },
-    emit_error, merge_maps, MyLanguageTag,
+    emit_error, merge_maps,
 };
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
@@ -293,7 +293,7 @@ impl fmt::Display for ActivityDefinition {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "ActivityDefinition{{ {} }}", res)
+        write!(f, "ActivityDefinition{{ {res} }}")
     }
 }
 
@@ -623,7 +623,7 @@ impl<'a> ActivityDefinitionBuilder<'a> {
 fn array_to_display_str(val: &[String]) -> String {
     let mut vec = vec![];
     for v in val.iter() {
-        vec.push(format!("\"{}\"", v))
+        vec.push(format!("\"{v}\""))
     }
     vec.iter()
         .map(|x| x.to_string())
@@ -634,7 +634,7 @@ fn array_to_display_str(val: &[String]) -> String {
 fn vec_to_display_str(val: &Vec<InteractionComponent>) -> String {
     let mut vec = vec![];
     for ic in val {
-        vec.push(format!("{}", ic))
+        vec.push(format!("{ic}"))
     }
     vec.iter()
         .map(|x| x.to_string())

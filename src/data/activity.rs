@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyLanguageTag,
     data::{
         ActivityDefinition, Canonical, DataError, Extensions, Fingerprint, InteractionComponent,
         InteractionType, ObjectType, Validate, ValidationError,
     },
-    emit_error, MyLanguageTag,
+    emit_error,
 };
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
@@ -296,7 +297,7 @@ impl fmt::Display for Activity {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Activity{{ {} }}", res)
+        write!(f, "Activity{{ {res} }}")
     }
 }
 
@@ -568,22 +569,24 @@ mod tests {
         assert_eq!(v1.definition().unwrap().name(&ko).unwrap(), "참석");
         // ...and new ones that didn't exist before the merge...
         assert_eq!(v1.definition().unwrap().extensions().unwrap().len(), 1);
-        assert!(v1
-            .definition()
-            .unwrap()
-            .extensions()
-            .unwrap()
-            .contains_key(location_iri));
+        assert!(
+            v1.definition()
+                .unwrap()
+                .extensions()
+                .unwrap()
+                .contains_key(location_iri)
+        );
 
         v1.merge(v3);
 
         assert_eq!(v1.definition().unwrap().extensions().unwrap().len(), 2);
-        assert!(v1
-            .definition()
-            .unwrap()
-            .extensions()
-            .unwrap()
-            .contains_key(reporter_iri));
+        assert!(
+            v1.definition()
+                .unwrap()
+                .extensions()
+                .unwrap()
+                .contains_key(reporter_iri)
+        );
 
         Ok(())
     }

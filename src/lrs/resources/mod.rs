@@ -14,15 +14,15 @@ pub mod users;
 pub mod verbs;
 
 use crate::{
-    lrs::{server::get_consistent_thru, Headers},
     DataError, MyError,
+    lrs::{Headers, server::get_consistent_thru},
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use etag::EntityTag;
 use rocket::{
-    http::{hyper::header, Header, Status},
-    serde::json::Json,
     Responder,
+    http::{Header, Status, hyper::header},
+    serde::json::Json,
 };
 use serde::Serialize;
 use tracing::debug;
@@ -138,11 +138,11 @@ pub(crate) async fn do_emit_response<T: Serialize>(
 /// 3. return a _Response_ of the form `Result<WithResource<T>, Status>`.
 #[macro_export]
 macro_rules! emit_response {
-    ( $headers:expr_2021, $resource:expr_2021 => $T:ident, $timestamp:expr_2021 ) => {
+    ( $headers:expr, $resource:expr => $T:ident, $timestamp:expr ) => {
         $crate::lrs::resources::do_emit_response::<$T>($headers, $resource, Some($timestamp)).await
     };
 
-    ( $headers:expr_2021, $resource:expr_2021 => $T:ident ) => {
+    ( $headers:expr, $resource:expr => $T:ident ) => {
         $crate::lrs::resources::do_emit_response::<$T>($headers, $resource, None).await
     };
 }
@@ -183,7 +183,7 @@ pub(crate) async fn emit_doc_response(
 /// * PreconditionFailed: if pre-conditions were present and failed.
 #[macro_export]
 macro_rules! eval_preconditions {
-    ( $etag: expr_2021, $headers: expr_2021 ) => {
+    ( $etag: expr, $headers: expr ) => {
         if !$headers.has_conditionals() {
             tracing::debug!("Request has no If-xxx headers");
             Status::Ok

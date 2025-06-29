@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    Fingerprint,
     data::{DataError, ValidationError},
-    emit_error, Fingerprint,
+    emit_error,
 };
 use core::fmt;
-use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use speedate::Duration;
 use std::hash::Hasher;
 use std::str::FromStr;
@@ -37,15 +38,15 @@ impl MyDuration {
     }
 
     /// Return a clone of this **excluding precisions beyond 0.01 second.**
-    /// 
-    /// Needed b/c [4.2.7 Additional Requirements for Data Types / Duration][1] 
+    ///
+    /// Needed b/c [4.2.7 Additional Requirements for Data Types / Duration][1]
     /// states:
     /// > When making a comparison (e.g. as a part of the statement signing
     /// > process) of Statements in regard to a Duration, any precision beyond
     /// > 0.01 second precision shall not be included in the comparison.
-    /// 
+    ///
     /// [1]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#duration
-    /// 
+    ///
     pub fn truncate(&self) -> Self {
         let inner = &self.0;
         MyDuration::from(
@@ -102,7 +103,7 @@ impl MyDuration {
             res.push_str(&s.to_string());
         } else {
             let sec = s as f32 + (mu as f32 / 100.0);
-            res.push_str(&format!("{:.2}", sec));
+            res.push_str(&format!("{sec:.2}"));
         }
         res.push('S');
         res

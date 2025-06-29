@@ -1,3 +1,52 @@
+# Unpublished (2025-06-29)
+
+* Upgrade `lru` to 0.15.0.
+* Fixed Issue #25.
+* Use `indexmap` 2.10.0.
+* Use `bumpalo` 3.19.0.
+* Use `atomic` 0.6.1.
+* Use `syn` 2.0.104.
+* Use `errno` 0.3.13.
+* Use `windows-sys` 0.60.2.
+* Use `windows-targets` + friends 0.53.2.
+* Use `autocfg` 1.5.0.
+* Use `libc` 0.2.174.
+* Use `zerocopy` + friends 0.8.26.
+* Use `r-efi` 5.3.0.
+* Use `tracing-attributes` 0.1.30.
+* Upgrade `speedate` to 0.16.0.
+* Use `slab` 0.4.10.
+* Upgrade `serde_with` to 3.13.0.
+* Use `serde_with_macros` 3.13.0.
+* Use `dyn-clone` 1.0.19.
+* Use `schemars` 0.9.0.
+* Fixed Issue #24.
+* Use `cc` 1.2.27.
+* Use `libc` 0.2.173.
+* Use `thread_local` 1.1.9.
+* Use `redox_syscall` 0.5.13.
+* Use `windows-link` 0.1.3.
+* Use `hermit-abi` 0.5.2.
+* Use `memchr` 2.7.5.
+* Use `wasi` 0.11.1.
+* Use `winnow` 0.7.11.
+* Use `rustc-demangle` 0.1.25.
+* Use `adler2` 2.0.1.
+* Use `cfg-if` 1.0.1.
+* Use `miniz_oxide` 0.8.9.
+* Use `bytemuck` 1.23.1.
+* Use `hashbrown` 0.15.4.
+* Use `flate2` 1.1.2.
+* Use `serde_spanned` 0.6.9.
+* Use `smallvec` 1.15.1.
+* Use `toml` 0.8.23.
+* Use `toml_datetime` 0.6.11.
+* Use `toml_edit` 0.22.27.
+* Use `toml_write` 0.1.2.
+* Use `tracing-attributes` 0.1.29.
+* Use `tracing-core` 0.1.34.
+* Use `base64ct` 1.8.0.
+
 # Version 0.1.12 (2025-06-01)
 
 * Use `cc` 1.2.25.

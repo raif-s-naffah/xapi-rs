@@ -21,6 +21,7 @@
 //! [2]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#4166-activity-profile-resource-activitiesprofile
 
 use crate::{
+    DataError, MyError,
     data::Activity,
     db::{
         activity::{find_activity_id, insert_activity_iri},
@@ -28,14 +29,13 @@ use crate::{
     },
     eval_preconditions,
     lrs::{
-        emit_doc_response, etag_from_str, no_content, resources::WithETag, Headers, User,
-        WithDocumentOrIDs, DB,
+        DB, Headers, User, WithDocumentOrIDs, emit_doc_response, etag_from_str, no_content,
+        resources::WithETag,
     },
-    DataError, MyError,
 };
 use chrono::{DateTime, Utc};
 use iri_string::types::IriStr;
-use rocket::{delete, get, http::Status, post, put, routes, State};
+use rocket::{State, delete, get, http::Status, post, put, routes};
 use serde_json::{Map, Value};
 use sqlx::PgPool;
 use std::mem;
@@ -172,7 +172,7 @@ async fn post(
                         return Err(MyError::HTTP {
                             status: s,
                             info: "Failed pre-condition(s)".into(),
-                        })
+                        });
                     }
                     _ => (),
                 }
@@ -307,8 +307,7 @@ async fn get_profile(
         None => Err(MyError::HTTP {
             status: Status::NotFound,
             info: format!(
-                "No profile found for activity ({}), and profile ({})",
-                activity_id, profile_id
+                "No profile found for activity ({activity_id}), and profile ({profile_id})"
             )
             .into(),
         }),

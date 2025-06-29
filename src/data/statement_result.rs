@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::data::{validate_irl, DataError, Statement, StatementId};
+use crate::data::{DataError, Statement, StatementId, validate_irl};
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
 use serde::{Deserialize, Serialize};
@@ -98,7 +98,7 @@ impl fmt::Display for StatementResult {
                 self.more.as_ref().unwrap()
             )
         } else {
-            write!(f, "StatementResult{{[ {} ]}}", statements)
+            write!(f, "StatementResult{{[ {statements} ]}}")
         }
     }
 }

@@ -2,8 +2,8 @@
 
 use crate::{
     data::{
-        check_for_nulls, fingerprint_it, validate_sha1sum, Account, Agent, AgentId, CIString,
-        DataError, Fingerprint, MyEmailAddress, ObjectType, Validate, ValidationError,
+        Account, Agent, AgentId, CIString, DataError, Fingerprint, MyEmailAddress, ObjectType,
+        Validate, ValidationError, check_for_nulls, fingerprint_it, validate_sha1sum,
     },
     emit_error, set_email,
 };
@@ -108,7 +108,7 @@ impl Group {
         for (k, v) in &map {
             if v.is_null() {
                 emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                    format!("Key '{}' is null", k).into()
+                    format!("Key '{k}' is null").into()
                 )))
             } else {
                 check_for_nulls(v)?
@@ -233,13 +233,13 @@ impl fmt::Display for Group {
                     .join(", ")
             ))
         }
-        
+
         let res = vec
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Group{{ {} }}", res)
+        write!(f, "Group{{ {res} }}")
     }
 }
 

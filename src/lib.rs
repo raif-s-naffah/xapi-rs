@@ -105,7 +105,6 @@ pub use lrs::{
     CONSISTENT_THRU_HDR, CONTENT_TRANSFER_ENCODING_HDR, HASH_HDR, Role, TEST_USER_PLAIN_TOKEN,
     User, VERSION_HDR, build, resources, verbs::VerbUI,
 };
-
 use tracing::error;
 
 /// Modes of operations of this LRS.
@@ -133,7 +132,7 @@ impl TryFrom<&str> for Mode {
             "auth" => Ok(Mode::Auth),
             "user" => Ok(Mode::User),
             x => {
-                let msg = format!("Invalid/unknown Mode: '{}'", x);
+                let msg = format!("Invalid/unknown Mode: '{x}'");
                 error!("Failed: {}", msg);
                 Err(MyError::Runtime(msg.into()))
             }
@@ -173,7 +172,7 @@ macro_rules! runtime_error {
 /// Log `$err` at level _error_ before returning it.
 #[macro_export]
 macro_rules! emit_error {
-    ( $err: expr_2021 ) => {{
+    ( $err: expr ) => {{
         tracing::error!("{}", $err);
         return Err($err);
     }};

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyError, V200,
     data::{MyLanguageTag, MyVersion},
-    runtime_error, MyError, V200,
+    runtime_error,
 };
 use etag::EntityTag;
 use rocket::{
-    http::{hyper::header, ContentType, Status},
-    request::{FromRequest, Outcome},
     Request,
+    http::{ContentType, Status, hyper::header},
+    request::{FromRequest, Outcome},
 };
 use std::{borrow::Cow, cmp::Ordering, ops::RangeInclusive, str::FromStr};
 use tracing::{debug, error, warn};
@@ -162,7 +163,7 @@ impl<'r> FromRequest<'r> for Headers {
             Some(x) => match MyVersion::from_str(x) {
                 Ok(x) => {
                     if x.to_string() != V200 {
-                        let msg = format!("xAPI v.{} wanted but i only support 2.0.0", x);
+                        let msg = format!("xAPI v.{x} wanted but i only support 2.0.0");
                         error!("{}", msg);
                         // should be 418 I'm a teapot
                         return Outcome::Error((Status::BadRequest, MyError::Runtime(msg.into())));
@@ -170,7 +171,7 @@ impl<'r> FromRequest<'r> for Headers {
                     x
                 }
                 Err(y) => {
-                    let msg = format!("xAPI version header ({}) has invalid syntax: {}", x, y);
+                    let msg = format!("xAPI version header ({x}) has invalid syntax: {y}");
                     error!("{}", msg);
                     return Outcome::Error((Status::BadRequest, MyError::Runtime(msg.into())));
                 }

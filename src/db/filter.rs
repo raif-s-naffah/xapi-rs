@@ -3,10 +3,9 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
-    config,
+    MyError, config,
     data::{Actor, DataError, Validate},
     db::{activity::find_activity_id, actor::find_actor_id, verb::find_verb_id},
-    MyError,
 };
 use chrono::{DateTime, Local, SecondsFormat, Utc};
 use core::fmt;
@@ -239,7 +238,7 @@ impl fmt::Display for Filter {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Filter{{ {} }}", res)
+        write!(f, "Filter{{ {res} }}")
     }
 }
 
@@ -281,8 +280,7 @@ pub(crate) async fn drop_stale_filters(conn: &PgPool) {
     let limit = config().ttl_batch_len;
     let sql = format!(
         r#"DELETE FROM filter WHERE id IN
-(SELECT id FROM filter WHERE created < '{}' LIMIT {}) RETURNING id"#,
-        as_string, limit
+(SELECT id FROM filter WHERE created < '{as_string}' LIMIT {limit}) RETURNING id"#
     );
     match sqlx::query_as::<_, BigSerial>(&sql).fetch_all(conn).await {
         Ok(rows) => {
@@ -297,10 +295,7 @@ pub(crate) async fn drop_stale_filters(conn: &PgPool) {
 /// Remove all views w/ names matching the pattern we use when creating
 /// intermediate views to process GET /statements requests w/ filter.
 async fn drop_views(conn: &PgPool, id: i64) {
-    let sql = format!(
-        "SELECT viewname FROM pg_views WHERE viewname ~ '^v{}[a-e]?$'",
-        id
-    );
+    let sql = format!("SELECT viewname FROM pg_views WHERE viewname ~ '^v{id}[a-e]?$'");
     match sqlx::query_as::<_, Name>(&sql).fetch_all(conn).await {
         Ok(rows) => {
             for name in rows {
@@ -310,7 +305,7 @@ async fn drop_views(conn: &PgPool, id: i64) {
                 // --whhich may happen if we try to remove for example `v9`
                 // _before_ `v9a`...
                 let tmp = conn
-                    .execute(format!("DROP VIEW {} CASCADE", v).as_str())
+                    .execute(format!("DROP VIEW {v} CASCADE").as_str())
                     .await;
                 match tmp {
                     Ok(_) => debug!("Dropped view '{}'", v),

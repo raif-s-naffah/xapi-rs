@@ -2,16 +2,16 @@
 
 use crate::{
     data::{
-        fingerprint::fingerprint_it, Account, Agent, AgentId, CIString, DataError, Fingerprint,
-        Group, GroupId, MyEmailAddress, Validate, ValidationError,
+        Account, Agent, AgentId, CIString, DataError, Fingerprint, Group, GroupId, MyEmailAddress,
+        Validate, ValidationError, fingerprint::fingerprint_it,
     },
     emit_error,
 };
 use core::fmt;
 use iri_string::types::UriStr;
 use serde::{
-    de::{self, Error},
     Deserialize, Serialize,
+    de::{self, Error},
 };
 use serde_json::{Map, Value};
 use std::{hash::Hasher, str::FromStr};
@@ -68,7 +68,7 @@ impl Actor {
                     Ok(Actor::Group(Group::from_json_obj(map)?))
                 } else {
                     emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                        format!("Unknown objectType ({})", x).into()
+                        format!("Unknown objectType ({x})").into()
                     )))
                 }
             }
@@ -105,7 +105,7 @@ impl Actor {
         match self {
             Actor::Agent(x) => Ok(x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT an Agent", self).into()
+                format!("This ({self}) is NOT an Agent").into()
             ))),
         }
     }
@@ -116,7 +116,7 @@ impl Actor {
         match self {
             Actor::Group(x) => Ok(x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT a Group", self).into()
+                format!("This ({self}) is NOT a Group").into()
             ))),
         }
     }
@@ -226,8 +226,8 @@ impl<'de> Deserialize<'de> for Actor {
 impl fmt::Display for Actor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Actor::Agent(x) => write!(f, "{}", x),
-            Actor::Group(x) => write!(f, "{}", x),
+            Actor::Agent(x) => write!(f, "{x}"),
+            Actor::Group(x) => write!(f, "{x}"),
         }
     }
 }

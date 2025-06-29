@@ -5,7 +5,7 @@
 use crate::config::config;
 use core::fmt;
 use rand::Rng;
-use sqlx::{migrate::Migrator, Connection, Executor, PgConnection};
+use sqlx::{Connection, Executor, PgConnection, migrate::Migrator};
 use std::{path::Path, thread};
 use tokio::runtime::Runtime;
 use tracing::warn;
@@ -50,7 +50,7 @@ impl MockDB {
                 let mut conn = PgConnection::connect(&MockDB::postgres())
                     .await
                     .expect("Failed getting connection to create mock DB");
-                conn.execute(format!("CREATE DATABASE {}", db_name).as_str())
+                conn.execute(format!("CREATE DATABASE {db_name}").as_str())
                     .await
                     .expect("Failed creating mock DB");
                 // apply migration(s)...
@@ -91,8 +91,7 @@ impl Drop for MockDB {
                 if let Err(x) = sqlx::query(&format!(
                     r#"SELECT pg_terminate_backend(pid) 
                         FROM pg_catalog.pg_stat_activity 
-                        WHERE pid <> pg_backend_pid() AND datname = '{}'"#,
-                    db_name
+                        WHERE pid <> pg_backend_pid() AND datname = '{db_name}'"#
                 ))
                 .execute(&mut conn)
                 .await
@@ -103,7 +102,7 @@ impl Drop for MockDB {
                     );
                 }
                 // and drop the DB...
-                conn.execute(format!("DROP DATABASE {}", db_name).as_str())
+                conn.execute(format!("DROP DATABASE {db_name}").as_str())
                     .await
                     .expect("Failed dropping mock DB. You need to delete it manually :(");
             });

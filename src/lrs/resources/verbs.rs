@@ -3,28 +3,28 @@
 #![doc = include_str!("../../../doc/EXT_VERBS.md")]
 
 use crate::{
-    config,
+    DataError, MyError, MyLanguageTag, Validate, Verb, config,
     db::{
+        Aggregates,
         schema::TVerb,
         verb::{
             ext_compute_aggregates, ext_find_by_iri, ext_find_by_rid, ext_find_some, ext_update,
             insert_verb,
         },
-        Aggregates,
     },
     eval_preconditions,
-    lrs::{etag_from_str, no_content, resources::WithETag, Headers, User, DB},
-    DataError, MyError, MyLanguageTag, Validate, Verb,
+    lrs::{DB, Headers, User, etag_from_str, no_content, resources::WithETag},
 };
 use core::fmt;
 use iri_string::types::IriStr;
 use rocket::{
+    Request, Responder, State,
     form::FromForm,
     get,
-    http::{hyper::header, Header, Status},
+    http::{Header, Status, hyper::header},
     patch, post, put,
     request::{FromRequest, Outcome},
-    routes, Request, Responder, State,
+    routes,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -118,7 +118,7 @@ impl<'r> FromRequest<'r> for QueryParams<'r> {
         };
         // must be >= 0
         if start < 0 {
-            let msg = format!("Start ({}) MUST be greater than or equal to 0", start);
+            let msg = format!("Start ({start}) MUST be greater than or equal to 0");
             error!("Failed: {}", msg);
             return Outcome::Error((Status::BadRequest, MyError::Runtime(msg.into())));
         }
@@ -129,7 +129,7 @@ impl<'r> FromRequest<'r> for QueryParams<'r> {
         };
         // must be in [10..=100]
         if !(10..=100).contains(&count) {
-            let msg = format!("Count ({}) MUST be w/in [10..101]", count);
+            let msg = format!("Count ({count}) MUST be w/in [10..101]");
             error!("Failed: {}", msg);
             return Outcome::Error((Status::BadRequest, MyError::Runtime(msg.into())));
         }
@@ -158,7 +158,7 @@ fn qp<'r, T: FromForm<'r>>(
     match req.query_value::<T>(name) {
         Some(Ok(x)) => Ok(x),
         Some(Err(x)) => {
-            let msg = format!("Failed parsing query parameter '{}': {}", name, x);
+            let msg = format!("Failed parsing query parameter '{name}': {x}");
             error!("{}", msg);
             Err(MyError::Runtime(msg.into()))
         }
@@ -417,12 +417,12 @@ async fn get_iri(iri: &str, db: &State<DB>, user: User) -> Result<ETaggedResourc
             "This <{}> is not a valid IRI. Assume it's an alias + continue",
             iri
         );
-        let iri2 = format!("http://adlnet.gov/expapi/verbs/{}", iri);
+        let iri2 = format!("http://adlnet.gov/expapi/verbs/{iri}");
         // is it valid now?
         if IriStr::new(&iri2).is_err() {
             return Err(MyError::HTTP {
                 status: Status::BadRequest,
-                info: format!("Input <{}> is not a valid IRI nor an alias of one", iri).into(),
+                info: format!("Input <{iri}> is not a valid IRI nor an alias of one").into(),
             });
         } else {
             iri2

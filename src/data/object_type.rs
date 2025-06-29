@@ -60,7 +60,7 @@ impl ObjectType {
             "contextGroup" => Ok(ObjectType::ContextGroup),
             "Person" => Ok(ObjectType::Person),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("Unknown|invalid ObjectType: '{}'", s).into()
+                format!("Unknown|invalid ObjectType: '{s}'").into()
             ))),
         }
     }
@@ -78,7 +78,7 @@ impl fmt::Display for ObjectType {
             ObjectType::ContextGroup => "contextGroup",
             ObjectType::Person => "Person",
         };
-        write!(f, "{}", res)
+        write!(f, "{res}")
     }
 }
 

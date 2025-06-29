@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    ActivityId, DataError,
     data::{Activity, Fingerprint, Validate, ValidationError},
-    emit_error, ActivityId, DataError,
+    emit_error,
 };
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, skip_serializing_none, OneOrMany};
+use serde_with::{OneOrMany, serde_as, skip_serializing_none};
 use std::hash::Hasher;
 
 #[serde_as]
@@ -192,7 +193,7 @@ impl fmt::Display for ContextActivities {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "{{ {} }}", res)
+        write!(f, "{{ {res} }}")
     }
 }
 

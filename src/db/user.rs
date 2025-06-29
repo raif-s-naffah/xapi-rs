@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyError,
     db::RowID,
     emit_db_error,
     lrs::{
-        users::{BatchUpdateForm, UpdateForm},
         Role, User,
+        users::{BatchUpdateForm, UpdateForm},
     },
-    MyError,
 };
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool};
@@ -209,9 +209,9 @@ pub(crate) async fn batch_update_users(
         .map(|x| x.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let where_clause = format!("WHERE id IN ({})", ids);
+    let where_clause = format!("WHERE id IN ({ids})");
     if form.enabled.is_some() {
-        let sql = format!("UPDATE users SET enabled = $1 {}", where_clause);
+        let sql = format!("UPDATE users SET enabled = $1 {where_clause}");
         let enabled = form.enabled.unwrap();
         match sqlx::query(&sql).bind(enabled).execute(conn).await {
             Ok(x) => {
@@ -221,7 +221,7 @@ pub(crate) async fn batch_update_users(
             Err(x) => emit_db_error!(x, "Failed batch_update_users(..., enabled)"),
         }
     } else if form.role.is_some() {
-        let sql = format!("UPDATE users SET role = $1 {}", where_clause);
+        let sql = format!("UPDATE users SET role = $1 {where_clause}");
         let role = i16::try_from(form.role.as_ref().unwrap().0).expect("Failed coercing role");
         match sqlx::query(&sql).bind(role).execute(conn).await {
             Ok(x) => {
@@ -231,7 +231,7 @@ pub(crate) async fn batch_update_users(
             Err(x) => emit_db_error!(x, "Failed batch_update_users(..., role)"),
         }
     } else if form.manager_id.is_some() {
-        let sql = format!("UPDATE users SET manager_id = $1 {}", where_clause);
+        let sql = format!("UPDATE users SET manager_id = $1 {where_clause}");
         let manager_id = form.manager_id.unwrap();
         match sqlx::query(&sql).bind(manager_id).execute(conn).await {
             Ok(x) => {
@@ -241,6 +241,6 @@ pub(crate) async fn batch_update_users(
             Err(x) => emit_db_error!(x, "Failed batch_update_users(..., manager_id)"),
         }
     } else {
-        panic!("Unexpected batch_update_users(..., {:?}) call", form);
+        panic!("Unexpected batch_update_users(..., {form:?}) call");
     }
 }

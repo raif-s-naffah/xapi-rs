@@ -2,7 +2,7 @@
 
 use crate::{
     data::{
-        validate_sha1sum, Account, DataError, MyEmailAddress, ObjectType, Validate, ValidationError,
+        Account, DataError, MyEmailAddress, ObjectType, Validate, ValidationError, validate_sha1sum,
     },
     emit_error,
 };
@@ -118,7 +118,7 @@ impl fmt::Display for Person {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Person{{ {} }}", res)
+        write!(f, "Person{{ {res} }}")
     }
 }
 

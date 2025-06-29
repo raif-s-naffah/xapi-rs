@@ -6,8 +6,8 @@ use crate::{
 };
 use core::fmt;
 use serde::{
-    de::{self, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize,
+    de::{self, MapAccess, Visitor},
 };
 use serde_with::skip_serializing_none;
 use std::{hash::Hasher, ops::RangeInclusive};
@@ -207,7 +207,7 @@ impl fmt::Display for Score {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Score{{ {} }}", res)
+        write!(f, "Score{{ {res} }}")
     }
 }
 
@@ -235,7 +235,7 @@ impl ScoreBuilder {
     pub fn scaled(mut self, val: f32) -> Result<Self, DataError> {
         if !VALID_SCALE.contains(&val) {
             emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("'scaled' ({}) is out-of-bounds", val).into()
+                format!("'scaled' ({val}) is out-of-bounds").into()
             )))
         } else {
             self._scaled = Some(val);

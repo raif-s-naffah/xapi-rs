@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyLanguageTag,
     data::{
         Actor, ActorId, ContextActivities, ContextActivitiesId, ContextAgent, ContextAgentId,
         ContextGroup, ContextGroupId, DataError, Extensions, Fingerprint, Group, GroupId,
         StatementRef, Validate, ValidationError,
     },
-    emit_error, MyLanguageTag,
+    emit_error,
 };
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -318,7 +319,7 @@ impl fmt::Display for Context {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Context{{ {} }}", res)
+        write!(f, "Context{{ {res} }}")
     }
 }
 

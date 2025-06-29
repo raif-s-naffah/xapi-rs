@@ -3,7 +3,7 @@
 use crate::data::{DataError, Validate, ValidationError};
 use core::fmt;
 use semver::{Version, VersionReq};
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de};
 use serde_json::Value;
 use serde_with::SerializeDisplay;
 use std::str::FromStr;
@@ -95,7 +95,7 @@ impl Validate for MyVersion {
             // saul goodman
         } else {
             vec.push(ValidationError::ConstraintViolation(
-                format!("Version '{}' is invalid or not allowed", self).into(),
+                format!("Version '{self}' is invalid or not allowed").into(),
             ))
         }
 

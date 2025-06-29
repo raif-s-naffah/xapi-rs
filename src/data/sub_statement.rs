@@ -205,7 +205,7 @@ impl fmt::Display for SubStatement {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "SubStatement{{ {} }}", res)
+        write!(f, "SubStatement{{ {res} }}")
     }
 }
 

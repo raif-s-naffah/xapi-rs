@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    AgentId, DataError,
     data::{Agent, Fingerprint, ObjectType, Validate, ValidationError},
-    emit_error, AgentId, DataError,
+    emit_error,
 };
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
@@ -122,7 +123,7 @@ impl fmt::Display for ContextAgent {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "ContextAgent{{ {} }}", res)
+        write!(f, "ContextAgent{{ {res} }}")
     }
 }
 

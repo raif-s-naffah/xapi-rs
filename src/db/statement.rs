@@ -308,23 +308,21 @@ async fn by_agent(conn: &PgPool, filter: &Filter, view: &str) -> Result<Option<(
     // FIXME (rsn) 20241115 - this SQL is wrong.  it does not take into account
     // the "Filter Conditions for StatementRefs".
     let mut sql = format!(
-        r#"CREATE OR REPLACE VIEW {} AS
+        r#"CREATE OR REPLACE VIEW {view} AS
 SELECT * FROM statement
-WHERE actor_id = {}
-OR actor_id IN ( SELECT group_id FROM member WHERE agent_id = {1} )
+WHERE actor_id = {id}
+OR actor_id IN ( SELECT group_id FROM member WHERE agent_id = {id} )
 OR id IN (
   SELECT statement_id FROM obj_actor
-  WHERE actor_id = {1}
-  OR actor_id IN ( SELECT group_id FROM member WHERE agent_id = {1} )
-)"#,
-        view, id
+  WHERE actor_id = {id}
+  OR actor_id IN ( SELECT group_id FROM member WHERE agent_id = {id} )
+)"#
     );
     if filter.related_agents() {
         let related = format!(
             r#"
-OR context_id IN ( SELECT id FROM context WHERE instructor_id = {} OR team_id = {0} )
-OR context_id IN ( SELECT context_id FROM ctx_actors WHERE actor_id = {0} )"#,
-            id
+OR context_id IN ( SELECT id FROM context WHERE instructor_id = {id} OR team_id = {id} )
+OR context_id IN ( SELECT context_id FROM ctx_actors WHERE actor_id = {id} )"#
         );
         sql.push_str(&related);
     }
@@ -359,14 +357,13 @@ async fn by_verb(conn: &PgPool, filter: &Filter, view: &str) -> Result<Option<()
     // (w/ UNION) statements that directly match the VERB predicate AND are
     // not voided.
     let sql = format!(
-        r#"CREATE OR REPLACE VIEW {} AS 
+        r#"CREATE OR REPLACE VIEW {view} AS 
 SELECT s1.* FROM statement s1 WHERE s1.id IN (
   SELECT osr.statement_id FROM obj_statement_ref osr
-  JOIN statement s2 USING (uuid) WHERE s2.verb_id = {}
+  JOIN statement s2 USING (uuid) WHERE s2.verb_id = {id}
 )
 UNION
-SELECT * FROM statement s3 WHERE s3.voided = FALSE AND s3.verb_id = {1}"#,
-        view, id
+SELECT * FROM statement s3 WHERE s3.voided = FALSE AND s3.verb_id = {id}"#
     );
 
     debug!("sql = {}", sql);
@@ -388,17 +385,15 @@ async fn by_activity(conn: &PgPool, filter: &Filter, view: &str) -> Result<Optio
     // FIXME (rsn) 20241115 - this SQL is wrong.  it does not take into account
     // the "Filter Conditions for StatementRefs".
     let mut sql = format!(
-        r#"CREATE OR REPLACE VIEW {} AS
+        r#"CREATE OR REPLACE VIEW {view} AS
 SELECT * FROM statement WHERE voided = FALSE AND id IN (
-  SELECT statement_id FROM obj_activity WHERE activity_id = {}
-)"#,
-        view, id
+  SELECT statement_id FROM obj_activity WHERE activity_id = {id}
+)"#
     );
 
     if filter.related_activities() {
         let related = format!(
-            r#" OR context_id IN ( SELECT context_id FROM ctx_activities WHERE activity_id = {} )"#,
-            id
+            r#" OR context_id IN ( SELECT context_id FROM ctx_activities WHERE activity_id = {id} )"#
         );
         sql.push_str(&related);
     }
@@ -425,10 +420,9 @@ async fn by_registration(
     let uuid = filter.registration().unwrap().as_simple().to_string();
     // exclude 'voided' statements...
     let sql = format!(
-        r#"CREATE OR REPLACE VIEW {} AS
+        r#"CREATE OR REPLACE VIEW {view} AS
 SELECT * FROM statement WHERE voided = FALSE AND
-context_id IN ( SELECT id FROM context WHERE registration = '{}' )"#,
-        view, uuid
+context_id IN ( SELECT id FROM context WHERE registration = '{uuid}' )"#
     );
 
     debug!("sql = {}", sql);
@@ -445,9 +439,8 @@ context_id IN ( SELECT id FROM context WHERE registration = '{}' )"#,
 async fn by_time(conn: &PgPool, filter: &Filter, view: &str) -> Result<Option<()>, MyError> {
     // exclude 'voided' statements...
     let mut sql = format!(
-        r#"CREATE OR REPLACE VIEW {} AS
-SELECT * FROM statement WHERE voided = FALSE AND "#,
-        view
+        r#"CREATE OR REPLACE VIEW {view} AS
+SELECT * FROM statement WHERE voided = FALSE AND "#
     );
     if filter.since().is_some() && filter.until().is_some() {
         let since = filter.since().unwrap();
@@ -526,28 +519,28 @@ pub(crate) async fn find_statements_by_filter(
     format: &Format,
     sid: u64,
 ) -> Result<(StatementType, Option<PagingInfo>), MyError> {
-    let view = format!("v{}", sid);
+    let view = format!("v{sid}");
     debug!("view = '{}'", view);
 
     // we build the final SQL from various views constructed based on the values
     // of the set filter discriminants.
     // start filtering by timestamps...
     let mut views = vec![];
-    let v1 = format!("{}a", view);
+    let v1 = format!("{view}a");
     if (by_time(conn, &filter, &v1).await?).is_some() {
         views.push(v1);
     }
-    let v2 = format!("{}b", view);
+    let v2 = format!("{view}b");
     if (by_registration(conn, &filter, &v2).await?).is_some() {
         views.push(v2)
     }
-    let v3 = format!("{}c", view);
+    let v3 = format!("{view}c");
     if (by_activity(conn, &filter, &v3).await?).is_some() {
         views.push(v3)
     }
-    let v4 = format!("{}d", view);
+    let v4 = format!("{view}d");
     if (by_verb(conn, &filter, &v4).await?).is_some() {
-        match sqlx::query_as::<_, TStatement>(&format!("select * from {}", v4))
+        match sqlx::query_as::<_, TStatement>(&format!("select * from {v4}"))
             .fetch_all(conn)
             .await
         {
@@ -564,7 +557,7 @@ pub(crate) async fn find_statements_by_filter(
         }
         views.push(v4)
     }
-    let v5 = format!("{}e", view);
+    let v5 = format!("{view}e");
     if (by_agent(conn, &filter, &v5).await?).is_some() {
         views.push(v5)
     }
@@ -576,10 +569,9 @@ pub(crate) async fn find_statements_by_filter(
     let mut sql = if views.is_empty() {
         debug!("Views collection is empty. Select ALL...");
         format!(
-            r#"CREATE OR REPLACE VIEW {} AS
+            r#"CREATE OR REPLACE VIEW {view} AS
 SELECT * FROM statement WHERE voided = FALSE AND exact IS NOT NULL
-ORDER BY stored {}"#,
-            view, sort_order
+ORDER BY stored {sort_order}"#
         )
     } else {
         // all subordinate views by now are successfully created.  create the main one now...
@@ -588,19 +580,15 @@ ORDER BY stored {}"#,
             r#"SELECT x.id, x.fp, x.uuid, x.voided, x.actor_id, x.verb_id,
   x.object_kind, x.result_id, x.context_id, x.timestamp, x.stored,
   x.authority_id, x.version, x.exact
-FROM (SELECT * FROM {} WHERE voided = FALSE AND exact IS NOT NULL) x "#,
-            v
+FROM (SELECT * FROM {v} WHERE voided = FALSE AND exact IS NOT NULL) x "#
         );
         while !views.is_empty() {
             let v = views.remove(views.len() - 1);
-            sql.push_str(&format!(" JOIN {} USING (id)", v));
+            sql.push_str(&format!(" JOIN {v} USING (id)"));
         }
         // we'll create the aggregated view taking into account the sort order as
         // set in `ascending`
-        format!(
-            "CREATE OR REPLACE VIEW {} AS {} ORDER BY stored {}",
-            view, sql, sort_order
-        )
+        format!("CREATE OR REPLACE VIEW {view} AS {sql} ORDER BY stored {sort_order}")
     };
 
     debug!("sql = {}", sql);
@@ -615,7 +603,7 @@ FROM (SELECT * FROM {} WHERE voided = FALSE AND exact IS NOT NULL) x "#,
     // knowing the total number of rows in this view guides how we (a) write the
     // SELECT sql statement for the first N rows, as well as (b) the parameters
     // of the _continuation_ call to return the next page...
-    sql = format!("SELECT COUNT(*) AS total FROM {}", view);
+    sql = format!("SELECT COUNT(*) AS total FROM {view}");
     let count = sqlx::query_as::<_, Count>(&sql).fetch_one(conn).await?.0;
     debug!("count = {}", count);
     // convert it to i32...
@@ -623,7 +611,7 @@ FROM (SELECT * FROM {} WHERE voided = FALSE AND exact IS NOT NULL) x "#,
     let offset = 0;
     // finally select 'limit' rows from aggrgate view sorted in correct order...
     let limit = filter.limit();
-    sql = format!("SELECT * FROM {} LIMIT {}", view, limit);
+    sql = format!("SELECT * FROM {view} LIMIT {limit}");
 
     let paging_info = if count > limit {
         Some(PagingInfo {
@@ -677,10 +665,10 @@ pub(crate) async fn find_more_statements(
     debug!("limit = {}", limit);
     debug!("format = {}", format);
 
-    let view = format!("v{}", sid);
+    let view = format!("v{sid}");
     offset += limit;
 
-    let sql = format!("SELECT * FROM {} OFFSET {} LIMIT {}", view, offset, limit);
+    let sql = format!("SELECT * FROM {view} OFFSET {offset} LIMIT {limit}");
     debug!("sql = {}", sql);
     match sqlx::query_as::<_, TStatement>(&sql).fetch_all(conn).await {
         Ok(rows) => {

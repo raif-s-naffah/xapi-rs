@@ -130,7 +130,7 @@ impl fmt::Display for XResult {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Result{{ {} }}", res)
+        write!(f, "Result{{ {res} }}")
     }
 }
 

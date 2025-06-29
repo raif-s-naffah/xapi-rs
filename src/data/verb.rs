@@ -3,8 +3,8 @@
 use crate::{
     add_language,
     data::{
-        fingerprint_it, Canonical, DataError, Fingerprint, LanguageMap, MyLanguageTag, Validate,
-        ValidationError,
+        Canonical, DataError, Fingerprint, LanguageMap, MyLanguageTag, Validate, ValidationError,
+        fingerprint_it,
     },
     emit_error,
 };
@@ -211,7 +211,7 @@ impl fmt::Display for Verb {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Verb{{ {} }}", res)
+        write!(f, "Verb{{ {res} }}")
     }
 }
 

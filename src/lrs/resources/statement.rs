@@ -98,7 +98,7 @@ fn sha2_path(sha2: &str) -> PathBuf {
     hasher.update(&bytes);
     let signature = hasher.finish();
     let name = BASE64_URL_SAFE_NO_PAD.encode(signature);
-    config().static_dir.join(format!("_{}", name))
+    config().static_dir.join(format!("_{name}"))
 }
 
 /// Captures information about a potential Attachment w/in a multipart/mixed
@@ -323,7 +323,7 @@ async fn put_json(
         error!("Found {} Attachment(s) w/ unpopulated 'fileUrl'", count);
         return Err(MyError::HTTP {
             status: Status::BadRequest,
-            info: format!("Found {} Attachment(s) w/ unpopulated 'fileUrl'", count).into(),
+            info: format!("Found {count} Attachment(s) w/ unpopulated 'fileUrl'").into(),
         });
     }
 
@@ -409,7 +409,7 @@ async fn post_json(
     if count > 0 {
         return Err(MyError::HTTP {
             status: Status::BadRequest,
-            info: format!("Statement w/ {} unresolved Attachment(s)", count).into(),
+            info: format!("Statement w/ {count} unresolved Attachment(s)").into(),
         });
     }
 
@@ -485,7 +485,7 @@ async fn get_some<'r>(
     if !extras.is_empty() {
         return Err(MyError::HTTP {
             status: Status::BadRequest,
-            info: format!("Received extraneous query string parameters: {:?}", extras).into(),
+            info: format!("Received extraneous query string parameters: {extras:?}").into(),
         });
     }
 
@@ -669,9 +669,9 @@ async fn as_json<T: DeserializeOwned>(
         debug!("content-type: '{}'", ct);
         let mime = ct
             .parse::<Mime>()
-            .unwrap_or_else(|x| panic!("Failed parsing CT: {}", x));
+            .unwrap_or_else(|x| panic!("Failed parsing CT: {x}"));
         if mime != APPLICATION_JSON {
-            let msg = format!("Expected 'application/json' CT; got '{}'", ct);
+            let msg = format!("Expected 'application/json' CT; got '{ct}'");
             error!("{}", msg);
             return Err(MyError::Runtime(msg.into()));
         }
@@ -681,9 +681,9 @@ async fn as_json<T: DeserializeOwned>(
     let mut buf = vec![];
     part.read_to_end(&mut buf)
         .await
-        .unwrap_or_else(|x| panic!("Failed consuming Part: {}", x));
+        .unwrap_or_else(|x| panic!("Failed consuming Part: {x}"));
     serde_json::from_slice::<T>(&buf).map_err(|x| {
-        let msg = format!("Failed deserializing part: {}", x);
+        let msg = format!("Failed deserializing part: {x}");
         error!("{}", msg);
         MyError::Runtime(msg.into())
     })
@@ -716,7 +716,7 @@ async fn ingest_multipart(
     while let Some(mut part) = data
         .next()
         .await
-        .unwrap_or_else(|x| panic!("Failed reading Part #{}: {}", ndx, x))
+        .unwrap_or_else(|x| panic!("Failed reading Part #{ndx}: {x}"))
     {
         if ndx == 0 {
             // 1st part.  always one or more Statement...
@@ -780,7 +780,7 @@ async fn ingest_multipart(
             if enc != "binary" {
                 return Err(MyError::HTTP {
                     status: Status::BadRequest,
-                    info: format!("Expected 'binary' CTE but found '{}'", enc).into(),
+                    info: format!("Expected 'binary' CTE but found '{enc}'").into(),
                 });
             }
 
@@ -789,14 +789,14 @@ async fn ingest_multipart(
             let size = part
                 .read_to_end(&mut buf)
                 .await
-                .unwrap_or_else(|x| panic!("Failed consuming Part #{}: {}", ndx, x));
+                .unwrap_or_else(|x| panic!("Failed consuming Part #{ndx}: {x}"));
             debug!("size (actual) = {} (bytes)", size);
             // convert it to i64 to make it easier when working w/ DB layer...
             // TODO (rsn) 20240909 - this conversion must not fail.  to that end
             // ensure that Rocket multipart limits accomodate usize::MAX and use
             // an i128 data type for the Attachment.length property.
             let size = i64::try_from(size).map_err(|x| {
-                MyError::Runtime(format!("Failed converting {} to i64: {}", size, x).into())
+                MyError::Runtime(format!("Failed converting {size} to i64: {x}").into())
             })?;
 
             // does the part match any of our `included` items?
@@ -810,53 +810,52 @@ async fn ingest_multipart(
 
                 // if it has a content-length header, its value should also match
                 match part.headers().get_one(header::CONTENT_LENGTH.as_str()) {
-                    Some(x) => match x.parse::<i64>() {
-                        Ok(cl) => {
-                            debug!("-- content-length: {}", cl);
-                            if ac.len != cl {
-                                return Err(MyError::HTTP {
+                    Some(x) => {
+                        match x.parse::<i64>() {
+                            Ok(cl) => {
+                                debug!("-- content-length: {}", cl);
+                                if ac.len != cl {
+                                    return Err(MyError::HTTP {
                                     status: Status::BadRequest,
                                     info: format!(
-                                        "Part #{} CL ({}) doesn't match declared ({}) value",
-                                        ndx, cl, ac.len
-                                    )
+                                        "Part #{ndx} CL ({cl}) doesn't match declared ({}) value", ac.len)
                                     .into(),
+                                });
+                                }
+                            }
+                            Err(x) => {
+                                return Err(MyError::HTTP {
+                                    status: Status::BadRequest,
+                                    info: format!("Failed parsing Part #{ndx} CL: {x}").into(),
                                 });
                             }
                         }
-                        Err(x) => {
-                            return Err(MyError::HTTP {
-                                status: Status::BadRequest,
-                                info: format!("Failed parsing Part #{} CL: {}", ndx, x).into(),
-                            });
-                        }
-                    },
+                    }
                     None => info!("Part #{} has no CL", ndx),
                 }
 
                 // if it has a content-type header, its value should also match
                 match part.headers().get_one(header::CONTENT_TYPE.as_str()) {
-                    Some(x) => match x.parse::<Mime>() {
-                        Ok(ct) => {
-                            debug!("-- content-type: {}", ct);
-                            if ac.mime != ct {
-                                return Err(MyError::HTTP {
+                    Some(x) => {
+                        match x.parse::<Mime>() {
+                            Ok(ct) => {
+                                debug!("-- content-type: {}", ct);
+                                if ac.mime != ct {
+                                    return Err(MyError::HTTP {
                                     status: Status::BadRequest,
                                     info: format!(
-                                        "Part #{} CT ({}) doesn't match declared MIME ({})",
-                                        ndx, ct, ac.mime
-                                    )
+                                        "Part #{ndx} CT ({ct}) doesn't match declared MIME ({})", ac.mime)
                                     .into(),
                                 });
+                                }
+                            }
+                            Err(x) => {
+                                error!("Failed parsing Part #{} CT: {}", ndx, x);
+                                return Err(MyError::Data(DataError::MIME(x))
+                                    .with_status(Status::BadRequest));
                             }
                         }
-                        Err(x) => {
-                            error!("Failed parsing Part #{} CT: {}", ndx, x);
-                            return Err(
-                                MyError::Data(DataError::MIME(x)).with_status(Status::BadRequest)
-                            );
-                        }
-                    },
+                    }
                     None => info!("Part #{} has no CT", ndx),
                 }
 
@@ -890,7 +889,7 @@ async fn ingest_multipart(
             } else {
                 return Err(MyError::HTTP {
                     status: Status::BadRequest,
-                    info: format!("Part #{} is not an attachment", ndx).into(),
+                    info: format!("Part #{ndx} is not an attachment").into(),
                 });
             }
         }
@@ -1000,7 +999,7 @@ async fn persist_one(
                 } else {
                     return Err(MyError::HTTP {
                         status: Status::BadRequest,
-                        info: format!("Target of voiding statement ({}) is invalid", target_uuid)
+                        info: format!("Target of voiding statement ({target_uuid}) is invalid")
                             .into(),
                     });
                 }
@@ -1008,7 +1007,7 @@ async fn persist_one(
         } else {
             return Err(MyError::HTTP {
                 status: Status::BadRequest,
-                info: format!("Invalid voiding statement {}", statement).into(),
+                info: format!("Invalid voiding statement {statement}").into(),
             });
         }
     }
@@ -1072,7 +1071,7 @@ async fn persist_many(
         if uuids.contains(&uuid) {
             return Err(MyError::HTTP {
                 status: Status::BadRequest,
-                info: format!("Found Statements w/ same ID: {}", uuid).into(),
+                info: format!("Found Statements w/ same ID: {uuid}").into(),
             });
         }
 
@@ -1096,9 +1095,7 @@ async fn persist_many(
                     return Err(MyError::HTTP {
                         status: Status::Conflict,
                         info: format!(
-                            "Already have a Statement w/ same UUID ({}) but different FP. Conflict",
-                            uuid
-                        )
+                            "Already have a Statement w/ same UUID ({uuid}) but different FP. Conflict")
                         .into(),
                     });
                 }
@@ -1129,18 +1126,15 @@ async fn persist_many(
                     } else {
                         return Err(MyError::HTTP {
                             status: Status::BadRequest,
-                            info: format!(
-                                "Target of voiding statement ({}) is invalid",
-                                target_uuid
-                            )
-                            .into(),
+                            info: format!("Target of voiding statement ({target_uuid}) is invalid")
+                                .into(),
                         });
                     }
                 }
             } else {
                 return Err(MyError::HTTP {
                     status: Status::BadRequest,
-                    info: format!("Invalid voiding statement {}", s).into(),
+                    info: format!("Invalid voiding statement {s}").into(),
                 });
             }
         }

@@ -2,8 +2,8 @@
 
 use crate::{
     data::{
-        check_for_nulls, fingerprint_it, validate_sha1sum, Account, CIString, DataError,
-        Fingerprint, MyEmailAddress, ObjectType, Validate, ValidationError,
+        Account, CIString, DataError, Fingerprint, MyEmailAddress, ObjectType, Validate,
+        ValidationError, check_for_nulls, fingerprint_it, validate_sha1sum,
     },
     emit_error, set_email,
 };
@@ -72,7 +72,7 @@ impl Agent {
         for (k, v) in &map {
             if v.is_null() {
                 emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                    format!("Key '{}' is null", k).into()
+                    format!("Key '{k}' is null").into()
                 )))
             } else {
                 check_for_nulls(v)?
@@ -188,7 +188,7 @@ impl fmt::Display for Agent {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Agent{{ {} }}", res)
+        write!(f, "Agent{{ {res} }}")
     }
 }
 

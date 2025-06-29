@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyError,
     data::{Actor, Format, ObjectKind, SubStatement, SubStatementObject},
     db::{
+        RowID,
         activity::{find_obj_activity, insert_activity},
         actor::{find_actor, find_actor_id, find_obj_agent, find_obj_group},
         attachment::{find_attachments, insert_attachment, link_attachment},
@@ -13,9 +15,8 @@ use crate::{
             find_obj_statement_ref, insert_obj_activity, insert_obj_actor, insert_obj_statement_ref,
         },
         verb::{find_verb, update_verb},
-        RowID,
     },
-    emit_db_error, MyError,
+    emit_db_error,
 };
 use chrono::Utc;
 use sqlx::PgPool;
@@ -196,7 +197,7 @@ async fn build_substatement(
             let obj = find_obj_statement_ref(conn, statement_id).await?;
             SubStatementObject::from_statement_ref(obj)
         }
-        x => panic!("Unexpected ({:?}) SubStatement Object kind", x),
+        x => panic!("Unexpected ({x:?}) SubStatement Object kind"),
     };
     debug!("object = {}", object);
     builder = builder.object(object)?;

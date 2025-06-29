@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{data::Extensions, MyError, MyVersion};
+use crate::{MyError, MyVersion, data::Extensions};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -70,6 +70,6 @@ impl fmt::Display for About {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "About{{ {} }}", res)
+        write!(f, "About{{ {res} }}")
     }
 }

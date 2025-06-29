@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
-    add_language,
+    MyLanguageTag, add_language,
     data::{
-        validate::{validate_irl, validate_sha2},
         DataError, LanguageMap, Validate, ValidationError,
+        validate::{validate_irl, validate_sha2},
     },
-    emit_error, MyLanguageTag,
+    emit_error,
 };
 use core::fmt;
 use iri_string::types::{IriStr, IriString};
@@ -143,7 +143,7 @@ impl fmt::Display for Attachment {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "Attachment{{ {} }}", res)
+        write!(f, "Attachment{{ {res} }}")
     }
 }
 

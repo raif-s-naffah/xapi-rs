@@ -26,24 +26,23 @@
 //! [2]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#4162-state-resource-activitiesstate
 
 use crate::{
+    DataError, MyError,
     db::state::{
-        as_many, as_single, find, find_ids, remove, remove_many, upsert, SingleResourceParams,
+        SingleResourceParams, as_many, as_single, find, find_ids, remove, remove_many, upsert,
     },
     eval_preconditions,
     lrs::{
-        emit_doc_response, etag_from_str,
+        DB, User, emit_doc_response, etag_from_str,
         headers::Headers,
         no_content,
         resources::{WithDocumentOrIDs, WithETag},
-        User, DB,
     },
-    DataError, MyError,
 };
-use rocket::{delete, futures::TryFutureExt, get, http::Status, post, put, routes, State};
+use rocket::{State, delete, futures::TryFutureExt, get, http::Status, post, put, routes};
 use serde_json::{Map, Value};
 use sqlx::{
-    types::chrono::{DateTime, Utc},
     PgPool,
+    types::chrono::{DateTime, Utc},
 };
 use std::mem;
 use tracing::{debug, info};
@@ -180,7 +179,7 @@ async fn post(
                         return Err(MyError::HTTP {
                             status: s,
                             info: "Failed pre-condition(s)".into(),
-                        })
+                        });
                     }
                     _ => (),
                 }
@@ -285,7 +284,7 @@ async fn get_state(
     match x {
         None => Err(MyError::HTTP {
             status: Status::NotFound,
-            info: format!("State ({}) not found", s).into(),
+            info: format!("State ({s}) not found").into(),
         }),
         Some(y) => Ok((y, updated)),
     }

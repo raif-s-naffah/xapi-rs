@@ -107,7 +107,7 @@ impl<'de> Deserialize<'de> for StatementObject {
                     Some("Agent") => match Agent::deserialize(v) {
                         Ok(x) => Ok(StatementObject::Agent(x)),
                         Err(x) => {
-                            let msg = format!("input is not Agent: {}", x);
+                            let msg = format!("input is not Agent: {x}");
                             error!("objectType is 'Agent', but {}", msg);
                             Err(de::Error::custom(msg))
                         }
@@ -115,7 +115,7 @@ impl<'de> Deserialize<'de> for StatementObject {
                     Some("Group") => match Group::deserialize(v) {
                         Ok(x) => Ok(StatementObject::Group(x)),
                         Err(x) => {
-                            let msg = format!("input is not Group: {}", x);
+                            let msg = format!("input is not Group: {x}");
                             error!("objectType is 'Group', but {}", msg);
                             Err(de::Error::custom(msg))
                         }
@@ -123,7 +123,7 @@ impl<'de> Deserialize<'de> for StatementObject {
                     Some("StatementRef") => match StatementRef::deserialize(v) {
                         Ok(x) => Ok(StatementObject::StatementRef(x)),
                         Err(x) => {
-                            let msg = format!("input is not StatementRef: {}", x);
+                            let msg = format!("input is not StatementRef: {x}");
                             error!("objectType is 'StatementRef', but {}", msg);
                             Err(de::Error::custom(msg))
                         }
@@ -131,7 +131,7 @@ impl<'de> Deserialize<'de> for StatementObject {
                     Some("SubStatement") => match SubStatement::deserialize(v) {
                         Ok(x) => Ok(StatementObject::SubStatement(Box::new(x))),
                         Err(x) => {
-                            let msg = format!("input is not SubStatement: {}", x);
+                            let msg = format!("input is not SubStatement: {x}");
                             error!("objectType is 'SubStatement', but {}", msg);
                             Err(de::Error::custom(msg))
                         }
@@ -139,7 +139,7 @@ impl<'de> Deserialize<'de> for StatementObject {
                     Some("Activity") => match Activity::deserialize(v) {
                         Ok(x) => Ok(StatementObject::Activity(x)),
                         Err(x) => {
-                            let msg = format!("input is not Activity: {}", x);
+                            let msg = format!("input is not Activity: {x}");
                             error!("objectType is 'Activity', but {}", msg);
                             Err(de::Error::custom(msg))
                         }
@@ -261,7 +261,7 @@ impl StatementObject {
         match self {
             StatementObject::Activity(x) => Ok(x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT an Activity", self).into()
+                format!("This ({self}) is NOT an Activity").into()
             ))),
         }
     }
@@ -271,7 +271,7 @@ impl StatementObject {
         match self {
             StatementObject::Agent(x) => Ok(x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT an Agent", self).into()
+                format!("This ({self}) is NOT an Agent").into()
             ))),
         }
     }
@@ -281,7 +281,7 @@ impl StatementObject {
         match self {
             StatementObject::Group(x) => Ok(x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT a Group", self).into()
+                format!("This ({self}) is NOT a Group").into()
             ))),
         }
     }
@@ -292,7 +292,7 @@ impl StatementObject {
         match self {
             StatementObject::StatementRef(x) => Ok(x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT a Statement-Ref", self).into()
+                format!("This ({self}) is NOT a Statement-Ref").into()
             ))),
         }
     }
@@ -303,7 +303,7 @@ impl StatementObject {
         match self {
             StatementObject::SubStatement(x) => Ok(*x.to_owned()),
             _ => emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                format!("This ({}) is NOT a Sub-Statement", self).into()
+                format!("This ({self}) is NOT a Sub-Statement").into()
             ))),
         }
     }
@@ -323,11 +323,11 @@ impl StatementObject {
 impl fmt::Display for StatementObject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StatementObject::Agent(x) => write!(f, "{}", x),
-            StatementObject::Group(x) => write!(f, "{}", x),
-            StatementObject::StatementRef(x) => write!(f, "{}", x),
-            StatementObject::SubStatement(x) => write!(f, "{}", x),
-            StatementObject::Activity(x) => write!(f, "{}", x),
+            StatementObject::Agent(x) => write!(f, "{x}"),
+            StatementObject::Group(x) => write!(f, "{x}"),
+            StatementObject::StatementRef(x) => write!(f, "{x}"),
+            StatementObject::SubStatement(x) => write!(f, "{x}"),
+            StatementObject::Activity(x) => write!(f, "{x}"),
         }
     }
 }

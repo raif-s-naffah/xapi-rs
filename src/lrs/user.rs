@@ -4,22 +4,22 @@
 //! as well as enforcing access authentication, when enabled, to its resources.
 
 use crate::{
-    config::config,
-    db::user::{find_active_user, TUser},
-    lrs::{role::Role, DB},
     Agent, MyError,
+    config::config,
+    db::user::{TUser, find_active_user},
+    lrs::{DB, role::Role},
 };
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::{DateTime, Utc};
 use core::fmt;
 use lru::LruCache;
 use rocket::{
-    http::{hyper::header, Status},
-    request::{FromRequest, Outcome},
     Request, State,
+    http::{Status, hyper::header},
+    request::{FromRequest, Outcome},
 };
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, FromInto};
+use serde_with::{FromInto, serde_as};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
@@ -130,7 +130,7 @@ impl From<&User> for CachedUser {
 impl User {
     /// Compute Basic Authentication credentials from given email and password.
     pub(crate) fn credentials_from(email: &str, password: &str) -> u32 {
-        let basic = format!("{}:{}", email, password);
+        let basic = format!("{email}:{password}");
         let encoded = BASE64_STANDARD.encode(basic);
         fxhash::hash32(&encoded)
     }
@@ -177,7 +177,7 @@ impl User {
         if !self.enabled {
             Err(MyError::HTTP {
                 status: Status::Forbidden,
-                info: format!("User {} is NOT active", self).into(),
+                info: format!("User {self} is NOT active").into(),
             })
         } else {
             Ok(())
@@ -190,7 +190,7 @@ impl User {
         if !matches!(self.role, Role::Root | Role::User | Role::AuthUser) {
             Err(MyError::HTTP {
                 status: Status::Forbidden,
-                info: format!("User {} is NOT authorized to use xAPI", self).into(),
+                info: format!("User {self} is NOT authorized to use xAPI").into(),
             })
         } else {
             Ok(())
@@ -202,7 +202,7 @@ impl User {
         if !matches!(self.role, Role::Root | Role::AuthUser) {
             Err(MyError::HTTP {
                 status: Status::Forbidden,
-                info: format!("User {} is NOT allowed to authorize Statements", self).into(),
+                info: format!("User {self} is NOT allowed to authorize Statements").into(),
             })
         } else {
             Ok(())
@@ -214,7 +214,7 @@ impl User {
         if !matches!(self.role, Role::Root | Role::Admin) {
             Err(MyError::HTTP {
                 status: Status::Forbidden,
-                info: format!("User {} is NOT authorized to use verbs", self).into(),
+                info: format!("User {self} is NOT authorized to use verbs").into(),
             })
         } else {
             Ok(())
@@ -226,7 +226,7 @@ impl User {
         if !matches!(self.role, Role::Root | Role::Admin) {
             Err(MyError::HTTP {
                 status: Status::Forbidden,
-                info: format!("User {} is NOT authorized to manage users", self).into(),
+                info: format!("User {self} is NOT authorized to manage users").into(),
             })
         } else {
             Ok(())

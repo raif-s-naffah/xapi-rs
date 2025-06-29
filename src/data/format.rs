@@ -156,7 +156,7 @@ impl FromStr for FormatParam {
             "canonical" => Ok(FormatParam::Canonical),
             x => {
                 emit_error!(DataError::Validation(ValidationError::ConstraintViolation(
-                    format!("Unknown|invalid ({}) 'format'", x).into()
+                    format!("Unknown|invalid ({x}) 'format'").into()
                 )))
             }
         }

@@ -2,18 +2,18 @@
 
 use core::fmt;
 use sqlx::{
+    FromRow,
     postgres::types::PgCiText,
     types::{
-        chrono::{DateTime, Utc},
         Json,
+        chrono::{DateTime, Utc},
     },
-    FromRow,
 };
 use uuid::Uuid;
 
 use crate::{
-    data::{ActivityDefinition, Extensions, LanguageMap},
     Statement,
+    data::{ActivityDefinition, Extensions, LanguageMap},
 };
 
 // ===== actor stuff ==========================================================
@@ -67,9 +67,9 @@ impl fmt::Display for TActor {
         // handle `name` if some...
         if self.name.is_some() {
             let n = self.name.clone().unwrap();
-            display.push_str(format!("[{}]", n).as_str());
+            display.push_str(format!("[{n}]").as_str());
         }
-        write!(f, "{}", display)
+        write!(f, "{display}")
     }
 }
 
