@@ -1,5 +1,8 @@
-# Unpublished (2025-06-29)
+# Version 0.1.13 (2025-07-1)
 
+* Upgrade `schema_with` to 3.14.0.
+* use `schema_with_macros` 3.14.0.
+* use `schemars` 1.0.3.
 * Upgrade `lru` to 0.15.0.
 * Fixed Issue #25.
 * Use `indexmap` 2.10.0.
