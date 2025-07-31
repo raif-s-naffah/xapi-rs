@@ -1,4 +1,24 @@
-# Version 0.1.13 (2025-07-1)
+# Version 0.1.14 (2025-08-01)
+
+* Upgrade `tokio` to 1.47.0.
+* Upgrade `rand` to 0.9.2.
+* Upgrade `serde_json` to 1.0.141.
+* Upgrade `lru` to 0.16.0.
+* Use `redox_syscall` 0.5.17.
+* Use `windows-targets` 0.53.3.
+* Use `dyn-clone` 1.0.20.
+* Use `rustc-demangle` 0.1.26.
+* Use `io-uring` 0.7.9.
+* Use `strum` + friends 0.27.2.
+* Use `cc` 1.2.30.
+* Use `rustix` 1.0.8.
+* Use `crc32fast` 1.5.0.
+* Use `h2` 0.3.27.
+* Use `winnow` 0.7.12.
+* Use `schemars` 1.0.4.
+* Use `cc` 1.2.29.
+
+# Version 0.1.13 (2025-07-01)
 
 * Upgrade `schema_with` to 3.14.0.
 * use `schema_with_macros` 3.14.0.
