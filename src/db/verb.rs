@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
-    data::{Canonical, Format, Verb, EMPTY_LANGUAGE_MAP},
-    db::{schema::TVerb, Aggregates, RowID},
+    MyError, MyLanguageTag,
+    data::{Canonical, EMPTY_LANGUAGE_MAP, Format, Verb},
+    db::{Aggregates, RowID, schema::TVerb},
     emit_db_error,
     lrs::resources::verbs::{QueryParams, VerbExt, VerbUI},
-    MyError, MyLanguageTag,
 };
 use iri_string::types::IriStr;
 use sqlx::PgPool;
@@ -64,28 +64,33 @@ pub(crate) async fn update_verb(conn: &PgPool, v: &Verb) -> Result<i32, MyError>
         Ok(x) => {
             // if the new verb's display is none or empty then do nothing...
             let new_display = v.display_as_map();
-            if new_display.is_none() || new_display.unwrap().is_empty() {
-                Ok(x.id)
-            } else {
-                // replace the old display if it was None, or...
-                // extend it w/ the new one if it wasn't...
-                let display = match x.display {
-                    Some(y) => {
-                        let mut old_display = y.0;
-                        old_display.extend(new_display.unwrap().clone());
-                        old_display
+            match new_display {
+                Some(nd) => {
+                    if nd.is_empty() {
+                        Ok(x.id)
+                    } else {
+                        // replace the old display if it was None, or...
+                        // extend it w/ the new one if it wasn't...
+                        let display = match x.display {
+                            Some(y) => {
+                                let mut old_display = y.0;
+                                old_display.extend(nd.clone());
+                                old_display
+                            }
+                            None => new_display.unwrap().to_owned(),
+                        };
+                        match sqlx::query_as::<_, RowID>(UPDATE)
+                            .bind(iri)
+                            .bind(Some(sqlx::types::Json(display)))
+                            .fetch_one(conn)
+                            .await
+                        {
+                            Ok(x) => Ok(x.0),
+                            Err(x) => emit_db_error!(x, "Failed update display for Verb <{}>", iri),
+                        }
                     }
-                    None => new_display.unwrap().to_owned(),
-                };
-                match sqlx::query_as::<_, RowID>(UPDATE)
-                    .bind(iri)
-                    .bind(Some(sqlx::types::Json(display)))
-                    .fetch_one(conn)
-                    .await
-                {
-                    Ok(x) => Ok(x.0),
-                    Err(x) => emit_db_error!(x, "Failed update display for Verb <{}>", iri),
                 }
+                None => Ok(x.id),
             }
         }
         Err(_) => insert_verb(conn, v).await,
@@ -235,7 +240,7 @@ pub(crate) async fn ext_find_some(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{db::MockDB, MyError, MyLanguageTag};
+    use crate::{MyError, MyLanguageTag, db::MockDB};
     use std::str::FromStr;
     use tracing_test::traced_test;
 

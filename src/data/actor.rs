@@ -194,10 +194,10 @@ impl<'de> Deserialize<'de> for Actor {
         match Map::deserialize(val.clone()) {
             Ok(x) => {
                 if x.contains_key("objectType") {
-                    if let Ok(x) = Agent::deserialize(val.clone()) {
-                        if x.check_object_type() {
-                            return Ok(Actor::Agent(x));
-                        }
+                    if let Ok(x) = Agent::deserialize(val.clone())
+                        && x.check_object_type()
+                    {
+                        return Ok(Actor::Agent(x));
                     }
                     match Group::deserialize(val) {
                         Ok(x) => Ok(Actor::Group(x)),

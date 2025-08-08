@@ -1,3 +1,16 @@
+# Unpublished (2025-08-08)
+
+* Fixed Issue #26.
+* Upgrade `speedate` to 0.17.0.
+* Upgrade `tokio` to 1.47.1.
+* Upgrade `serde_json` to 1.0.142.
+* Use `bytemuck` 1.23.2.
+* Use `zerovec` 0.11.4.
+* Use `event-listener` 5.4.1.
+* Use `signal-hook-registry` 1.4.6.
+* Use `tokio-util` 0.7.16.
+* Use `cc` 1.2.31.
+
 # Version 0.1.14 (2025-08-01)
 
 * Upgrade `tokio` to 1.47.0.
@@ -16,7 +29,6 @@
 * Use `h2` 0.3.27.
 * Use `winnow` 0.7.12.
 * Use `schemars` 1.0.4.
-* Use `cc` 1.2.29.
 
 # Version 0.1.13 (2025-07-01)
 

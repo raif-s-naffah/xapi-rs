@@ -14,7 +14,7 @@ categories = ["web-programming::http-server", "data-structures", "api-bindings"]
 tracing = "0.1.41"
 thiserror = "2.0.12"
 serde = "1.0.219"
-serde_json = "1.0.141"
+serde_json = "1.0.142"
 iri-string = { version = "0.7.8", features = ["serde"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 email_address = "0.2.9"
@@ -24,7 +24,7 @@ language-tags = "0.3.2"
 # ----- data -----
 serde_with = { version = "3.14.0", features = ["macros"] }
 url = { version = "2.5.4", features = ["serde"] }
-speedate = "0.16.0"
+speedate = "0.17.0"
 mime = "0.3.17"
 semver = "1.0.26"
 unicase = "2.8.1"
@@ -32,7 +32,7 @@ take_mut = "0.2.2"
 
 # ----- db -----
 dotenvy = "0.15.7"
-tokio = { version = "1.47.0", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio",
     "tls-native-tls",

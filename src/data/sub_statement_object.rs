@@ -67,6 +67,7 @@ impl SubStatementObject {
     pub fn from_agent(obj: Agent) -> Self {
         SubStatementObject::Agent(obj)
     }
+
     /// Coerce a [Group] to a [SubStatementObject].
     pub fn from_group(obj: Group) -> Self {
         SubStatementObject::Group(obj)
@@ -161,20 +162,20 @@ impl<'de> Deserialize<'de> for SubStatementObject {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
-        if let Ok(x) = Agent::deserialize(value.clone()) {
-            if x.check_object_type() {
-                return Ok(SubStatementObject::Agent(x));
-            }
+        if let Ok(x) = Agent::deserialize(value.clone())
+            && x.check_object_type()
+        {
+            return Ok(SubStatementObject::Agent(x));
         }
-        if let Ok(x) = Group::deserialize(value.clone()) {
-            if x.check_object_type() {
-                return Ok(SubStatementObject::Group(x));
-            }
+        if let Ok(x) = Group::deserialize(value.clone())
+            && x.check_object_type()
+        {
+            return Ok(SubStatementObject::Group(x));
         }
-        if let Ok(x) = StatementRef::deserialize(value.clone()) {
-            if x.check_object_type() {
-                return Ok(SubStatementObject::StatementRef(x));
-            }
+        if let Ok(x) = StatementRef::deserialize(value.clone())
+            && x.check_object_type()
+        {
+            return Ok(SubStatementObject::StatementRef(x));
         }
         match Activity::deserialize(value) {
             Ok(x) => Ok(SubStatementObject::Activity(x)),

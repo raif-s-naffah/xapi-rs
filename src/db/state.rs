@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyError,
     data::{Activity, DataError},
     db::{activity::insert_activity, actor::find_agent_id_from_str, schema::TState},
-    emit_db_error, MyError,
+    emit_db_error,
 };
 use chrono::{DateTime, Utc};
 use core::fmt;
@@ -228,14 +229,13 @@ pub(crate) async fn as_single<'a>(
     let agent_id = find_agent_id_from_str(conn, agent).await?;
     debug!("agent_id = {}", agent_id);
 
-    let registration = if registration.is_none() {
-        Uuid::nil()
-    } else {
-        let z_uuid = registration.unwrap();
+    let registration = if let Some(z_uuid) = registration {
         Uuid::parse_str(z_uuid).map_err(|x| {
             error!("Failed parse registration ({})", z_uuid);
             MyError::Data(DataError::UUID(x))
         })?
+    } else {
+        Uuid::nil()
     };
 
     Ok(SingleResourceParams {
@@ -266,25 +266,23 @@ pub(crate) async fn as_many<'a>(
     let agent_id = find_agent_id_from_str(conn, agent).await?;
     debug!("agent_id = {}", agent_id);
 
-    let registration = if registration.is_none() {
-        Uuid::nil()
-    } else {
-        let z_uuid = registration.unwrap();
+    let registration = if let Some(z_uuid) = registration {
         Uuid::parse_str(z_uuid).map_err(|x| {
             error!("Failed parse registration ({})", z_uuid);
             MyError::Data(DataError::UUID(x))
         })?
+    } else {
+        Uuid::nil()
     };
 
-    let since = if since.is_none() {
-        None
-    } else {
-        let z_str = since.unwrap();
+    let since = if let Some(z_str) = since {
         let dt = DateTime::parse_from_rfc3339(z_str).map_err(|x| {
             error!("Failed parse since ({})", z_str);
             MyError::Data(DataError::Time(x))
         })?;
         Some(dt.with_timezone(&Utc))
+    } else {
+        None
     };
 
     Ok(MultiResourceParams {

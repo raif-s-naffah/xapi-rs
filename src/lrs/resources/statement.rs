@@ -628,8 +628,7 @@ async fn get_more(
 
     let (mut resource, y) =
         find_more_statements(db.pool(), sid, count, offset, limit, &format).await?;
-    if y.is_some() {
-        let pi = y.unwrap();
+    if let Some(pi) = y {
         let more = format!(
             "statements/more/?sid={}&count={}&offset={}&limit={}&format={}&attachments={}",
             sid,
@@ -1214,8 +1213,7 @@ async fn get_many(
     debug!("sid = {}", sid);
 
     let (mut x, y) = find_statements_by_filter(conn, filter, format, sid).await?;
-    if y.is_some() {
-        let pi = y.unwrap();
+    if let Some(pi) = y {
         let more = format!(
             "statements/more/?sid={}&count={}&offset={}&limit={}&format={}&attachments={}",
             sid,

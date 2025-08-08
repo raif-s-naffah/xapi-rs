@@ -269,8 +269,8 @@ async fn delete(
     user.can_use_xapi()?;
 
     let conn = db.pool();
-    if stateId.is_some() {
-        delete_one(conn, c, activityId, agent, registration, stateId.unwrap()).await
+    if let Some(sid) = stateId {
+        delete_one(conn, c, activityId, agent, registration, sid).await
     } else {
         delete_many(conn, activityId, agent, registration).await
     }

@@ -66,10 +66,7 @@ impl Filter {
             let id = find_actor_id(conn, &actor).await?;
             Some(id)
         };
-        let verb_id = if verb_iri.is_none() {
-            None
-        } else {
-            let z_iri = verb_iri.unwrap();
+        let verb_id = if let Some(z_iri) = verb_iri {
             let iri = IriStr::new(z_iri).map_err(|x| {
                 error!("Failed parsing Verb IRI: {}", z_iri);
                 DataError::IRI(x)
@@ -83,11 +80,10 @@ impl Filter {
                 Ok(Some(x)) => Some(x),
                 _ => Some(-1),
             }
-        };
-        let activity_id = if activity_iri.is_none() {
-            None
         } else {
-            let z_iri = activity_iri.unwrap();
+            None
+        };
+        let activity_id = if let Some(z_iri) = activity_iri {
             let iri = IriStr::new(z_iri).map_err(|x| {
                 error!("Failed parsing Activity IRI: {}", z_iri);
                 DataError::IRI(x)
@@ -97,16 +93,17 @@ impl Filter {
                 Ok(Some(x)) => Some(x),
                 _ => Some(-1),
             }
-        };
-        let registration = if registration.is_none() {
-            None
         } else {
-            let z_uuid = registration.unwrap();
+            None
+        };
+        let registration = if let Some(z_uuid) = registration {
             let uuid = Uuid::from_str(z_uuid).map_err(|x| {
                 error!("Failed parsing registration UUID: {}", z_uuid);
                 DataError::UUID(x)
             })?;
             Some(uuid)
+        } else {
+            None
         };
         let related_activities = related_activities.unwrap_or(false);
         let related_agents = related_agents.unwrap_or(false);
