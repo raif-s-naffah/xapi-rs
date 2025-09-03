@@ -1,15 +1,16 @@
-# Unpublished (2025-08-08)
+# Version 0.1.15 (2025-09-03)
 
+* Fixed Issue #27.
+* Added note in README on where to get + install SQLx CLI tool.
 * Fixed Issue #26.
+* Upgrade `uuid` to 1.18.1.
+* Upgrade `tracing-subscriber` to 0.3.20.
+* Upgrade `url` to 2.5.7.
+* Upgrade `thiserror` + friends to 2.0.16.
+* Upgrade `serde_json` to 1.0.143.
 * Upgrade `speedate` to 0.17.0.
 * Upgrade `tokio` to 1.47.1.
-* Upgrade `serde_json` to 1.0.142.
-* Use `bytemuck` 1.23.2.
-* Use `zerovec` 0.11.4.
-* Use `event-listener` 5.4.1.
-* Use `signal-hook-registry` 1.4.6.
-* Use `tokio-util` 0.7.16.
-* Use `cc` 1.2.31.
+* Use latest secondary dependent crates.
 
 # Version 0.1.14 (2025-08-01)
 

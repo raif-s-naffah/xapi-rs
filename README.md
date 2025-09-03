@@ -116,6 +116,8 @@ $ node bin/console_runner.js -e <LRS_EXTERNAL_URL> -x 2.0.0 -z ↵
 
 The `DB_SERVER_URL`, `DB_NAME`, and `LRS_EXTERNAL_URL` should be the same as set in `.env`.
 
+**NOTE**: The `sqlx` command is part of the SQLx command line utility. Instructions on how to install it can be found here: <https://crates.io/crates/sqlx-cli>.
+
 ### Running the CTS in non-legacy mode
 
 As of version 0.1.5 **`LaRS`** can operate in different modes &ndash;check [User Management](./doc/USERS.md) for details. To run the CTS against a server running in other than _Legacy_ mode, invoke the test runner like so...

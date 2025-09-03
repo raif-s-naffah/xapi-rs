@@ -102,7 +102,7 @@ impl Drop for MockDB {
                     );
                 }
                 // and drop the DB...
-                conn.execute(format!("DROP DATABASE {db_name}").as_str())
+                conn.execute(format!("DROP DATABASE IF EXISTS {db_name}").as_str())
                     .await
                     .expect("Failed dropping mock DB. You need to delete it manually :(");
             });
