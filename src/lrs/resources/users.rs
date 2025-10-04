@@ -184,8 +184,8 @@ async fn update_one(
     db: &State<DB>,
     user: User,
 ) -> Result<WithResource<User>, MyError> {
-    debug!("----- update_one ----- {}", user);
-    debug!("form = {:?}", form);
+    debug!("----- update_one ----- {user:?}");
+    debug!("form = {form:?}");
 
     let x = find_user(db.pool(), id)
         .map_err(|x| x.with_status(Status::NotFound))
@@ -199,7 +199,7 @@ async fn update_one(
             });
         }
     };
-    debug!("old_user = {}", old_user);
+    debug!("old_user = {old_user:?}");
     if old_user.is_root() {
         return Err(MyError::HTTP {
             status: Status::BadRequest,
@@ -263,7 +263,7 @@ async fn update_one(
             });
         }
         // only a non-root user can change their email and/or password...
-        if !(user.is_root() || user.id != id) {
+        if user.is_root() || user.id != id {
             return Err(MyError::HTTP {
                 status: Status::BadRequest,
                 info: "Only non-Root user can alter their 'email' + 'password' fields".into(),
@@ -316,10 +316,10 @@ async fn update_many(
     db: &State<DB>,
     user: User,
 ) -> Result<Status, MyError> {
-    debug!("----- update_one ----- {}", user);
+    debug!("----- update_many ----- {user:?}");
     user.can_manage_users()?;
 
-    debug!("form = {:?}", form);
+    debug!("form = {form:?}");
 
     // if IDs array is empty return...
     let ids = &form.ids;

@@ -89,7 +89,7 @@ impl Drop for MockDB {
                 // terminate existing connections
                 // see https://stackoverflow.com/questions/35319597/how-to-stop-kill-a-query-in-postgresql
                 if let Err(x) = sqlx::query(&format!(
-                    r#"SELECT pg_terminate_backend(pid) 
+                    r#"SELECT pg_terminate_backend(pid, 500) 
                         FROM pg_catalog.pg_stat_activity 
                         WHERE pid <> pg_backend_pid() AND datname = '{db_name}'"#
                 ))
@@ -102,7 +102,7 @@ impl Drop for MockDB {
                     );
                 }
                 // and drop the DB...
-                conn.execute(format!("DROP DATABASE IF EXISTS {db_name}").as_str())
+                conn.execute(format!("DROP DATABASE IF EXISTS {db_name} WITH (FORCE)").as_str())
                     .await
                     .expect("Failed dropping mock DB. You need to delete it manually :(");
             });

@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
-    config,
-    lrs::{resources, stop_watch::StopWatch, CONSISTENT_THRU_HDR, DB, VERSION_HDR},
-    MyError, STATS_EXT_BASE, USERS_EXT_BASE, V200, VERBS_EXT_BASE,
+    MyError, STATS_EXT_BASE, USERS_EXT_BASE, User, V200, VERBS_EXT_BASE, config,
+    lrs::{CONSISTENT_THRU_HDR, DB, VERSION_HDR, resources, stop_watch::StopWatch},
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use rocket::{
-    catch, catchers,
+    Build, Request, Responder, Rocket, catch, catchers,
     fairing::AdHoc,
     form::FromForm,
-    fs::{relative, FileServer},
+    fs::{FileServer, relative},
     futures::lock::Mutex,
     http::{Header, Method},
     response::status,
-    time::{format_description::well_known::Rfc2822, OffsetDateTime},
-    Build, Request, Responder, Rocket,
+    time::{OffsetDateTime, format_description::well_known::Rfc2822},
 };
 use std::{
     fs,
@@ -100,6 +98,9 @@ pub fn build(testing: bool) -> Rocket<Build> {
                     env!("CARGO_PKG_VERSION"),
                     now.format(&Rfc2822).unwrap()
                 );
+
+                User::clear_cache().await;
+                info!("Cleared User LRU cache...");
 
                 info!("Starting multipart temp file cleaner...");
                 tokio::spawn(async move {

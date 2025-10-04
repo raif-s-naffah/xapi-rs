@@ -1,3 +1,16 @@
+# Version 0.1.16 (2025-10-05)
+
+* Fixed Issue #29.
+* Fixed Issue #28.
+* Upgrade `serde_with` to 3.15.0.
+* Upgrade `thiserror` to 2.0.17.
+* Upgrade `serde` to 1.0.228.
+* Upgrade `semver` to 1.0.27.
+* Upgrade `serde_json` to 1.0.145.
+* Upgrade `lru` to 0.16.1.
+* Upgrade `chrono` to 0.4.42.
+* Use latest secondary dependent crates.
+
 # Version 0.1.15 (2025-09-03)
 
 * Fixed Issue #27.

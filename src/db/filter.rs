@@ -302,11 +302,11 @@ async fn drop_views(conn: &PgPool, id: i64) {
                 // --whhich may happen if we try to remove for example `v9`
                 // _before_ `v9a`...
                 let tmp = conn
-                    .execute(format!("DROP VIEW {v} CASCADE").as_str())
+                    .execute(format!("DROP VIEW IF EXISTS {v} CASCADE").as_str())
                     .await;
                 match tmp {
-                    Ok(_) => debug!("Dropped view '{}'", v),
-                    Err(x) => error!("Failed dropping view '{}': {}", v, x),
+                    Ok(_) => debug!("Dropped view '{v}'"),
+                    Err(x) => error!("Failed dropping view '{v}': {x}"),
                 }
             }
         }

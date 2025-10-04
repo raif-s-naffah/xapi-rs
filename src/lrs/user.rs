@@ -92,6 +92,7 @@ impl From<TUser> for User {
 }
 
 /// Representation of a cached User. Mirrors all but timestamp fields.
+#[derive(Debug)]
 struct CachedUser {
     id: i32,
     email: String,
