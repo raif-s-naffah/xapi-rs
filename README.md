@@ -25,7 +25,7 @@ The main software components required to make use of this project are:
 
 2. **PostgreSQL**
 
-    As mentioned in the documentation, this project relies on an installed _PostgreSQL_ database system. FWIW, as of the last edit date of this document, the version of _PostgreSQL_ was 16.8.
+    As mentioned in the documentation, this project relies on an installed _PostgreSQL_ database system. FWIW, as of the last edit date of this document, the version of _PostgreSQL_ was 18beta1.
 
     You will need to configure a user w/ enough permissions to create databases and tables on the node where the RDBMS is running. In addition, as recently discovered, that user must be granted the `pg_signal_backend` permission &mdash;See [Issue #28](https://github.com/raif-s-naffah/xapi-rs/issues/28) for more details.
 

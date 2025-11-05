@@ -1,3 +1,15 @@
+# Version 0.1.17 (2025-11-06)
+
+* Use PostgreSQL 18-beta.1.
+* Upgrade `test-context` to 0.5.1.
+* Upgrade `iri-string` to 0.7.9.
+* Upgrade `serde_with` to 3.15.1.
+* Upgrade `sqlx` to 0.9.0-alpha.1.
+* Upgrade `openssl` 0.10.74.
+* Upgrade `lru` to 0.16.2.
+* Upgrade `tokio` to 1.48.0.
+* Use latest secondary dependent crates.
+
 # Version 0.1.16 (2025-10-05)
 
 * Fixed Issue #29.

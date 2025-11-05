@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use chrono::{DateTime, Utc};
-use sqlx::{FromRow, PgPool};
+use sqlx::{AssertSqlSafe, FromRow, PgPool};
 use tracing::info;
 
 /// Representation of a `user` DB table row.
@@ -212,8 +212,9 @@ pub(crate) async fn batch_update_users(
     let where_clause = format!("WHERE id IN ({ids})");
     if form.enabled.is_some() {
         let sql = format!("UPDATE users SET enabled = $1 {where_clause}");
+        let safe_sql = AssertSqlSafe(sql);
         let enabled = form.enabled.unwrap();
-        match sqlx::query(&sql).bind(enabled).execute(conn).await {
+        match sqlx::query(safe_sql).bind(enabled).execute(conn).await {
             Ok(x) => {
                 info!("Success: {:?}", x);
                 Ok(())
@@ -222,8 +223,9 @@ pub(crate) async fn batch_update_users(
         }
     } else if form.role.is_some() {
         let sql = format!("UPDATE users SET role = $1 {where_clause}");
+        let safe_sql = AssertSqlSafe(sql);
         let role = i16::try_from(form.role.as_ref().unwrap().0).expect("Failed coercing role");
-        match sqlx::query(&sql).bind(role).execute(conn).await {
+        match sqlx::query(safe_sql).bind(role).execute(conn).await {
             Ok(x) => {
                 info!("Success: {:?}", x);
                 Ok(())
@@ -232,8 +234,9 @@ pub(crate) async fn batch_update_users(
         }
     } else if form.manager_id.is_some() {
         let sql = format!("UPDATE users SET manager_id = $1 {where_clause}");
+        let safe_sql = AssertSqlSafe(sql);
         let manager_id = form.manager_id.unwrap();
-        match sqlx::query(&sql).bind(manager_id).execute(conn).await {
+        match sqlx::query(safe_sql).bind(manager_id).execute(conn).await {
             Ok(x) => {
                 info!("Success: {:?}", x);
                 Ok(())

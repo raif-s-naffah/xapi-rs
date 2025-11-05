@@ -10,7 +10,7 @@ use crate::{
 use chrono::{DateTime, Local, SecondsFormat, Utc};
 use core::fmt;
 use iri_string::types::IriStr;
-use sqlx::{Executor, FromRow, PgPool};
+use sqlx::{AssertSqlSafe, Executor, FromRow, PgPool};
 use std::str::FromStr;
 use tracing::{debug, error};
 use uuid::Uuid;
@@ -279,7 +279,11 @@ pub(crate) async fn drop_stale_filters(conn: &PgPool) {
         r#"DELETE FROM filter WHERE id IN
 (SELECT id FROM filter WHERE created < '{as_string}' LIMIT {limit}) RETURNING id"#
     );
-    match sqlx::query_as::<_, BigSerial>(&sql).fetch_all(conn).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match sqlx::query_as::<_, BigSerial>(safe_sql)
+        .fetch_all(conn)
+        .await
+    {
         Ok(rows) => {
             for id in rows {
                 drop_views(conn, id.0).await;
@@ -293,7 +297,8 @@ pub(crate) async fn drop_stale_filters(conn: &PgPool) {
 /// intermediate views to process GET /statements requests w/ filter.
 async fn drop_views(conn: &PgPool, id: i64) {
     let sql = format!("SELECT viewname FROM pg_views WHERE viewname ~ '^v{id}[a-e]?$'");
-    match sqlx::query_as::<_, Name>(&sql).fetch_all(conn).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match sqlx::query_as::<_, Name>(safe_sql).fetch_all(conn).await {
         Ok(rows) => {
             for name in rows {
                 let v = &name.0;
@@ -301,9 +306,9 @@ async fn drop_views(conn: &PgPool, id: i64) {
                 // (the default) to ensure we do not leave any orphaned view
                 // --whhich may happen if we try to remove for example `v9`
                 // _before_ `v9a`...
-                let tmp = conn
-                    .execute(format!("DROP VIEW IF EXISTS {v} CASCADE").as_str())
-                    .await;
+                let sql2 = format!("DROP VIEW IF EXISTS {v} CASCADE");
+                let safe_sql2 = AssertSqlSafe(sql2);
+                let tmp = conn.execute(safe_sql2).await;
                 match tmp {
                     Ok(_) => debug!("Dropped view '{v}'"),
                     Err(x) => error!("Failed dropping view '{v}': {x}"),

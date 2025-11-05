@@ -5,7 +5,7 @@
 use crate::config::config;
 use core::fmt;
 use rand::Rng;
-use sqlx::{Connection, Executor, PgConnection, migrate::Migrator};
+use sqlx::{AssertSqlSafe, Connection, Executor, PgConnection, migrate::Migrator};
 use std::{path::Path, thread};
 use tokio::runtime::Runtime;
 use tracing::warn;
@@ -50,7 +50,9 @@ impl MockDB {
                 let mut conn = PgConnection::connect(&MockDB::postgres())
                     .await
                     .expect("Failed getting connection to create mock DB");
-                conn.execute(format!("CREATE DATABASE {db_name}").as_str())
+                let sql = format!("CREATE DATABASE {db_name}");
+                let safe_sql = AssertSqlSafe(sql);
+                conn.execute(safe_sql)
                     .await
                     .expect("Failed creating mock DB");
                 // apply migration(s)...
@@ -88,21 +90,22 @@ impl Drop for MockDB {
                     .expect("Failed getting connection to drop mock DB");
                 // terminate existing connections
                 // see https://stackoverflow.com/questions/35319597/how-to-stop-kill-a-query-in-postgresql
-                if let Err(x) = sqlx::query(&format!(
+                let sql = format!(
                     r#"SELECT pg_terminate_backend(pid, 500) 
                         FROM pg_catalog.pg_stat_activity 
                         WHERE pid <> pg_backend_pid() AND datname = '{db_name}'"#
-                ))
-                .execute(&mut conn)
-                .await
-                {
+                );
+                let safe_sql = AssertSqlSafe(sql);
+                if let Err(x) = sqlx::query(safe_sql).execute(&mut conn).await {
                     warn!(
                         "Failed terminating mock DB connections process. Ignore + continue: {}",
                         x
                     );
                 }
                 // and drop the DB...
-                conn.execute(format!("DROP DATABASE IF EXISTS {db_name} WITH (FORCE)").as_str())
+                let sql = format!("DROP DATABASE IF EXISTS {db_name} WITH (FORCE)");
+                let safe_sql = AssertSqlSafe(sql);
+                conn.execute(safe_sql)
                     .await
                     .expect("Failed dropping mock DB. You need to delete it manually :(");
             });

@@ -25,7 +25,7 @@ use crate::{
 use chrono::{SecondsFormat, Utc};
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use sqlx::{Executor, PgPool};
+use sqlx::{AssertSqlSafe, Executor, PgPool};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
@@ -328,7 +328,8 @@ OR context_id IN ( SELECT context_id FROM ctx_actors WHERE actor_id = {id} )"#
     }
 
     debug!("sql = {}", sql);
-    match conn.execute(sql.as_str()).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match conn.execute(safe_sql).await {
         Ok(_) => {
             info!("Created {}", view);
             Ok(Some(()))
@@ -367,7 +368,8 @@ SELECT * FROM statement s3 WHERE s3.voided = FALSE AND s3.verb_id = {id}"#
     );
 
     debug!("sql = {}", sql);
-    match conn.execute(sql.as_str()).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match conn.execute(safe_sql).await {
         Ok(_) => {
             info!("Created {}", view);
             Ok(Some(()))
@@ -399,7 +401,8 @@ SELECT * FROM statement WHERE voided = FALSE AND id IN (
     }
 
     debug!("sql = {}", sql);
-    match conn.execute(sql.as_str()).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match conn.execute(safe_sql).await {
         Ok(_) => {
             info!("Created {}", view);
             Ok(Some(()))
@@ -426,7 +429,8 @@ context_id IN ( SELECT id FROM context WHERE registration = '{uuid}' )"#
     );
 
     debug!("sql = {}", sql);
-    match conn.execute(sql.as_str()).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match conn.execute(safe_sql).await {
         Ok(_) => {
             info!("Created {}", view);
             Ok(Some(()))
@@ -470,7 +474,8 @@ SELECT * FROM statement WHERE voided = FALSE AND "#
     };
 
     debug!("sql = {}", sql);
-    match conn.execute(sql.as_str()).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match conn.execute(safe_sql).await {
         Ok(_) => {
             info!("Created {}", view);
             Ok(Some(()))
@@ -540,7 +545,9 @@ pub(crate) async fn find_statements_by_filter(
     }
     let v4 = format!("{view}d");
     if (by_verb(conn, &filter, &v4).await?).is_some() {
-        match sqlx::query_as::<_, TStatement>(&format!("select * from {v4}"))
+        let sql = format!("select * from {v4}");
+        let safe_sql = AssertSqlSafe(sql);
+        match sqlx::query_as::<_, TStatement>(safe_sql)
             .fetch_all(conn)
             .await
         {
@@ -592,7 +599,8 @@ FROM (SELECT * FROM {v} WHERE voided = FALSE AND exact IS NOT NULL) x "#
     };
 
     debug!("sql = {}", sql);
-    match conn.execute(sql.as_str()).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match conn.execute(safe_sql).await {
         Ok(x) => info!("Created main {}: {:?}", view, x),
         Err(x) => {
             error!("Failed create main filter view");
@@ -604,7 +612,11 @@ FROM (SELECT * FROM {v} WHERE voided = FALSE AND exact IS NOT NULL) x "#
     // SELECT sql statement for the first N rows, as well as (b) the parameters
     // of the _continuation_ call to return the next page...
     sql = format!("SELECT COUNT(*) AS total FROM {view}");
-    let count = sqlx::query_as::<_, Count>(&sql).fetch_one(conn).await?.0;
+    let safe_sql = AssertSqlSafe(sql);
+    let count = sqlx::query_as::<_, Count>(safe_sql)
+        .fetch_one(conn)
+        .await?
+        .0;
     debug!("count = {}", count);
     // convert it to i32...
     let count = i32::try_from(count).unwrap_or(0);
@@ -625,7 +637,11 @@ FROM (SELECT * FROM {v} WHERE voided = FALSE AND exact IS NOT NULL) x "#
 
     // we're almost there...
     debug!("sql = {}", sql);
-    match sqlx::query_as::<_, TStatement>(&sql).fetch_all(conn).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match sqlx::query_as::<_, TStatement>(safe_sql)
+        .fetch_all(conn)
+        .await
+    {
         Ok(rows) => {
             debug!("Found {} (statement) row(s)", rows.len());
             if format.is_ids() {
@@ -670,7 +686,11 @@ pub(crate) async fn find_more_statements(
 
     let sql = format!("SELECT * FROM {view} OFFSET {offset} LIMIT {limit}");
     debug!("sql = {}", sql);
-    match sqlx::query_as::<_, TStatement>(&sql).fetch_all(conn).await {
+    let safe_sql = AssertSqlSafe(sql);
+    match sqlx::query_as::<_, TStatement>(safe_sql)
+        .fetch_all(conn)
+        .await
+    {
         Ok(rows) => {
             let res = if format.is_ids() {
                 let mut statements = vec![];
