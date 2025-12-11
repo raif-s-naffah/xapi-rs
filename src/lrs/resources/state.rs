@@ -229,7 +229,7 @@ async fn get(
     user.can_use_xapi()?;
 
     let conn = db.pool();
-    let resource = if stateId.is_some() {
+    let resource = if let Some(z_state_id) = stateId {
         if since.is_some() {
             return Err(MyError::HTTP {
                 status: Status::BadRequest,
@@ -237,7 +237,7 @@ async fn get(
             });
         }
 
-        let s = as_single(conn, activityId, agent, registration, stateId.unwrap())
+        let s = as_single(conn, activityId, agent, registration, z_state_id)
             .map_err(|x| x.with_status(Status::BadRequest))
             .await?;
         debug!("s = {:?}", s);

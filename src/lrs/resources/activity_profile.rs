@@ -278,14 +278,14 @@ async fn get(
             info: format!("No such Activity ({})", activity.id()).into(),
         }),
         Some(activity_id) => {
-            let resource = if profileId.is_some() {
+            let resource = if let Some(z_profile_id) = profileId {
                 if since.is_some() {
                     return Err(MyError::HTTP {
                         status: Status::BadRequest,
                         info: "Either `profileId` or `since` should be specified; not both".into(),
                     });
                 } else {
-                    get_profile(conn, activity_id, profileId.unwrap()).await?
+                    get_profile(conn, activity_id, z_profile_id).await?
                 }
             } else {
                 let (x, last_updated) = get_ids(conn, activity_id, since).await?;
@@ -320,12 +320,13 @@ async fn get_ids(
     activity_id: i32,
     since: Option<&str>,
 ) -> Result<(Vec<String>, DateTime<Utc>), MyError> {
-    let since = if since.is_none() {
-        None
-    } else {
-        let x = DateTime::parse_from_rfc3339(since.unwrap())
+    let since = if let Some(z_datetime) = since {
+        let x = DateTime::parse_from_rfc3339(z_datetime)
             .map_err(|x| MyError::Data(DataError::Time(x)).with_status(Status::BadRequest))?;
         Some(x.with_timezone(&Utc))
+    } else {
+        None
     };
+
     find_ids(conn, activity_id, since).await
 }

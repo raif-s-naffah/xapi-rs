@@ -57,14 +57,14 @@ impl Filter {
         limit: Option<u32>,
         ascending: Option<bool>,
     ) -> Result<Self, MyError> {
-        let actor_id = if actor.is_none() {
-            None
-        } else {
-            let actor = Actor::from_str(actor.unwrap())?;
+        let actor_id = if let Some(z_actor) = actor {
+            let actor = Actor::from_str(z_actor)?;
             actor.check_validity().map_err(DataError::Validation)?;
             // find the table row ID for this Agent or Identified Group...
             let id = find_actor_id(conn, &actor).await?;
             Some(id)
+        } else {
+            None
         };
         let verb_id = if let Some(z_iri) = verb_iri {
             let iri = IriStr::new(z_iri).map_err(|x| {
@@ -109,23 +109,23 @@ impl Filter {
         let related_agents = related_agents.unwrap_or(false);
         let limit = i32::try_from(limit.unwrap_or(0)).unwrap_or(0);
         let ascending = ascending.unwrap_or(false);
-        let since = if since.is_none() {
-            None
-        } else {
-            let x = DateTime::parse_from_rfc3339(since.unwrap()).map_err(|x| {
+        let since = if let Some(z_datetime1) = since {
+            let x = DateTime::parse_from_rfc3339(z_datetime1).map_err(|x| {
                 error!("Failed parsing 'since': {}", x);
                 DataError::Time(x)
             })?;
             Some(x.with_timezone(&Utc))
-        };
-        let until = if until.is_none() {
-            None
         } else {
-            let x = DateTime::parse_from_rfc3339(until.unwrap()).map_err(|x| {
+            None
+        };
+        let until = if let Some(z_datetime2) = until {
+            let x = DateTime::parse_from_rfc3339(z_datetime2).map_err(|x| {
                 error!("Failed parsing 'until': {}", x);
                 DataError::Time(x)
             })?;
             Some(x.with_timezone(&Utc))
+        } else {
+            None
         };
 
         Ok(Filter {

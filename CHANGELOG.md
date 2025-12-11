@@ -1,3 +1,7 @@
+# UNPUBLISHED (2025-12-12)
+
+* Fixed Issue #30.
+
 # Version 0.1.18 (2025-12-10)
 
 * Upgrade `uuid` to 1.19.0.

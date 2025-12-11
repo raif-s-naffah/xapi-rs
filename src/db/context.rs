@@ -266,8 +266,8 @@ async fn build_context(conn: &PgPool, row: TContext, format: &Format) -> Result<
     let statement_ref = row.statement;
     let extensions = row.extensions;
 
-    if registration.is_some() {
-        builder = builder.registration_uuid(registration.unwrap())?;
+    if let Some(z_uuid1) = registration {
+        builder = builder.registration_uuid(z_uuid1)?;
     }
     if let Some(actor_id) = instructor_id {
         debug!("Instructor (Actor) row id = {}", actor_id);
@@ -284,20 +284,20 @@ async fn build_context(conn: &PgPool, row: TContext, format: &Format) -> Result<
             .unwrap();
         builder = builder.team(group)?;
     }
-    if revision.is_some() {
-        builder = builder.revision(revision.unwrap())?;
+    if let Some(z_revision) = revision {
+        builder = builder.revision(z_revision)?;
     }
-    if platform.is_some() {
-        builder = builder.platform(platform.unwrap())?;
+    if let Some(z_platform) = platform {
+        builder = builder.platform(z_platform)?;
     }
-    if language.is_some() {
-        builder = builder.language(language.unwrap())?;
+    if let Some(z_language) = language {
+        builder = builder.language(z_language)?;
     }
-    if statement_ref.is_some() {
-        builder = builder.statement_uuid(statement_ref.unwrap())?;
+    if let Some(z_uuid2) = statement_ref {
+        builder = builder.statement_uuid(z_uuid2)?;
     }
-    if extensions.is_some() {
-        builder = builder.with_extensions(extensions.unwrap().0)?;
+    if let Some(z_json) = extensions {
+        builder = builder.with_extensions(z_json.0)?;
     }
 
     // context activities...
