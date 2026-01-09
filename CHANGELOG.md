@@ -1,6 +1,14 @@
-# UNPUBLISHED (2025-12-12)
+# Version 0.1.19 (2026-01-10)
 
+* Upgrade `lru` to 0.16.3.
+* Upgrade `url` to 2.5.8.
+* Upgrade `unicase` to 2.9.0.
+* Upgrade `tokio` to 1.49.0.
+* Upgrade `iri-string` to 0.7.10.
+* Upgrade `serde_json` to 1.0.149.
+* Upgrade `tracing` to 0.1.44.
 * Fixed Issue #30.
+* Use latest secondary dependent crates.
 
 # Version 0.1.18 (2025-12-10)
 
