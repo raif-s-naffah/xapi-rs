@@ -91,37 +91,37 @@ impl ContextActivities {
 
     /// Return `parent` if set; `None` otherwise.
     pub fn parent(&self) -> &[Activity] {
-        if self.parent.is_none() {
-            &[]
+        if let Some(z_parent) = self.parent.as_ref() {
+            z_parent.0.as_slice()
         } else {
-            self.parent.as_ref().unwrap().0.as_slice()
+            &[]
         }
     }
 
     /// Return `grouping` if set; `None` otherwise.
     pub fn grouping(&self) -> &[Activity] {
-        if self.grouping.is_none() {
-            &[]
+        if let Some(z_grouping) = self.grouping.as_ref() {
+            z_grouping.0.as_slice()
         } else {
-            self.grouping.as_ref().unwrap().0.as_slice()
+            &[]
         }
     }
 
     /// Return `category` if set; `None` otherwise.
     pub fn category(&self) -> &[Activity] {
-        if self.category.is_none() {
-            &[]
+        if let Some(z_category) = self.category.as_ref() {
+            z_category.0.as_slice()
         } else {
-            self.category.as_ref().unwrap().0.as_slice()
+            &[]
         }
     }
 
     /// Return `other` if set; `None` otherwise.
     pub fn other(&self) -> &[Activity] {
-        if self.other.is_none() {
-            &[]
+        if let Some(z_other) = self.other.as_ref() {
+            z_other.0.as_slice()
         } else {
-            self.other.as_ref().unwrap().0.as_slice()
+            &[]
         }
     }
 }

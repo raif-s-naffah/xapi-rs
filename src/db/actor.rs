@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyError,
     data::{Account, Actor, Agent, DataError, Format, Group, Person, ValidationError},
     db::{
-        schema::{TActor, TActorIfi, TIfi, TObjActor},
         RowID,
+        schema::{TActor, TActorIfi, TIfi, TObjActor},
     },
-    emit_db_error, runtime_error, MyError,
+    emit_db_error, runtime_error,
 };
 use async_recursion::async_recursion;
 use core::fmt;
@@ -371,9 +372,10 @@ async fn try_actor(
         for a in members.iter() {
             builder = builder.member(a.to_owned())?
         }
-        // finally the name if format != 'ids'...
-        if !format.is_ids() && row.name.is_some() {
-            builder = builder.name(row.name.as_ref().unwrap())?;
+        if let Some(z_name) = row.name.as_ref()
+            && !format.is_ids()
+        {
+            builder = builder.name(z_name)?;
         }
         Ok(Actor::Group(builder.build()?))
     } else {
@@ -401,9 +403,10 @@ async fn try_actor(
                 break;
             }
         }
-        // if format is 'ids' then bail out; we already have what we need
-        if !format.is_ids() && row.name.is_some() {
-            builder = builder.name(row.name.as_ref().unwrap())?;
+        if let Some(z_name) = row.name.as_ref()
+            && !format.is_ids()
+        {
+            builder = builder.name(z_name)?;
         }
         Ok(Actor::Agent(builder.build()?))
     }
@@ -553,8 +556,8 @@ pub(crate) async fn find_person(conn: &PgPool, agent: &Agent) -> Result<Option<P
                 if !visited.contains(&id) {
                     let y = find_actor_row(conn, id).await?;
                     if !y.is_group {
-                        if y.name.is_some() {
-                            builder = builder.name(y.name.as_ref().unwrap())?;
+                        if let Some(z_name) = y.name.as_ref() {
+                            builder = builder.name(z_name)?;
                         }
                         // if that actor row ID has associated ifi IDs do them as well...
                         let actor_ifis = find_actor_ifis(conn, id).await?;
@@ -591,7 +594,7 @@ pub(crate) async fn find_person(conn: &PgPool, agent: &Agent) -> Result<Option<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{db::MockDB, lrs::User, MyEmailAddress};
+    use crate::{MyEmailAddress, db::MockDB, lrs::User};
     use std::str::FromStr;
     use tracing_test::traced_test;
 

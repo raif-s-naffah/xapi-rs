@@ -163,10 +163,10 @@ impl ActivityDefinition {
 
     /// Return the _extension_ keyed by `key` if it exists; `None` otherwise.
     pub fn extension(&self, key: &IriStr) -> Option<&Value> {
-        if self.extensions.is_none() {
-            None
+        if let Some(z_extensions) = self.extensions.as_ref() {
+            z_extensions.get(key)
         } else {
-            self.extensions.as_ref().unwrap().get(key)
+            None
         }
     }
 
@@ -225,68 +225,44 @@ impl ActivityDefinition {
 impl fmt::Display for ActivityDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut vec = vec![];
-        if self.name.is_some() {
-            vec.push(format!("name: {}", self.name.as_ref().unwrap()));
+        if let Some(z_name) = self.name.as_ref() {
+            vec.push(format!("name: {}", z_name));
         }
-        if self.description.is_some() {
-            vec.push(format!(
-                "description: {}",
-                self.description.as_ref().unwrap()
-            ));
+        if let Some(z_description) = self.description.as_ref() {
+            vec.push(format!("description: {}", z_description));
         }
-        if self.type_.is_some() {
-            vec.push(format!("type: \"{}\"", self.type_.as_ref().unwrap()));
+        if let Some(z_type) = self.type_.as_ref() {
+            vec.push(format!("type: \"{}\"", z_type));
         }
-        if self.more_info.is_some() {
-            vec.push(format!(
-                "moreInfo: \"{}\"",
-                self.more_info.as_ref().unwrap()
-            ));
+        if let Some(z_more_info) = self.more_info.as_ref() {
+            vec.push(format!("moreInfo: \"{}\"", z_more_info));
         }
-        if self.interaction_type.is_some() {
-            vec.push(format!(
-                "interactionType: {}",
-                self.interaction_type.as_ref().unwrap()
-            ));
+        if let Some(z_interaction_type) = self.interaction_type.as_ref() {
+            vec.push(format!("interactionType: {}", z_interaction_type));
         }
-        if self.correct_responses_pattern.is_some() {
+        if let Some(z_correct_responses_pattern) = self.correct_responses_pattern.as_ref() {
             vec.push(format!(
                 "correctResponsesPattern: {}",
-                array_to_display_str(self.correct_responses_pattern.as_ref().unwrap())
+                array_to_display_str(z_correct_responses_pattern)
             ));
         }
-        if self.choices.is_some() {
-            vec.push(format!(
-                "choices: {}",
-                vec_to_display_str(self.choices.as_ref().unwrap())
-            ));
+        if let Some(z_choices) = self.choices.as_ref() {
+            vec.push(format!("choices: {}", vec_to_display_str(z_choices)));
         }
-        if self.scale.is_some() {
-            vec.push(format!(
-                "scale: {}",
-                vec_to_display_str(self.scale.as_ref().unwrap())
-            ));
+        if let Some(z_scale) = self.scale.as_ref() {
+            vec.push(format!("scale: {}", vec_to_display_str(z_scale)));
         }
-        if self.source.is_some() {
-            vec.push(format!(
-                "source: {}",
-                vec_to_display_str(self.source.as_ref().unwrap())
-            ));
+        if let Some(z_source) = self.source.as_ref() {
+            vec.push(format!("source: {}", vec_to_display_str(z_source)));
         }
-        if self.target.is_some() {
-            vec.push(format!(
-                "target: {}",
-                vec_to_display_str(self.target.as_ref().unwrap())
-            ));
+        if let Some(z_target) = self.target.as_ref() {
+            vec.push(format!("target: {}", vec_to_display_str(z_target)));
         }
-        if self.steps.is_some() {
-            vec.push(format!(
-                "steps: {}",
-                vec_to_display_str(self.steps.as_ref().unwrap())
-            ));
+        if let Some(z_steps) = self.steps.as_ref() {
+            vec.push(format!("steps: {}", vec_to_display_str(z_steps)));
         }
-        if self.extensions.is_some() {
-            vec.push(format!("extensions: {}", self.extensions.as_ref().unwrap()))
+        if let Some(z_extensions) = self.extensions.as_ref() {
+            vec.push(format!("extensions: {}", z_extensions))
         }
         let res = vec
             .iter()
@@ -306,8 +282,8 @@ impl Validate for ActivityDefinition {
             vec.push(ValidationError::InvalidIRI("type".into()))
         }
         // validate more_info
-        if self.more_info.is_some() {
-            validate_irl(self.more_info.as_ref().unwrap()).unwrap_or_else(|x| vec.push(x));
+        if let Some(z_more_info) = self.more_info.as_ref() {
+            validate_irl(z_more_info).unwrap_or_else(|x| vec.push(x));
         }
         // interaction type is guaranteed to be valid when present; is it missing?
         if (self.correct_responses_pattern.is_some()
@@ -323,52 +299,32 @@ impl Validate for ActivityDefinition {
             ))
         }
         // validate correct response pattern
-        if self.correct_responses_pattern.is_some() {
-            for it in self.correct_responses_pattern.as_ref().unwrap().iter() {
+        if let Some(z_correct_responses_pattern) = self.correct_responses_pattern.as_ref() {
+            for it in z_correct_responses_pattern.iter() {
                 if it.is_empty() {
                     vec.push(ValidationError::Empty("correctResponsePattern".into()))
                 }
             }
         }
         // validate choices
-        if self.choices.is_some() {
-            self.choices
-                .as_ref()
-                .unwrap()
-                .iter()
-                .for_each(|x| vec.extend(x.validate()));
+        if let Some(z_choices) = self.choices.as_ref() {
+            z_choices.iter().for_each(|x| vec.extend(x.validate()));
         }
         // validate scale
-        if self.scale.is_some() {
-            self.scale
-                .as_ref()
-                .unwrap()
-                .iter()
-                .for_each(|x| vec.extend(x.validate()));
+        if let Some(z_scale) = self.scale.as_ref() {
+            z_scale.iter().for_each(|x| vec.extend(x.validate()));
         }
         // validate source
-        if self.source.is_some() {
-            self.source
-                .as_ref()
-                .unwrap()
-                .iter()
-                .for_each(|x| vec.extend(x.validate()));
+        if let Some(z_source) = self.source.as_ref() {
+            z_source.iter().for_each(|x| vec.extend(x.validate()));
         }
         // validate target
-        if self.target.is_some() {
-            self.target
-                .as_ref()
-                .unwrap()
-                .iter()
-                .for_each(|x| vec.extend(x.validate()));
+        if let Some(z_target) = self.target.as_ref() {
+            z_target.iter().for_each(|x| vec.extend(x.validate()));
         }
         // validate steps
-        if self.steps.is_some() {
-            self.steps
-                .as_ref()
-                .unwrap()
-                .iter()
-                .for_each(|x| vec.extend(x.validate()));
+        if let Some(z_steps) = self.steps.as_ref() {
+            z_steps.iter().for_each(|x| vec.extend(x.validate()));
         }
 
         vec
@@ -377,37 +333,34 @@ impl Validate for ActivityDefinition {
 
 impl Canonical for ActivityDefinition {
     fn canonicalize(&mut self, language_tags: &[MyLanguageTag]) {
-        if self.name.is_some() {
-            self.name.as_mut().unwrap().canonicalize(language_tags)
+        if let Some(z_name) = self.name.as_mut() {
+            z_name.canonicalize(language_tags)
         }
-        if self.description.is_some() {
-            self.description
-                .as_mut()
-                .unwrap()
-                .canonicalize(language_tags)
+        if let Some(z_description) = self.description.as_mut() {
+            z_description.canonicalize(language_tags)
         }
-        if self.choices.is_some() {
-            for it in self.choices.as_mut().unwrap() {
+        if let Some(z_choices) = self.choices.as_mut() {
+            for it in z_choices {
                 it.canonicalize(language_tags)
             }
         }
-        if self.scale.is_some() {
-            for it in self.scale.as_mut().unwrap() {
+        if let Some(z_scale) = self.scale.as_mut() {
+            for it in z_scale {
                 it.canonicalize(language_tags)
             }
         }
-        if self.source.is_some() {
-            for it in self.source.as_mut().unwrap() {
+        if let Some(z_source) = self.source.as_mut() {
+            for it in z_source {
                 it.canonicalize(language_tags)
             }
         }
-        if self.target.is_some() {
-            for it in self.target.as_mut().unwrap() {
+        if let Some(z_target) = self.target.as_mut() {
+            for it in z_target {
                 it.canonicalize(language_tags)
             }
         }
-        if self.steps.is_some() {
-            for it in self.steps.as_mut().unwrap() {
+        if let Some(z_steps) = self.steps.as_mut() {
+            for it in z_steps {
                 it.canonicalize(language_tags)
             }
         }
@@ -597,16 +550,8 @@ impl<'a> ActivityDefinitionBuilder<'a> {
         Ok(ActivityDefinition {
             name: self._name,
             description: self._description,
-            type_: if self._type_.is_none() {
-                None
-            } else {
-                Some(self._type_.unwrap().into())
-            },
-            more_info: if self._more_info.is_none() {
-                None
-            } else {
-                Some(self._more_info.unwrap().into())
-            },
+            type_: self._type_.map(|x| x.into()),
+            more_info: self._more_info.map(|x| x.into()),
             interaction_type: self._interaction_type,
             correct_responses_pattern: self._correct_responses_pattern,
             choices: self._choices,

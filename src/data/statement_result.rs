@@ -90,13 +90,8 @@ impl fmt::Display for StatementResult {
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        if self.more.is_some() {
-            write!(
-                f,
-                "StatementResult{{[ {} ], '{}'}}",
-                statements,
-                self.more.as_ref().unwrap()
-            )
+        if let Some(z_more) = self.more.as_ref() {
+            write!(f, "StatementResult{{[ {} ], '{}'}}", statements, z_more)
         } else {
             write!(f, "StatementResult{{[ {statements} ]}}")
         }

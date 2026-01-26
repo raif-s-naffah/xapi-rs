@@ -527,8 +527,8 @@ async fn get_some<'r>(
             });
         }
 
-        let (voided, uuid) = if q.statement_id.is_some() {
-            (false, q.statement_id.unwrap())
+        let (voided, uuid) = if let Some(z_statement_id) = q.statement_id {
+            (false, z_statement_id)
         } else {
             (true, q.voided_statement_id.unwrap())
         };

@@ -146,10 +146,10 @@ impl SubStatement {
     ///
     /// It's set by the LRS if not provided.
     pub fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        if self.timestamp.is_none() {
-            None
+        if let Some(z_timestamp) = self.timestamp.as_ref() {
+            Some(z_timestamp.inner())
         } else {
-            Some(self.timestamp.as_ref().unwrap().inner())
+            None
         }
     }
 
@@ -176,17 +176,14 @@ impl fmt::Display for SubStatement {
         vec.push(format!("actor: {}", self.actor));
         vec.push(format!("verb: {}", self.verb));
         vec.push(format!("object: {}", self.object));
-        if self.result.is_some() {
-            vec.push(format!("result: {}", self.result.as_ref().unwrap()));
+        if let Some(z_result) = self.result.as_ref() {
+            vec.push(format!("result: {}", z_result));
         }
-        if self.context.is_some() {
-            vec.push(format!("context: {}", self.context.as_ref().unwrap()));
+        if let Some(z_context) = self.context.as_ref() {
+            vec.push(format!("context: {}", z_context));
         }
-        if self.timestamp.is_some() {
-            vec.push(format!(
-                "timestamp: \"{}\"",
-                self.timestamp.as_ref().unwrap()
-            ));
+        if let Some(z_timestamp) = self.timestamp.as_ref() {
+            vec.push(format!("timestamp: \"{}\"", z_timestamp));
         }
         if self.attachments.is_some() {
             let items = self.attachments.as_deref().unwrap();
@@ -234,23 +231,22 @@ impl Validate for SubStatement {
         vec.extend(self.actor.validate());
         vec.extend(self.verb.validate());
         vec.extend(self.object.validate());
-        if self.result.is_some() {
-            vec.extend(self.result.as_ref().unwrap().validate())
+        if let Some(z_result) = self.result.as_ref() {
+            vec.extend(z_result.validate())
         }
-        if self.context.is_some() {
-            vec.extend(self.context.as_ref().unwrap().validate());
+        if let Some(z_context) = self.context.as_ref() {
+            vec.extend(z_context.validate());
             // NOTE (rsn) 20241017 - same as in Statement...
             if !self.object().is_activity()
-                && (self.context().as_ref().unwrap().revision().is_some()
-                    || self.context().as_ref().unwrap().platform().is_some())
+                && (z_context.revision().is_some() || z_context.platform().is_some())
             {
                 vec.push(ValidationError::ConstraintViolation(
                     "SubStatement context w/ revision | platform but object != Activity".into(),
                 ))
             }
         }
-        if self.attachments.is_some() {
-            for att in self.attachments.as_ref().unwrap().iter() {
+        if let Some(z_attachments) = self.attachments.as_ref() {
+            for att in z_attachments.iter() {
                 vec.extend(att.validate())
             }
         }

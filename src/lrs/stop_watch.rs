@@ -3,8 +3,8 @@
 use crate::lrs::resources::stats::update_stats;
 use chrono::{DateTime, SecondsFormat, Utc};
 use rocket::{
-    fairing::{Fairing, Info, Kind},
     Data, Request, Response,
+    fairing::{Fairing, Info, Kind},
 };
 use tracing::{debug, error};
 
@@ -32,8 +32,7 @@ impl Fairing for StopWatch {
     /// process said request.
     async fn on_response<'r>(&self, req: &'r Request<'_>, res: &mut Response<'r>) {
         let timer = req.local_cache(|| TimerStart(None));
-        let value = if timer.0.is_some() {
-            let arrival_time = timer.0.as_ref().unwrap();
+        let value = if let Some(arrival_time) = timer.0.as_ref() {
             let duration = Utc::now()
                 .signed_duration_since(arrival_time)
                 .num_nanoseconds();

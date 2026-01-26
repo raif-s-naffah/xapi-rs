@@ -123,15 +123,15 @@ impl StatementRefBuilder {
     ///
     /// Raise a [DataError] if the ID field is not set.
     pub fn build(&self) -> Result<StatementRef, DataError> {
-        if self._id.is_none() {
+        if let Some(z_id) = self._id {
+            Ok(StatementRef {
+                object_type: ObjectType::StatementRef,
+                id: z_id,
+            })
+        } else {
             emit_error!(DataError::Validation(ValidationError::MissingField(
                 "id".into()
             )))
-        } else {
-            Ok(StatementRef {
-                object_type: ObjectType::StatementRef,
-                id: self._id.unwrap(),
-            })
         }
     }
 }

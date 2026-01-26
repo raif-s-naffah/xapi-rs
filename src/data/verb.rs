@@ -202,8 +202,8 @@ impl fmt::Display for Verb {
         let mut vec = vec![];
 
         vec.push(format!("id: \"{}\"", self.id));
-        if self.display.is_some() {
-            vec.push(format!("display: {}", self.display.as_ref().unwrap()));
+        if let Some(z_display) = self.display.as_ref() {
+            vec.push(format!("display: {}", z_display));
         }
 
         let res = vec
@@ -238,8 +238,8 @@ impl Validate for Verb {
 
 impl Canonical for Verb {
     fn canonicalize(&mut self, tags: &[MyLanguageTag]) {
-        if self.display.is_some() {
-            self.display.as_mut().unwrap().canonicalize(tags);
+        if let Some(z_display) = self.display.as_mut() {
+            z_display.canonicalize(tags);
         }
     }
 }
@@ -292,20 +292,19 @@ impl<'a> VerbBuilder<'a> {
     /// Raise [DataError] if the definition (`id`) field is not set or is an
     /// invalid IRI.
     pub fn build(self) -> Result<Verb, DataError> {
-        if self._id.is_none() {
-            emit_error!(DataError::Validation(ValidationError::MissingField(
-                "id".into()
-            )))
-        } else {
-            let iri = self._id.unwrap();
-            if iri.is_empty() {
+        if let Some(z_id) = self._id {
+            if z_id.is_empty() {
                 emit_error!(DataError::Validation(ValidationError::Empty("id".into())))
             } else {
                 Ok(Verb {
-                    id: self._id.unwrap().into(),
+                    id: z_id.into(),
                     display: self._display,
                 })
             }
+        } else {
+            emit_error!(DataError::Validation(ValidationError::MissingField(
+                "id".into()
+            )))
         }
     }
 }

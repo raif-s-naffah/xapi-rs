@@ -156,13 +156,12 @@ pub(crate) async fn update_user(
     // same call will be invoked when updating (a) the enabled flag, (b) the
     // email and password pair, (c) the role, or (d) the manager_id,
     // individually.
-    let q = if form.enabled.is_some() {
+    let q = if let Some(z_enabled) = form.enabled {
         sqlx::query_as::<_, TUser>(r#"UPDATE users SET enabled = $2 WHERE id = $1 RETURNING *"#)
             .bind(id)
-            .bind(form.enabled.unwrap())
+            .bind(z_enabled)
             .fetch_one(conn)
-    } else if form.email.is_some() {
-        let z_email = form.email.unwrap();
+    } else if let Some(z_email) = form.email {
         let z_password = form.password.unwrap();
         let z_credentials = i64::from(User::credentials_from(z_email, z_password));
         sqlx::query_as::<_, TUser>(
@@ -172,16 +171,16 @@ pub(crate) async fn update_user(
         .bind(z_email)
         .bind(z_credentials)
         .fetch_one(conn)
-    } else if form.role.is_some() {
-        let z_role = i16::try_from(form.role.unwrap().0).ok().unwrap();
+    } else if let Some(z_role) = form.role {
+        let z_role = i16::try_from(z_role.0).ok().unwrap();
         sqlx::query_as::<_, TUser>(r#"UPDATE users SET role = $2 WHERE id = $1 RETURNING *"#)
             .bind(id)
             .bind(z_role)
             .fetch_one(conn)
-    } else if form.manager_id.is_some() {
+    } else if let Some(z_manager_id) = form.manager_id {
         sqlx::query_as::<_, TUser>(r#"UPDATE users SET manager_id = $2 WHERE id = $1 RETURNING *"#)
             .bind(id)
-            .bind(form.manager_id.unwrap())
+            .bind(z_manager_id)
             .fetch_one(conn)
     } else {
         panic!("Unexpected update_user call");
@@ -210,10 +209,9 @@ pub(crate) async fn batch_update_users(
         .collect::<Vec<_>>()
         .join(",");
     let where_clause = format!("WHERE id IN ({ids})");
-    if form.enabled.is_some() {
+    if let Some(enabled) = form.enabled {
         let sql = format!("UPDATE users SET enabled = $1 {where_clause}");
         let safe_sql = AssertSqlSafe(sql);
-        let enabled = form.enabled.unwrap();
         match sqlx::query(safe_sql).bind(enabled).execute(conn).await {
             Ok(x) => {
                 info!("Success: {:?}", x);
@@ -221,10 +219,10 @@ pub(crate) async fn batch_update_users(
             }
             Err(x) => emit_db_error!(x, "Failed batch_update_users(..., enabled)"),
         }
-    } else if form.role.is_some() {
+    } else if let Some(z_role) = form.role.as_ref() {
         let sql = format!("UPDATE users SET role = $1 {where_clause}");
         let safe_sql = AssertSqlSafe(sql);
-        let role = i16::try_from(form.role.as_ref().unwrap().0).expect("Failed coercing role");
+        let role = i16::try_from(z_role.0).expect("Failed coercing role");
         match sqlx::query(safe_sql).bind(role).execute(conn).await {
             Ok(x) => {
                 info!("Success: {:?}", x);
@@ -232,10 +230,9 @@ pub(crate) async fn batch_update_users(
             }
             Err(x) => emit_db_error!(x, "Failed batch_update_users(..., role)"),
         }
-    } else if form.manager_id.is_some() {
+    } else if let Some(manager_id) = form.manager_id {
         let sql = format!("UPDATE users SET manager_id = $1 {where_clause}");
         let safe_sql = AssertSqlSafe(sql);
-        let manager_id = form.manager_id.unwrap();
         match sqlx::query(safe_sql).bind(manager_id).execute(conn).await {
             Ok(x) => {
                 info!("Success: {:?}", x);

@@ -50,20 +50,17 @@ pub(crate) struct MultiResourceParams {
 
 impl fmt::Display for MultiResourceParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.since.is_none() {
+        if let Some(z_since) = self.since.as_ref() {
             write!(
                 f,
-                "{{ activity: #{}, agent: #{} }}, registration: {}",
-                self.activity_id, self.agent_id, self.registration
+                "{{ activity: #{}, agent: #{}, registration: {}, since: {} }}",
+                self.activity_id, self.agent_id, self.registration, z_since
             )
         } else {
             write!(
                 f,
-                "{{ activity: #{}, agent: #{}, registration: {}, since: {} }}",
-                self.activity_id,
-                self.agent_id,
-                self.registration,
-                self.since.as_ref().unwrap()
+                "{{ activity: #{}, agent: #{} }}, registration: {}",
+                self.activity_id, self.agent_id, self.registration
             )
         }
     }
@@ -138,12 +135,12 @@ pub(crate) async fn find_ids(
     conn: &PgPool,
     s: &MultiResourceParams,
 ) -> Result<Vec<String>, MyError> {
-    let query = if s.since.is_some() {
+    let query = if let Some(z_since) = s.since {
         sqlx::query_as::<_, TState>(FIND_IDS_SINCE)
             .bind(s.activity_id)
             .bind(s.agent_id)
             .bind(s.registration)
-            .bind(s.since.unwrap())
+            .bind(z_since)
             .fetch_all(conn)
     } else {
         sqlx::query_as::<_, TState>(FIND_IDS)

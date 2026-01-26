@@ -69,11 +69,8 @@ impl fmt::Display for InteractionComponent {
         let mut vec = vec![];
 
         vec.push(format!("id: \"{}\"", self.id));
-        if self.description.is_some() {
-            vec.push(format!(
-                "description: {}",
-                self.description.as_ref().unwrap()
-            ));
+        if let Some(z_description) = self.description.as_ref() {
+            vec.push(format!("description: {}", z_description));
         }
 
         let res = vec
@@ -99,8 +96,8 @@ impl Validate for InteractionComponent {
 
 impl Canonical for InteractionComponent {
     fn canonicalize(&mut self, tags: &[MyLanguageTag]) {
-        if self.description.is_some() {
-            self.description.as_mut().unwrap().canonicalize(tags)
+        if let Some(z_description) = self.description.as_mut() {
+            z_description.canonicalize(tags)
         }
     }
 }
@@ -138,15 +135,15 @@ impl<'a> InteractionComponentBuilder<'a> {
     ///
     /// Raise [DataError] if the `id` field is missing.
     pub fn build(self) -> Result<InteractionComponent, DataError> {
-        if self._id.is_none() {
+        if let Some(z_id) = self._id {
+            Ok(InteractionComponent {
+                id: z_id.to_owned(),
+                description: self._description,
+            })
+        } else {
             emit_error!(DataError::Validation(ValidationError::MissingField(
                 "id".into()
             )))
-        } else {
-            Ok(InteractionComponent {
-                id: self._id.unwrap().to_owned(),
-                description: self._description,
-            })
         }
     }
 }

@@ -62,8 +62,8 @@ impl fmt::Display for About {
                 .collect::<Vec<_>>()
                 .join(", ")
         ));
-        if self.extensions.is_some() {
-            vec.push(format!("extensions: {}", self.extensions.as_ref().unwrap()))
+        if let Some(z_extensions) = self.extensions.as_ref() {
+            vec.push(format!("extensions: {}", z_extensions))
         }
         let res = vec
             .iter()

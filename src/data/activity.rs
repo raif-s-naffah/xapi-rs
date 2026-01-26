@@ -95,14 +95,14 @@ impl Activity {
         // of silently returning...
         if self.id == other.id {
             if self.definition.is_none() {
-                if other.definition.is_some() {
-                    let x = mem::take(&mut other.definition.unwrap());
+                if let Some(mut z_other_definition) = other.definition {
+                    let x = mem::take(&mut z_other_definition);
                     let mut z = Some(x);
                     mem::swap(&mut self.definition, &mut z);
                 }
-            } else if other.definition.is_some() {
+            } else if let Some(y) = other.definition {
                 let mut x = mem::take(&mut self.definition).unwrap();
-                let y = other.definition.unwrap();
+                // let y = other.definition.unwrap();
                 x.merge(y);
                 let mut z = Some(x);
                 mem::swap(&mut self.definition, &mut z);
@@ -289,8 +289,8 @@ impl fmt::Display for Activity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut vec = vec![];
         vec.push(format!("id: \"{}\"", self.id));
-        if self.definition.is_some() {
-            vec.push(format!("definition: {}", self.definition.as_ref().unwrap()))
+        if let Some(z_definition) = self.definition.as_ref() {
+            vec.push(format!("definition: {}", z_definition))
         }
         let res = vec
             .iter()
@@ -314,19 +314,20 @@ impl Fingerprint for Activity {
 impl Validate for Activity {
     fn validate(&self) -> Vec<ValidationError> {
         let mut vec = vec![];
-
-        if self.object_type.is_some() && *self.object_type.as_ref().unwrap() != ObjectType::Activity
+        if let Some(z_object_type) = self.object_type.as_ref()
+            && *z_object_type != ObjectType::Activity
         {
             vec.push(ValidationError::WrongObjectType {
                 expected: ObjectType::Activity,
-                found: self.object_type.as_ref().unwrap().to_string().into(),
+                found: z_object_type.to_string().into(),
             })
         }
+
         if self.id.is_empty() {
             vec.push(ValidationError::Empty("id".into()))
         }
-        if self.definition.is_some() {
-            vec.extend(self.definition.as_ref().unwrap().validate());
+        if let Some(z_definition) = self.definition.as_ref() {
+            vec.extend(z_definition.validate());
         }
 
         vec
@@ -335,11 +336,8 @@ impl Validate for Activity {
 
 impl Canonical for Activity {
     fn canonicalize(&mut self, language_tags: &[MyLanguageTag]) {
-        if self.definition.is_some() {
-            self.definition
-                .as_mut()
-                .unwrap()
-                .canonicalize(language_tags);
+        if let Some(z_definition) = &mut self.definition {
+            z_definition.canonicalize(language_tags);
         }
     }
 }
@@ -414,16 +412,16 @@ impl<'a> ActivityBuilder<'a> {
     ///
     /// Raise [DataError] if the `id` field is missing.
     pub fn build(self) -> Result<Activity, DataError> {
-        if self._id.is_none() {
+        if let Some(z_id) = self._id {
+            Ok(Activity {
+                object_type: self._object_type,
+                id: z_id.to_owned(),
+                definition: self._definition,
+            })
+        } else {
             emit_error!(DataError::Validation(ValidationError::MissingField(
                 "id".into()
             )))
-        } else {
-            Ok(Activity {
-                object_type: self._object_type,
-                id: self._id.unwrap().to_owned(),
-                definition: self._definition,
-            })
         }
     }
 }

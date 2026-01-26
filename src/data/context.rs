@@ -65,34 +65,12 @@ impl From<Context> for ContextId {
             instructor: value.instructor.map(ActorId::from),
             team: value.team.map(GroupId::from),
             context_activities: value.context_activities.map(ContextActivitiesId::from),
-            context_agents: {
-                if value.context_agents.is_some() {
-                    Some(
-                        value
-                            .context_agents
-                            .unwrap()
-                            .into_iter()
-                            .map(ContextAgentId::from)
-                            .collect(),
-                    )
-                } else {
-                    None
-                }
-            },
-            context_groups: {
-                if value.context_groups.is_some() {
-                    Some(
-                        value
-                            .context_groups
-                            .unwrap()
-                            .into_iter()
-                            .map(ContextGroupId::from)
-                            .collect(),
-                    )
-                } else {
-                    None
-                }
-            },
+            context_agents: value
+                .context_agents
+                .map(|z_agents| z_agents.into_iter().map(ContextAgentId::from).collect()),
+            context_groups: value
+                .context_groups
+                .map(|z_groups| z_groups.into_iter().map(ContextGroupId::from).collect()),
             revision: value.revision,
             platform: value.platform,
             language: value.language,
@@ -109,30 +87,12 @@ impl From<ContextId> for Context {
             instructor: value.instructor.map(Actor::from),
             team: value.team.map(Group::from),
             context_activities: value.context_activities.map(ContextActivities::from),
-            context_agents: if value.context_agents.is_none() {
-                None
-            } else {
-                Some(
-                    value
-                        .context_agents
-                        .unwrap()
-                        .into_iter()
-                        .map(ContextAgent::from)
-                        .collect(),
-                )
-            },
-            context_groups: if value.context_groups.is_none() {
-                None
-            } else {
-                Some(
-                    value
-                        .context_groups
-                        .unwrap()
-                        .into_iter()
-                        .map(ContextGroup::from)
-                        .collect(),
-                )
-            },
+            context_agents: value
+                .context_agents
+                .map(|z_agents| z_agents.into_iter().map(ContextAgent::from).collect()),
+            context_groups: value
+                .context_groups
+                .map(|z_groups| z_groups.into_iter().map(ContextGroup::from).collect()),
             revision: value.revision,
             platform: value.platform,
             language: value.language,
@@ -238,8 +198,8 @@ impl Fingerprint for Context {
         if self.platform.is_some() {
             state.write(self.platform().unwrap().as_bytes())
         }
-        if self.language.is_some() {
-            state.write(self.language.as_ref().unwrap().as_str().as_bytes())
+        if let Some(z_language) = self.language.as_ref() {
+            state.write(z_language.as_str().as_bytes())
         }
         if self.statement.is_some() {
             self.statement().unwrap().fingerprint(state)
@@ -254,27 +214,22 @@ impl fmt::Display for Context {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut vec = vec![];
 
-        if self.registration.is_some() {
+        if let Some(z_registration) = self.registration.as_ref() {
             vec.push(format!(
                 "registration: \"{}\"",
-                self.registration
-                    .as_ref()
-                    .unwrap()
+                z_registration
                     .hyphenated()
                     .encode_lower(&mut Uuid::encode_buffer())
             ))
         }
-        if self.instructor.is_some() {
-            vec.push(format!("instructor: {}", self.instructor.as_ref().unwrap()))
+        if let Some(z_instructor) = self.instructor.as_ref() {
+            vec.push(format!("instructor: {}", z_instructor))
         }
-        if self.team.is_some() {
-            vec.push(format!("team: {}", self.team.as_ref().unwrap()))
+        if let Some(z_team) = self.team.as_ref() {
+            vec.push(format!("team: {}", z_team))
         }
-        if self.context_activities.is_some() {
-            vec.push(format!(
-                "contextActivities: {}",
-                self.context_activities.as_ref().unwrap()
-            ));
+        if let Some(z_activities) = self.context_activities.as_ref() {
+            vec.push(format!("contextActivities: {}", z_activities));
         }
         if self.context_agents.is_some() {
             let items = self.context_agents.as_deref().unwrap();
@@ -298,20 +253,20 @@ impl fmt::Display for Context {
                     .join(", ")
             ));
         }
-        if self.revision.is_some() {
-            vec.push(format!("revision: \"{}\"", self.revision.as_ref().unwrap()))
+        if let Some(z_revision) = self.revision.as_ref() {
+            vec.push(format!("revision: \"{}\"", z_revision))
         }
-        if self.platform.is_some() {
-            vec.push(format!("platform: \"{}\"", self.platform.as_ref().unwrap()))
+        if let Some(z_platform) = self.platform.as_ref() {
+            vec.push(format!("platform: \"{}\"", z_platform))
         }
-        if self.language.is_some() {
-            vec.push(format!("language: \"{}\"", self.language.as_ref().unwrap()))
+        if let Some(z_language) = self.language.as_ref() {
+            vec.push(format!("language: \"{}\"", z_language))
         }
-        if self.statement.is_some() {
-            vec.push(format!("statement: {}", self.statement.as_ref().unwrap()))
+        if let Some(z_statement) = self.statement.as_ref() {
+            vec.push(format!("statement: {}", z_statement))
         }
-        if self.extensions.is_some() {
-            vec.push(format!("extensions: {}", self.extensions.as_ref().unwrap()))
+        if let Some(z_extensions) = self.extensions.as_ref() {
+            vec.push(format!("extensions: {}", z_extensions))
         }
 
         let res = vec
@@ -335,22 +290,22 @@ impl Validate for Context {
             error!("{}", msg);
             vec.push(ValidationError::ConstraintViolation(msg.into()))
         }
-        if self.instructor.is_some() {
-            vec.extend(self.instructor.as_ref().unwrap().validate())
+        if let Some(z_instructor) = self.instructor.as_ref() {
+            vec.extend(z_instructor.validate())
         }
-        if self.team.is_some() {
-            vec.extend(self.team.as_ref().unwrap().validate());
+        if let Some(z_team) = self.team.as_ref() {
+            vec.extend(z_team.validate());
         }
-        if self.context_activities.is_some() {
-            vec.extend(self.context_activities.as_ref().unwrap().validate());
+        if let Some(z_activities) = self.context_activities.as_ref() {
+            vec.extend(z_activities.validate());
         }
-        if self.context_agents.is_some() {
-            for ca in self.context_agents.as_ref().unwrap().iter() {
+        if let Some(z_agents) = self.context_agents.as_ref() {
+            for ca in z_agents.iter() {
                 vec.extend(ca.validate())
             }
         }
-        if self.context_groups.is_some() {
-            for cg in self.context_groups.as_ref().unwrap().iter() {
+        if let Some(z_groups) = self.context_groups.as_ref() {
+            for cg in z_groups.iter() {
                 vec.extend(cg.validate())
             }
         }
@@ -360,8 +315,8 @@ impl Validate for Context {
         if self.platform.is_some() && self.platform.as_ref().unwrap().is_empty() {
             vec.push(ValidationError::Empty("platform".into()))
         }
-        if self.statement.is_some() {
-            vec.extend(self.statement.as_ref().unwrap().validate())
+        if let Some(z_statement) = self.statement.as_ref() {
+            vec.extend(z_statement.validate())
         }
 
         vec

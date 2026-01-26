@@ -159,8 +159,8 @@ macro_rules! set_email {
 macro_rules! merge_maps {
     ( $dst: expr, $src: expr ) => {
         if $dst.is_none() {
-            if $src.is_some() {
-                let x = std::mem::take(&mut $src.unwrap());
+            if let Some(mut z_src) = $src {
+                let x = std::mem::take(&mut z_src);
                 let mut y = Some(x);
                 std::mem::swap($dst, &mut y);
             }

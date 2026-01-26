@@ -91,10 +91,10 @@ impl Agent {
 
     /// Return TRUE if the `objectType` property is as expected; FALSE otherwise.
     pub fn check_object_type(&self) -> bool {
-        if self.object_type.is_none() {
-            true
+        if let Some(z_object_type) = self.object_type.as_ref() {
+            z_object_type == &ObjectType::Agent
         } else {
-            self.object_type.as_ref().unwrap() == &ObjectType::Agent
+            true
         }
     }
 
@@ -195,13 +195,13 @@ impl fmt::Display for Agent {
 impl Fingerprint for Agent {
     fn fingerprint<H: Hasher>(&self, state: &mut H) {
         // always discard `object_type` and `name`
-        if self.mbox.is_some() {
-            self.mbox.as_ref().unwrap().fingerprint(state);
+        if let Some(z_mbox) = self.mbox.as_ref() {
+            z_mbox.fingerprint(state);
         }
         self.mbox_sha1sum.hash(state);
         self.openid.hash(state);
-        if self.account.is_some() {
-            self.account.as_ref().unwrap().fingerprint(state);
+        if let Some(z_account) = self.account.as_ref() {
+            z_account.fingerprint(state);
         }
     }
 }
@@ -210,10 +210,12 @@ impl Validate for Agent {
     fn validate(&self) -> Vec<ValidationError> {
         let mut vec = vec![];
 
-        if self.object_type.is_some() && !self.check_object_type() {
+        if let Some(z_object_type) = self.object_type.as_ref()
+            && z_object_type != &ObjectType::Agent
+        {
             vec.push(ValidationError::WrongObjectType {
                 expected: ObjectType::Agent,
-                found: self.object_type.as_ref().unwrap().to_string().into(),
+                found: z_object_type.to_string().into(),
             })
         }
         if self.name.is_some() && self.name.as_ref().unwrap().is_empty() {
@@ -226,16 +228,16 @@ impl Validate for Agent {
             count += 1;
             // no need to validate email address...
         }
-        if self.mbox_sha1sum.is_some() {
+        if let Some(z_mbox_sha1sum) = self.mbox_sha1sum.as_ref() {
             count += 1;
-            validate_sha1sum(self.mbox_sha1sum.as_ref().unwrap()).unwrap_or_else(|x| vec.push(x))
+            validate_sha1sum(z_mbox_sha1sum).unwrap_or_else(|x| vec.push(x))
         }
         if self.openid.is_some() {
             count += 1;
         }
-        if self.account.is_some() {
+        if let Some(z_account) = self.account.as_ref() {
             count += 1;
-            vec.extend(self.account.as_ref().unwrap().validate())
+            vec.extend(z_account.validate())
         }
         if count != 1 {
             vec.push(ValidationError::ConstraintViolation(

@@ -58,8 +58,7 @@ impl From<Group> for GroupId {
         GroupId {
             object_type: ObjectType::Group,
             members: {
-                if value.members.is_some() {
-                    let members = value.members.unwrap();
+                if let Some(members) = value.members {
                     if members.is_empty() {
                         None
                     } else {
@@ -83,8 +82,7 @@ impl From<GroupId> for Group {
             object_type: ObjectType::Group,
             name: None,
             members: {
-                if value.members.is_some() {
-                    let members = value.members.unwrap();
+                if let Some(members) = value.members {
                     if members.is_empty() {
                         None
                     } else {
@@ -155,15 +153,10 @@ impl Group {
     /// When set, it's a vector of at least one [Agent]). This is expected to
     /// be the case when the Group is _anonymous_.
     pub fn members(&self) -> Vec<&Agent> {
-        if self.members.is_none() {
-            vec![]
+        if let Some(z_members) = self.members.as_ref() {
+            z_members.as_slice().iter().collect::<Vec<_>>()
         } else {
-            self.members
-                .as_ref()
-                .unwrap()
-                .as_slice()
-                .iter()
-                .collect::<Vec<_>>()
+            vec![]
         }
     }
 
@@ -246,19 +239,19 @@ impl fmt::Display for Group {
 impl Fingerprint for Group {
     fn fingerprint<H: Hasher>(&self, state: &mut H) {
         // discard `object_type` and `name`
-        if self.members.is_some() {
+        if let Some(z_members) = &self.members {
             // ensure Agents are sorted...
-            let mut members = self.members.clone().unwrap();
+            let mut members = z_members.clone();
             members.sort_unstable();
             Fingerprint::fingerprint_slice(&members, state);
         }
-        if self.mbox.is_some() {
-            self.mbox.as_ref().unwrap().fingerprint(state);
+        if let Some(z_mbox) = self.mbox.as_ref() {
+            z_mbox.fingerprint(state);
         }
         self.mbox_sha1sum.hash(state);
         self.openid.hash(state);
-        if self.account.is_some() {
-            self.account.as_ref().unwrap().fingerprint(state);
+        if let Some(z_account) = self.account.as_ref() {
+            z_account.fingerprint(state);
         }
     }
 }
@@ -295,16 +288,16 @@ impl Validate for Group {
             count += 1;
             // no need to validate email address...
         }
-        if self.mbox_sha1sum.is_some() {
+        if let Some(z_mbox_sha1sum) = self.mbox_sha1sum.as_ref() {
             count += 1;
-            validate_sha1sum(self.mbox_sha1sum.as_ref().unwrap()).unwrap_or_else(|x| vec.push(x))
+            validate_sha1sum(z_mbox_sha1sum).unwrap_or_else(|x| vec.push(x))
         }
         if self.openid.is_some() {
             count += 1;
         }
-        if self.account.is_some() {
+        if let Some(z_account) = self.account.as_ref() {
             count += 1;
-            vec.extend(self.account.as_ref().unwrap().validate())
+            vec.extend(z_account.validate())
         }
         if self.is_anonymous() {
             // must contain at least 1 member...
@@ -317,12 +310,8 @@ impl Validate for Group {
             ))
         }
         // anonymous or identified, validate all members...
-        if self.members.is_some() {
-            self.members
-                .as_ref()
-                .unwrap()
-                .iter()
-                .for_each(|x| vec.extend(x.validate()));
+        if let Some(z_members) = self.members.as_ref() {
+            z_members.iter().for_each(|x| vec.extend(x.validate()));
         }
 
         vec
@@ -462,8 +451,8 @@ impl GroupBuilder {
         }
 
         // NOTE (rsn) 20240705 - sort Agents...
-        if self._members.is_some() {
-            self._members.as_mut().unwrap().sort_unstable();
+        if let Some(z_members) = &mut self._members {
+            z_members.sort_unstable();
         }
         Ok(Group {
             object_type: ObjectType::Group,

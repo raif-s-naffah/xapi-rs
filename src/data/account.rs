@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
-    data::{validate::validate_irl, DataError, Fingerprint, Validate, ValidationError},
+    data::{DataError, Fingerprint, Validate, ValidationError, validate::validate_irl},
     emit_error,
 };
 use core::fmt;
@@ -219,19 +219,21 @@ impl<'a> AccountBuilder<'a> {
     ///
     /// Raise [DataError] if either `home_page` or `name` is empty.
     pub fn build(&self) -> Result<Account, DataError> {
-        if self._home_page.is_none() {
-            emit_error!(DataError::Validation(ValidationError::MissingField(
-                "hom_page".into()
-            )))
-        } else if self._name.is_empty() {
-            emit_error!(DataError::Validation(ValidationError::MissingField(
-                "name".into()
-            )))
+        if let Some(z_home_page) = self._home_page {
+            if self._name.is_empty() {
+                emit_error!(DataError::Validation(ValidationError::MissingField(
+                    "name".into()
+                )))
+            } else {
+                Ok(Account {
+                    home_page: z_home_page.into(),
+                    name: self._name.to_owned(),
+                })
+            }
         } else {
-            Ok(Account {
-                home_page: self._home_page.unwrap().into(),
-                name: self._name.to_owned(),
-            })
+            emit_error!(DataError::Validation(ValidationError::MissingField(
+                "home_page".into()
+            )))
         }
     }
 }

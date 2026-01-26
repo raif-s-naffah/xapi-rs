@@ -191,26 +191,28 @@ impl ContextAgentBuilder {
     ///
     /// Raise [DataError] if `agent` field is not set.
     pub fn build(self) -> Result<ContextAgent, DataError> {
-        if self._agent.is_none() {
+        if let Some(z_agent) = self._agent {
+            if self._relevant_types.is_empty() {
+                emit_error!(DataError::Validation(ValidationError::Empty(
+                    "relevant_types".into()
+                )))
+            } else {
+                let mut relevant_types = vec![];
+                for item in self._relevant_types.iter() {
+                    let iri = IriString::try_from(item.as_str())?;
+                    relevant_types.push(iri);
+                }
+
+                Ok(ContextAgent {
+                    object_type: ObjectType::ContextAgent,
+                    agent: z_agent,
+                    relevant_types,
+                })
+            }
+        } else {
             emit_error!(DataError::Validation(ValidationError::MissingField(
                 "agent".into()
             )))
-        } else if self._relevant_types.is_empty() {
-            emit_error!(DataError::Validation(ValidationError::Empty(
-                "relevant_types".into()
-            )))
-        } else {
-            let mut relevant_types = vec![];
-            for item in self._relevant_types.iter() {
-                let iri = IriString::try_from(item.as_str())?;
-                relevant_types.push(iri);
-            }
-
-            Ok(ContextAgent {
-                object_type: ObjectType::ContextAgent,
-                agent: self._agent.unwrap(),
-                relevant_types,
-            })
         }
     }
 }

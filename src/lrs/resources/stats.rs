@@ -35,10 +35,10 @@ struct RouteAttributes {
 
 impl From<&Route> for RouteAttributes {
     fn from(route: &Route) -> RouteAttributes {
-        let mime = if route.format.is_none() {
-            "N/A".to_owned()
+        let mime = if let Some(z_format) = route.format.as_ref() {
+            z_format.to_string()
         } else {
-            route.format.as_ref().unwrap().to_string()
+            "N/A".to_owned()
         };
         RouteAttributes {
             method: route.method,

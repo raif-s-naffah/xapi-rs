@@ -103,17 +103,17 @@ impl fmt::Display for XResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut vec = vec![];
 
-        if self.score.is_some() {
-            vec.push(format!("score: {}", self.score.as_ref().unwrap()))
+        if let Some(z_score) = self.score.as_ref() {
+            vec.push(format!("score: {}", z_score))
         }
-        if self.success.is_some() {
-            vec.push(format!("success? {}", self.success.unwrap()))
+        if let Some(z_success) = self.success {
+            vec.push(format!("success? {}", z_success))
         }
-        if self.completion.is_some() {
-            vec.push(format!("completion? {}", self.completion.unwrap()))
+        if let Some(z_completion) = self.completion {
+            vec.push(format!("completion? {}", z_completion))
         }
-        if self.response.is_some() {
-            vec.push(format!("response: \"{}\"", self.response.as_ref().unwrap()))
+        if let Some(z_response) = self.response.as_ref() {
+            vec.push(format!("response: \"{}\"", z_response))
         }
         if self.duration.is_some() {
             vec.push(format!(
@@ -121,8 +121,8 @@ impl fmt::Display for XResult {
                 self.duration_to_iso8601().unwrap()
             ))
         }
-        if self.extensions.is_some() {
-            vec.push(format!("extensions: {}", self.extensions.as_ref().unwrap()))
+        if let Some(z_extensions) = self.extensions.as_ref() {
+            vec.push(format!("extensions: {}", z_extensions))
         }
 
         let res = vec
@@ -138,8 +138,8 @@ impl Validate for XResult {
     fn validate(&self) -> Vec<ValidationError> {
         let mut vec = vec![];
 
-        if self.score.is_some() {
-            vec.extend(self.score.as_ref().unwrap().validate())
+        if let Some(z_score) = self.score.as_ref() {
+            vec.extend(z_score.validate())
         };
         // no need to validate booleans...
         if self.response.is_some() && self.response.as_ref().unwrap().is_empty() {

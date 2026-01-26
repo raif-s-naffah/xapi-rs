@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    ActivityDefinition, MyError,
     data::{Activity, Canonical, Format},
     db::{
-        schema::{TActivity, TObjActivity},
         RowID,
+        schema::{TActivity, TObjActivity},
     },
-    emit_db_error, ActivityDefinition, MyError,
+    emit_db_error,
 };
 use iri_string::types::IriStr;
-use sqlx::{types::Json, PgPool};
+use sqlx::{PgPool, types::Json};
 use std::mem;
 use tracing::debug;
 
@@ -108,8 +109,8 @@ pub(crate) async fn insert_activity(conn: &PgPool, activity: &Activity) -> Resul
             Ok(row) => {
                 debug!("row = {:?}", row);
                 let activity_id = row.id;
-                let merged_definition = if row.definition.is_some() {
-                    let mut old_definition = row.definition.unwrap().0;
+                let merged_definition = if let Some(z_definition) = row.definition {
+                    let mut old_definition = z_definition.0;
                     let mut merged = mem::take(&mut old_definition);
                     merged.merge(new_definition);
                     merged
@@ -174,13 +175,17 @@ fn build_activity(row: TActivity, format: &Format) -> Result<Activity, MyError> 
     debug!("format = {:?}", format);
     // NOTE (rsn) 20241113 - always set `object_type`...
     let builder = Activity::builder().with_object_type().id(&row.iri)?;
-    if row.definition.is_none() || format.is_ids() {
-        Ok(builder.build()?)
-    } else {
-        let mut res = builder.definition(row.definition.unwrap().0)?.build()?;
-        if format.is_canonical() {
-            res.canonicalize(format.tags());
+    if let Some(z_definition) = row.definition {
+        if format.is_ids() {
+            Ok(builder.build()?)
+        } else {
+            let mut res = builder.definition(z_definition.0)?.build()?;
+            if format.is_canonical() {
+                res.canonicalize(format.tags());
+            }
+            Ok(res)
         }
-        Ok(res)
+    } else {
+        Ok(builder.build()?)
     }
 }

@@ -180,26 +180,28 @@ impl ContextGroupBuilder {
     ///
     /// Raise [DataError] if `agent` field is not set.
     pub fn build(self) -> Result<ContextGroup, DataError> {
-        if self._group.is_none() {
+        if let Some(z_group) = self._group {
+            if self._relevant_types.is_empty() {
+                emit_error!(DataError::Validation(ValidationError::Empty(
+                    "relevant_types".into()
+                )))
+            } else {
+                let mut relevant_types = vec![];
+                for item in self._relevant_types.iter() {
+                    let iri = IriString::try_from(item.as_str())?;
+                    relevant_types.push(iri);
+                }
+
+                Ok(ContextGroup {
+                    object_type: ObjectType::ContextGroup,
+                    group: z_group,
+                    relevant_types,
+                })
+            }
+        } else {
             emit_error!(DataError::Validation(ValidationError::MissingField(
                 "group".into()
             )))
-        } else if self._relevant_types.is_empty() {
-            emit_error!(DataError::Validation(ValidationError::Empty(
-                "relevant_types".into()
-            )))
-        } else {
-            let mut relevant_types = vec![];
-            for item in self._relevant_types.iter() {
-                let iri = IriString::try_from(item.as_str())?;
-                relevant_types.push(iri);
-            }
-
-            Ok(ContextGroup {
-                object_type: ObjectType::ContextGroup,
-                group: self._group.unwrap(),
-                relevant_types,
-            })
         }
     }
 }

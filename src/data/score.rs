@@ -189,17 +189,17 @@ impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut vec = vec![];
 
-        if self.scaled.is_some() {
-            vec.push(format!("scaled: {}", self.scaled.as_ref().unwrap()))
+        if let Some(z_scaled) = self.scaled.as_ref() {
+            vec.push(format!("scaled: {}", z_scaled))
         }
-        if self.raw.is_some() {
-            vec.push(format!("raw: {}", self.raw.as_ref().unwrap()))
+        if let Some(z_raw) = self.raw.as_ref() {
+            vec.push(format!("raw: {}", z_raw))
         }
-        if self.min.is_some() {
-            vec.push(format!("min: {}", self.min.as_ref().unwrap()))
+        if let Some(z_min) = self.min.as_ref() {
+            vec.push(format!("min: {}", z_min))
         }
-        if self.max.is_some() {
-            vec.push(format!("max: {}", self.max.as_ref().unwrap()))
+        if let Some(z_max) = self.max.as_ref() {
+            vec.push(format!("max: {}", z_max))
         }
 
         let res = vec

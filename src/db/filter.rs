@@ -193,39 +193,30 @@ impl Filter {
 impl fmt::Display for Filter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut vec = vec![];
-        if self.actor_id.is_some() {
-            vec.push(format!("actor=#{}", self.actor_id.as_ref().unwrap()))
+        if let Some(z_actor_id) = self.actor_id.as_ref() {
+            vec.push(format!("actor=#{}", z_actor_id))
         }
-        if self.verb_id.is_some() {
-            vec.push(format!("verb=#{}", self.verb_id.as_ref().unwrap()))
+        if let Some(z_verb_id) = self.verb_id.as_ref() {
+            vec.push(format!("verb=#{}", z_verb_id))
         }
-        if self.activity_id.is_some() {
-            vec.push(format!("activity=#{}", self.activity_id.as_ref().unwrap()))
+        if let Some(z_activity_id) = self.activity_id.as_ref() {
+            vec.push(format!("activity=#{}", z_activity_id))
         }
-        if self.registration.is_some() {
-            vec.push(format!(
-                "registration={}",
-                self.registration.as_ref().unwrap()
-            ))
+        if let Some(z_registration) = self.registration.as_ref() {
+            vec.push(format!("registration={}", z_registration))
         }
         vec.push(format!("rel.activities? {}", self.related_activities));
         vec.push(format!("rel.agents? {}", self.related_agents));
-        if self.since.is_some() {
+        if let Some(z_since) = self.since.as_ref() {
             vec.push(format!(
                 "since '{}'",
-                self.since
-                    .as_ref()
-                    .unwrap()
-                    .to_rfc3339_opts(SecondsFormat::Micros, true)
+                z_since.to_rfc3339_opts(SecondsFormat::Micros, true)
             ))
         }
-        if self.until.is_some() {
+        if let Some(z_until) = self.until.as_ref() {
             vec.push(format!(
                 "until '{}'",
-                self.until
-                    .as_ref()
-                    .unwrap()
-                    .to_rfc3339_opts(SecondsFormat::Micros, true)
+                z_until.to_rfc3339_opts(SecondsFormat::Micros, true)
             ))
         }
         vec.push(format!("limit={}", self.limit));

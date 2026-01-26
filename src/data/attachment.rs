@@ -98,10 +98,10 @@ impl Attachment {
 
     /// Return `file_url` as string reference if set; `None` otherwise.
     pub fn file_url_as_str(&self) -> Option<&str> {
-        if self.file_url.is_none() {
-            None
+        if let Some(z_file_url) = self.file_url.as_ref() {
+            Some(z_file_url.as_ref())
         } else {
-            Some(self.file_url.as_ref().unwrap().as_str())
+            None
         }
     }
 
@@ -125,17 +125,14 @@ impl fmt::Display for Attachment {
 
         vec.push(format!("usageType: \"{}\"", self.usage_type));
         vec.push(format!("display: {}", self.display));
-        if self.description.is_some() {
-            vec.push(format!(
-                "description: {}",
-                self.description.as_ref().unwrap()
-            ));
+        if let Some(z_description) = self.description.as_ref() {
+            vec.push(format!("description: {}", z_description));
         }
         vec.push(format!("contentType: \"{}\"", self.content_type));
         vec.push(format!("length: {}", self.length));
         vec.push(format!("sha2: \"{}\"", self.sha2));
-        if self.file_url.is_some() {
-            vec.push(format!("fileUrl: \"{}\"", self.file_url.as_ref().unwrap()));
+        if let Some(z_file_url) = self.file_url.as_ref() {
+            vec.push(format!("fileUrl: \"{}\"", z_file_url));
         }
 
         let res = vec
@@ -186,8 +183,7 @@ impl Validate for Attachment {
                 "'length' should be > 0".into(),
             ))
         }
-        if self.file_url.is_some() {
-            let file_url = self.file_url.as_ref().unwrap();
+        if let Some(file_url) = self.file_url.as_ref() {
             if file_url.is_empty() {
                 vec.push(ValidationError::ConstraintViolation(
                     "'file_url' when set, must not be empty".into(),
@@ -357,11 +353,7 @@ impl<'a> AttachmentBuilder<'a> {
             content_type: self._content_type.clone().unwrap(),
             length: self._length.unwrap(),
             sha2: self._sha2.to_owned(),
-            file_url: if self._file_url.is_none() {
-                None
-            } else {
-                Some(self._file_url.unwrap().to_owned())
-            },
+            file_url: self._file_url.map(|x| x.to_owned()),
         })
     }
 }

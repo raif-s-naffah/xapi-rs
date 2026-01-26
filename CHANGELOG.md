@@ -1,3 +1,11 @@
+# UNPUBLISHED (2026-01-27)
+
+* Fixed Issue #31.
+* Upgrade `uuid` to 1.20.0.
+* Upgrade `thiserror` to 2.0.18.
+* Upgrade `chrono` to 0.4.43.
+* Use latest secondary dependent crates.
+
 # Version 0.1.19 (2026-01-10)
 
 * Upgrade `lru` to 0.16.3.

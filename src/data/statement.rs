@@ -229,10 +229,10 @@ impl Statement {
     ///
     /// It's set by the LRS if not provided.
     pub fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        if self.timestamp.is_none() {
-            None
+        if let Some(z_timestamp) = self.timestamp.as_ref() {
+            Some(z_timestamp.inner())
         } else {
-            Some(self.timestamp.as_ref().unwrap().inner())
+            None
         }
     }
 
@@ -275,10 +275,10 @@ impl Statement {
     ///
     /// [1]: https://semver.org/spec/v1.0.0.html
     pub fn version(&self) -> Option<&MyVersion> {
-        if self.version.is_none() {
-            None
+        if let Some(z_version) = self.version.as_ref() {
+            Some(z_version)
         } else {
-            Some(self.version.as_ref().unwrap())
+            None
         }
     }
 
@@ -364,30 +364,26 @@ impl fmt::Display for Statement {
         vec.push(format!("actor: {}", self.actor));
         vec.push(format!("verb: {}", self.verb));
         vec.push(format!("object: {}", self.object));
-        if self.result.is_some() {
-            vec.push(format!("result: {}", self.result.as_ref().unwrap()))
+        if let Some(z_result) = self.result.as_ref() {
+            vec.push(format!("result: {}", z_result))
         }
-        if self.context.is_some() {
-            vec.push(format!("context: {}", self.context.as_ref().unwrap()))
+        if let Some(z_context) = self.context.as_ref() {
+            vec.push(format!("context: {}", z_context))
         }
-        if self.timestamp.is_some() {
-            vec.push(format!(
-                "timestamp: \"{}\"",
-                self.timestamp.as_ref().unwrap()
-            ))
+        if let Some(z_timestamp) = self.timestamp.as_ref() {
+            vec.push(format!("timestamp: \"{}\"", z_timestamp))
         }
-        if self.stored.is_some() {
-            let ts = self.stored.as_ref().unwrap();
+        if let Some(ts) = self.stored.as_ref() {
             vec.push(format!(
                 "stored: \"{}\"",
                 ts.to_rfc3339_opts(SecondsFormat::Millis, true)
             ))
         }
-        if self.authority.is_some() {
-            vec.push(format!("authority: {}", self.authority.as_ref().unwrap()))
+        if let Some(z_authority) = self.authority.as_ref() {
+            vec.push(format!("authority: {}", z_authority))
         }
-        if self.version.is_some() {
-            vec.push(format!("version: \"{}\"", self.version.as_ref().unwrap()))
+        if let Some(z_version) = self.version.as_ref() {
+            vec.push(format!("version: \"{}\"", z_version))
         }
         if self.attachments.is_some() {
             let items = self.attachments.as_deref().unwrap();
@@ -437,11 +433,11 @@ impl Validate for Statement {
         vec.extend(self.actor.validate());
         vec.extend(self.verb.validate());
         vec.extend(self.object.validate());
-        if self.result.is_some() {
-            vec.extend(self.result.as_ref().unwrap().validate())
+        if let Some(z_result) = self.result.as_ref() {
+            vec.extend(z_result.validate())
         }
-        if self.context.is_some() {
-            vec.extend(self.context.as_ref().unwrap().validate());
+        if let Some(z_context) = self.context.as_ref() {
+            vec.extend(z_context.validate());
             // NOTE (rsn) 20241017 - pending a resolution to [1] i'm adding checks
             // here to conform to the requirement that...
             // > A Statement cannot contain both a "revision" property in its
@@ -459,8 +455,8 @@ impl Validate for Statement {
                 ))
             }
         }
-        if self.authority.is_some() {
-            vec.extend(self.authority.as_ref().unwrap().validate());
+        if let Some(z_authority) = self.authority.as_ref() {
+            vec.extend(z_authority.validate());
 
             // NOTE (rsn) 20241018 - Current v2_0 conformance tests apply v1_0_3
             // constraints specified [here][1]. For `authority` these are:
@@ -478,8 +474,8 @@ impl Validate for Statement {
             // middle one will be taken care of the same way `stored` is.
             //
             // [1]: https://adl.gitbooks.io/xapi-lrs-conformance-requirements/content/
-            if self.authority.as_ref().unwrap().is_group() {
-                let group = self.authority.as_ref().unwrap().as_group().unwrap();
+            if z_authority.is_group() {
+                let group = z_authority.as_group().unwrap();
                 if !group.is_anonymous() {
                     vec.push(ValidationError::ConstraintViolation(
                         "When used as an Authority, A Group must be anonymous".into(),
@@ -493,11 +489,11 @@ impl Validate for Statement {
                 }
             }
         }
-        if self.version.is_some() {
-            vec.extend(self.version.as_ref().unwrap().validate())
+        if let Some(z_version) = self.version.as_ref() {
+            vec.extend(z_version.validate())
         }
-        if self.attachments.is_some() {
-            for att in self.attachments.as_ref().unwrap().iter() {
+        if let Some(z_attachments) = self.attachments.as_ref() {
+            for att in z_attachments.iter() {
                 vec.extend(att.validate())
             }
         }

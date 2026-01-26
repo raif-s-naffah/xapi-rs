@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{
+    MyError,
     data::{
-        Activity, Actor, Context, ContextActivities, ContextAgent, ContextGroup, Format,
-        EMPTY_EXTENSIONS,
+        Activity, Actor, Context, ContextActivities, ContextAgent, ContextGroup, EMPTY_EXTENSIONS,
+        Format,
     },
     db::{
+        RowID,
         activity::{find_activity, insert_activity},
         actor::{find_actor, find_actor_id, find_agent, find_group},
         schema::{TContext, TCtxActivities, TCtxActors},
-        RowID,
     },
-    handle_db_error, MyError,
+    handle_db_error,
 };
 use sqlx::PgPool;
 use tracing::debug;
@@ -200,8 +201,8 @@ async fn find_context_agents(
             let mut res = vec![];
             for r in rows {
                 let mut builder = ContextAgent::builder();
-                if r.relevant_types.is_some() {
-                    for s in r.relevant_types.unwrap().0 {
+                if let Some(z_relevant_types) = r.relevant_types {
+                    for s in z_relevant_types.0 {
                         builder = builder.relevant_type(s.as_str())?;
                     }
                 }
@@ -234,8 +235,8 @@ async fn find_context_groups(
             let mut res = vec![];
             for r in rows {
                 let mut builder = ContextGroup::builder();
-                if r.relevant_types.is_some() {
-                    for s in r.relevant_types.unwrap().0 {
+                if let Some(z_relevant_types) = r.relevant_types {
+                    for s in z_relevant_types.0 {
                         builder = builder.relevant_type(s.as_str())?;
                     }
                 }
