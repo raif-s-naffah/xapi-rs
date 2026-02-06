@@ -1,4 +1,4 @@
-# UNPUBLISHED (2026-01-27)
+# Version 0.1.20 (2026-02-07)
 
 * Fixed Issue #31.
 * Upgrade `uuid` to 1.20.0.

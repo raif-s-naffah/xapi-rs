@@ -1,7 +1,7 @@
 [package]
 name = "xapi-rs"
 authors = ["Raif S. Naffah <raif@mailbox.org>"]
-version = "0.1.19"
+version = "0.1.20"
 edition = "2024"
 description = "A conformant LRS implementation of xAPI 2.0.0"
 repository = "https://github.com/raif-s-naffah/xapi-rs"
