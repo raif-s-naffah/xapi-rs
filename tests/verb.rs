@@ -116,7 +116,7 @@ fn test_extension(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .expect("Failed deserializing Aggregates");
     let count_orig = aggregates_before.count();
     // NOTE (rsn) 20250131 - must match number of insertions in initial migration
-    assert_eq!(count_orig, 18);
+    assert_eq!(count_orig, 26);
 
     // POST an existing IRI. should fail...
     let req = client
@@ -227,7 +227,7 @@ fn test_extension(ctx: &mut MyTestContext) -> Result<(), MyError> {
     // GET some verbs.  should succeed + should include flummoxed
     // w/ only English display text...
     let req = client
-        .get("/extensions/verbs/?language=en&start=19")
+        .get("/extensions/verbs/?language=en&start=27")
         .header(v2())
         .header(authorization());
 
@@ -242,7 +242,7 @@ fn test_extension(ctx: &mut MyTestContext) -> Result<(), MyError> {
 
     // repeat this time with 'fr' as the language tag.  should succeed...
     let req = client
-        .get("/extensions/verbs/?language=fr&start=19")
+        .get("/extensions/verbs/?language=fr&start=27")
         .header(v2())
         .header(authorization());
 
@@ -269,7 +269,7 @@ fn test_extension(ctx: &mut MyTestContext) -> Result<(), MyError> {
 
     // the last GET some w/ 'en' as language tag should still work...
     let req = client
-        .get("/extensions/verbs/?language=en&start=19")
+        .get("/extensions/verbs/?language=en&start=27")
         .header(v2())
         .header(authorization());
 

@@ -4,7 +4,7 @@
 
 use crate::config::config;
 use core::fmt;
-use rand::Rng;
+use rand::RngExt;
 use sqlx::{AssertSqlSafe, Connection, Executor, PgConnection, migrate::Migrator};
 use std::{path::Path, thread};
 use tokio::runtime::Runtime;

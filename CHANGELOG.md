@@ -1,3 +1,16 @@
+# Version 0.1.21 (2026-03-10)
+
+* Use Rust 1.94.0.
+* Fixed Issue #32.
+* Upgrade `test-context` to 0.5.5.
+* Upgrade `uuid` to 1.22.0.
+* Upgrade `tokio` to 1.50.0.
+* Upgrade `serde_with` to 3.17.0.
+* Upgrade `chrono` to 0.4.44.
+* Upgrade `rand` to 0.10.0 + replace `rand::Rng` w/ `rand::RngExt`.
+* Upgrade `tracing-test` to 0.2.6.
+* Use latest secondary dependent crates.
+
 # Version 0.1.20 (2026-02-07)
 
 * Fixed Issue #31.

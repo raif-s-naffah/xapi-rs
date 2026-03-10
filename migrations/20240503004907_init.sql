@@ -114,6 +114,17 @@ INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/shared',
 INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/logged-in', '{ "en": "logged-in"}');
 INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/logged-out', '{ "en": "logged-out"}');
 
+-- CMI-5 verbs (see https://github.com/AICC/CMI-5_Spec_Current/blob/quartz/cmi5_spec.md#93-verbs)
+-- INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/launched', '{ "en": "launched"}');
+INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/initialized', '{ "en": "initialized"}');
+INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/completed', '{ "en": "completed"}');
+INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/passed', '{ "en": "passed"}');
+INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/failed', '{ "en": "failed"}');
+INSERT INTO verb (iri, display) VALUES ('https://w3id.org/xapi/adl/verbs/abandoned', '{ "en": "abandoned"}');
+INSERT INTO verb (iri, display) VALUES ('https://w3id.org/xapi/adl/verbs/waived', '{ "en": "waived"}');
+INSERT INTO verb (iri, display) VALUES ('http://adlnet.gov/expapi/verbs/terminated', '{ "en": "terminated"}');
+INSERT INTO verb (iri, display) VALUES ('https://w3id.org/xapi/adl/verbs/satisfied', '{ "en": "satisfied"}');
+
 
 -- Activity
 -- ---------
