@@ -1,3 +1,7 @@
+# UNPUBLISHED (2026-03-12)
+
+* Use latest secondary dependent crates.
+
 # Version 0.1.21 (2026-03-10)
 
 * Use Rust 1.94.0.
