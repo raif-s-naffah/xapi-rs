@@ -58,7 +58,7 @@ base64 = "0.22.1"
 dashmap = "6.1.0"
 fxhash = "0.2.1"
 lru = "0.16.3"
-openssl = "0.10.75"
+openssl = "0.10.76"
 josekit = "0.10.3"
 
 [dev-dependencies]

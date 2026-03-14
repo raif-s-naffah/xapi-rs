@@ -1,5 +1,8 @@
-# UNPUBLISHED (2026-03-12)
+# UNPUBLISHED (2026-03-14)
 
+* Upgrade `openssl` to 0.10.76.
+* Upgrade `serde_with` to 3.18.0.
+* Upgrade `tracing-subscriber` to 0.3.23.
 * Use latest secondary dependent crates.
 
 # Version 0.1.21 (2026-03-10)
