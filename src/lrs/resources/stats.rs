@@ -10,17 +10,17 @@
 use crate::MyError;
 use dashmap::DashMap;
 use rocket::{
+    Orbit, Rocket, Route,
     fairing::{Fairing, Info, Kind},
     get,
     http::Method,
     routes,
     serde::json::Json,
-    Orbit, Rocket, Route,
 };
 use serde::Serialize;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
     Arc, OnceLock,
+    atomic::{AtomicU64, Ordering},
 };
 use tracing::{error, info};
 
@@ -108,11 +108,7 @@ impl Fairing for StatsFairing {
                     sum_avg + e.avg.load(Ordering::Relaxed),
                 )
             });
-        let average_duration = if total_count > 0 {
-            total_avg / total_count
-        } else {
-            0
-        };
+        let average_duration = total_avg.checked_div(total_count).unwrap_or(0);
         info!("LaRS stats\n{:?}", stats);
         info!(
             "*** Total calls = {}; Average duration = {} ns",

@@ -1,6 +1,14 @@
-# UNPUBLISHED (2026-03-14)
+# Version 0.1.22 (2026-04-22)
 
-* Upgrade `openssl` to 0.10.76.
+* Address clippy warning re. manual checked division.
+* Use Rust 1.95.1.
+* Upgrade `uuid` to 1.23.1.
+* Upgrade `tokio` to 1.52.1.
+* Upgrade `semver` to 1.0.28.
+* Upgrade `rand` to 0.10.1
+* Upgrade `lru` to 0.17.0.
+* Upgrade `iri-string` to 0.7.12.
+* Upgrade `openssl` to 0.10.78.
 * Upgrade `serde_with` to 3.18.0.
 * Upgrade `tracing-subscriber` to 0.3.23.
 * Use latest secondary dependent crates.
