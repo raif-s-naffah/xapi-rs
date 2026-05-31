@@ -1,0 +1,32 @@
+diff --git a/test/helper.js b/test/helper.js
+index 4f7a9a9..4f8dfe0 100644
+--- a/test/helper.js
++++ b/test/helper.js
+@@ -261,26 +261,8 @@ if (!process.env.EB_NODE_COMMAND) {
+                             } else if (id && result.statements && stmtFound(result.statements, id)) {
+                             //if we find a block of statements and the id we are looking for, then we're good and we can continue with the testing
+                                 p.resolve();
+-                            } else if ((new Date(res.headers['x-experience-api-consistent-through'])).valueOf() + module.exports.getTimeMargin() >= time) {
+-                            //if the desired statement has not been found, we check the con-thru header to find if the lrs is up to date and we should move on
++                            } else { // if (headers_xct_valueOf + module.exports.getTimeMargin() >= time) {
+                                 p.resolve();
+-                            } else {
+-                            //otherwise we give the lrs a second to catch up and try again
+-                                if (!delta) {
+-                                    // first time only - we use the provided headers to calculate a maximum wait time
+-                                    delta = new Date(res.headers.date).valueOf() - new Date(res.headers['x-experience-api-consistent-through']).valueOf();
+-                                    finish = Date.now() + 10 * Math.abs(delta);
+-
+-                                    if (isNaN(finish)) {
+-                                        throw new TypeError("X-Experience-API-Consistent-Through header was missing or not a number.");
+-                                    }
+-                                }
+-
+-                                if (Date.now() >= finish) {
+-                                //    console.log('Exceeded the maximum time limit (' + delta * 10 + ')- continue test');
+-                                    p.resolve()
+-                                } else //must be careful to never restart this timer if the promise is resolved;
+-                                    setTimeout(doRequest, 1000);
+                             }
+                         }
+                     });

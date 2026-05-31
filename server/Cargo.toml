@@ -1,0 +1,51 @@
+[package]
+name = "xapi-rs"
+description = "A conformant LRS implementation of xAPI 2.0.0"
+license.workspace = true
+version = "0.2.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords = ["xAPI", "LRS", "web", "server"]
+categories = ["web-programming::http-server", "data-structures", "api-bindings"]
+
+[dependencies]
+# xapi-data = "1.0.0-rc.1"
+xapi-data = { path = "../data" }
+
+# ----- common / workspace -----
+tracing = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+iri-string = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# ----- data -----
+serde_with = { workspace = true }
+mime = { workspace = true }
+
+# ----- db -----
+dotenvy = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+async-recursion = { workspace = true }
+rand = { workspace = true }
+
+# ----- lrs -----
+tracing-subscriber = { workspace = true }
+rocket = { workspace = true }
+rocket-multipart = { workspace = true }
+etag = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+dashmap = { workspace = true }
+fxhash = { workspace = true }
+lru = { workspace = true }
+openssl = { workspace = true }
+josekit = { workspace = true }
+
+[dev-dependencies]
+test-context = { workspace = true }
+tracing-test = { workspace = true }

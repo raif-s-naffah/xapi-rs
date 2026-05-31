@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#![allow(non_snake_case)]
+
+//! Activities Resource (/activities)
+//! ----------------------------------
+//! The Activities Resource provides a method to retrieve a full description of
+//! an Activity from the LRS.
+//!
+//! Any deviation from section [4.1.6.4 Activities Resource (/activities)][1]
+//! of the xAPI specification is a bug.
+//!
+//! [1]: https://opensource.ieee.org/xapi/xapi-base-standard-documentation/-/blob/main/9274.1.1%20xAPI%20Base%20Standard%20for%20LRSs.md#4164-activities-resource-activities
+
+use crate::{
+    MyError,
+    db::activity::find_activity_by_iri,
+    emit_response,
+    lrs::{DB, Headers, User, resources::WithResource},
+};
+use iri_string::types::IriStr;
+use rocket::{State, get, http::Status, routes};
+use tracing::{debug, warn};
+use xapi_data::{Activity, DataError, Format};
+
+#[doc(hidden)]
+pub fn routes() -> Vec<rocket::Route> {
+    routes![get]
+}
+
+#[get("/?<activityId>")]
+async fn get(
+    c: Headers,
+    activityId: &str,
+    db: &State<DB>,
+    user: User,
+) -> Result<WithResource<Activity>, MyError> {
+    debug!("----- get ----- {}", user);
+    user.can_use_xapi()?;
+
+    let iri = IriStr::new(activityId)
+        .map_err(|x| MyError::Data(DataError::IRI(x)).with_status(Status::BadRequest))?;
+    let format = Format::from(c.languages().to_vec());
+    let x = find_activity_by_iri(db.pool(), iri, &format).await?;
+    let mut resource = match x {
+        Some(x) => x,
+        None => {
+            // NOTE (rsn) 20240805 - section 4.1.6.4 states...
+            // > If an LRS does not have a canonical definition of the Activity
+            // > to return, the LRS shall still return an Activity Object when
+            // > queried.
+            warn!("I know nothing about {}", iri);
+            // if this fails it would've earlier when converting to IRI
+            Activity::from_iri_str(activityId).unwrap()
+        }
+    };
+    // NOTE (rsn) 224116 - the object_type field in the DAO is an Option
+    // meaning it's not always set.  however some conformance tests expect a
+    // fully formed Activity instance.
+    resource.set_object_type();
+
+    emit_response!(c, resource => Activity)
+}

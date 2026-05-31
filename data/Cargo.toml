@@ -1,0 +1,31 @@
+[package]
+name = "xapi-data"
+description = "Rust bindings for the Experience API (xAPI) data structures"
+license.workspace = true
+version = "1.0.0-rc.1"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords = ["xAPI", "data", "bindings"]
+categories = ["data-structures"]
+
+[dependencies]
+chrono = { workspace = true }
+email_address = { workspace = true }
+iri-string = { workspace = true }
+language-tags = { workspace = true }
+mime = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+speedate = { workspace = true }
+take_mut = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+unicase = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tracing-test = { workspace = true }

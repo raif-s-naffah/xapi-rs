@@ -18,11 +18,12 @@ target/
 
 .env
 .vscode
-/attic
 /bugs
-/logs
-/static
 Cargo.tree
 Rocket.toml
-perf.data
-perf.data.old
+server/.env
+server/attic
+server/logs
+server/perf.data
+server/perf.data.old
+server/static
