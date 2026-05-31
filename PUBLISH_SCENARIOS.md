@@ -47,11 +47,18 @@ after modifying source, before publishing both crates, which (will) have **diffe
 18. `c update -v`
 19. `c check -p X-S`
 
-20. `git commit -m "server: bump to 0.2.0"`
-21. `git tag server-0.2.0`
-22. `c publish -p X-S --dry-run`
-23. `c publish -p X-S`
+20. ensure latest conformance tests (continue to) pass:
+    * `cd server`
+    * run the server in release mode.
+    * run the CTS in another console window.
+    * update `doc/cts-latest.log`.
+    * `cd ..`
 
-24. `c update -v`
-25. `git push origin main`
-26. `git push origin data-1.0.0-rc.1 server-0.2.0`
+21. `git commit -m "server: bump to 0.2.0"`
+22. `git tag server-0.2.0`
+23. `c publish -p X-S --dry-run`
+24. `c publish -p X-S`
+
+25. `c update -v`
+26. `git push origin main`
+27. `git push origin data-1.0.0-rc.1 server-0.2.0`

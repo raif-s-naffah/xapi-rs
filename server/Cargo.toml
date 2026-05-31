@@ -10,8 +10,8 @@ keywords = ["xAPI", "LRS", "web", "server"]
 categories = ["web-programming::http-server", "data-structures", "api-bindings"]
 
 [dependencies]
-# xapi-data = "1.0.0-rc.1"
-xapi-data = { path = "../data" }
+# xapi-data = { path = "../data" }
+xapi-data = "1.0.0-rc.1"
 
 # ----- common / workspace -----
 tracing = { workspace = true }
