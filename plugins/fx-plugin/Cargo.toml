@@ -1,0 +1,19 @@
+[package]
+name = "fx-plugin"
+description = "Hashing implementation using fxhash"
+version = "0.1.0"
+keywords = ["xAPI", "WASM", "WASIp1", "Hashing", "Plugin"]
+categories = ["wasm"]
+
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+# xapi-interfaces = { path = "../../interfaces" }
+xapi-interfaces = "0.1.0"
+fxhash = "0.2.1"
+
+[lib]
+crate-type = ["cdylib"]
