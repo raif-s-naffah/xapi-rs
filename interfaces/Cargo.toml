@@ -1,0 +1,13 @@
+[package]
+name = "xapi-interfaces"
+description = "Interfaces describing how Plugins will interact w/ the Server"
+version = "0.1.0"
+keywords = ["xAPI", "WASM", "WASIp1", "Hashing", "Interface"]
+categories = ["runtime-plugins", "wasm"]
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib"]
