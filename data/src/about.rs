@@ -55,7 +55,7 @@ impl fmt::Display for About {
         let mut vec = vec![];
         vec.push(format!(
             "versions: [{}]",
-            &self
+            self
                 .versions
                 .iter()
                 .map(|x| x.to_string())

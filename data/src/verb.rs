@@ -386,11 +386,7 @@ fn verbs() -> &'static HashMap<Vocabulary, Verb> {
 }
 
 fn is_adl_verb(iri: &IriStr) -> Option<&Verb> {
-    if let Some(verb) = verbs().values().find(|&x| x.id() == iri) {
-        Some(verb)
-    } else {
-        None
-    }
+    verbs().values().find(|&x| x.id() == iri)
 }
 
 #[cfg(test)]
