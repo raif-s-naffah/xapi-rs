@@ -2,6 +2,13 @@
 
 This library offers Rust bindings for the [IEEE Std 9274.1.1](https://opensource.ieee.org/xapi/xapi-base-standard-documentation), IEEE Standard for Learning Technology— JavaScript Object Notation (JSON) Data Model Format and Representational State Transfer (RESTful) Web Service for Learner Experience Data Tracking and Access.
 
+While published independently, it is part of a Cargo Workspace whose ultimate deliverable is **LaRS** &mdash;a version 2.0 [xAPI](https://opensource.ieee.org/xapi/) [Learning Record Store (LRS)](https://en.wikipedia.org/wiki/Learning_Record_Store) HTTP Server, published as [`xapi-rs`](https://crates.io/crates/xapi-rs).
+
+The next diagram illustrates the role this package plays in the xAPI LRS (`xapi-rs`) project.
+
+![Workspace Dependency Graph](data-dependency-graph.png "Optional title")
+<br/>Fig-1: Workspace dependency graph.
+
 Changes are tracked in [ChangeLog](CHANGELOG.md).
 
 ## License
