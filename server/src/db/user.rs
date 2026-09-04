@@ -2,6 +2,7 @@
 
 use crate::{
     MyError,
+    auth::to_token,
     db::RowID,
     emit_db_error,
     lrs::{
@@ -12,6 +13,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use sqlx::{AssertSqlSafe, FromRow, PgPool};
 use tracing::info;
+use uuid::Uuid;
 
 /// Representation of a `user` DB table row.
 #[derive(Debug, FromRow)]
@@ -22,8 +24,9 @@ pub(crate) struct TUser {
     /// Authority Agent's IFI if/when this User is not an ADMIN.
     pub(crate) email: String,
     /// Obfuscated credentials used when accessing LaRS.
-    #[allow(dead_code)]
-    credentials: i64,
+    // #[allow(dead_code)]
+    #[sqlx(try_from = "i64")]
+    pub(crate) credentials: u32,
     /// Their Role (as an integer).
     pub(crate) role: i16,
     /// The row ID of the User that created them. 0 implies Root
@@ -34,40 +37,57 @@ pub(crate) struct TUser {
     pub(crate) created: DateTime<Utc>,
     /// Timestamp when this row was last modified.
     pub(crate) updated: DateTime<Utc>,
+
+    // ----- since issue #34 -----
+    /// Random UUID v7 value.
+    pub(crate) salt: uuid::Uuid,
+    /// Other credentials used by the Secondary Authentication Policy (SAP).
+    #[sqlx(try_from = "i64")]
+    pub(crate) credentials2: u32,
+    /// Indicate if migrated or not.
+    pub(crate) ready: bool,
 }
 
-const FIND_ACTIVE_USER: &str = r#"SELECT * FROM users WHERE credentials = $1 AND enabled = true"#;
+// NOTE (rsn) 20260815 - we used to lookup a User given their `credentials`.  after the fix to
+// issue #34, we now lookup users by their `email` address which acts as their _username_.
+const FIND_ACTIVE_USER: &str = r#"SELECT * FROM users WHERE email = $1 AND enabled = true"#;
 
-/// Find active user w/ given credentials.
-pub(crate) async fn find_active_user(
-    conn: &PgPool,
-    credentials: u32,
-) -> Result<Option<User>, MyError> {
+pub(crate) async fn find_active_user(conn: &PgPool, email: &str) -> Result<Option<User>, MyError> {
     match sqlx::query_as::<_, TUser>(FIND_ACTIVE_USER)
-        .bind(i64::from(credentials))
+        .bind(email)
         .fetch_one(conn)
         .await
     {
         Ok(x) => Ok(Some(User::from(x))),
         Err(x) => match x {
             sqlx::Error::RowNotFound => Ok(None),
-            x => emit_db_error!(x, "Failed find_active_user(..., {})", credentials),
+            x => emit_db_error!(x, "Failed find_active_user(..., {})", email),
         },
     }
 }
 
-const INSERT_USER: &str = r#"INSERT INTO users (email, credentials, role, manager_id)
-VALUES ($1, $2, $3, $4) RETURNING *"#;
+const INSERT_USER: &str = r#"INSERT INTO users
+  (email, salt, credentials, credentials2, role, manager_id, ready)
+VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING *"#;
 
 pub(crate) async fn insert_user(
     conn: &PgPool,
-    user: (&str, &str, Role, i32),
+    user: (
+        &str, /* email */
+        &str, /* password */
+        Role,
+        i32, /* manager uid */
+    ),
 ) -> Result<User, MyError> {
-    // transform email + password into credentials + cast it to BIGINT...
-    let credentials = i64::from(User::credentials_from(user.0, user.1));
+    let token = to_token(user.0, user.1);
+    let salt = Uuid::now_v7();
+    let c1 = User::c1(&salt, &token)?;
+    let c2 = User::c2(&salt, &token)?;
     match sqlx::query_as::<_, TUser>(INSERT_USER)
         .bind(user.0)
-        .bind(credentials)
+        .bind(salt)
+        .bind(i64::from(c1))
+        .bind(i64::from(c2))
         .bind(i16::from(user.2))
         .bind(user.3)
         .fetch_one(conn)
@@ -150,6 +170,7 @@ pub(crate) async fn find_group_member_ids(conn: &PgPool, id: i32) -> Result<Vec<
 pub(crate) async fn update_user(
     conn: &PgPool,
     id: i32,
+    salt: &Uuid,
     form: UpdateForm<'_>,
 ) -> Result<User, MyError> {
     // not all properties can be modified together.  it's envisaged that this
@@ -161,15 +182,23 @@ pub(crate) async fn update_user(
             .bind(id)
             .bind(z_enabled)
             .fetch_one(conn)
-    } else if let Some(z_email) = form.email {
-        let z_password = form.password.unwrap();
-        let z_credentials = i64::from(User::credentials_from(z_email, z_password));
+    } else if let Some(email) = form.email {
+        // NOTE (rsn) 20260826 - after the fix to issue #34, this now requires we
+        // first find out the 'salt' of the User in question.
+        let password = form.password.unwrap();
+        let token = to_token(email, password);
+        let c1 = i64::from(User::c1(salt, &token)?);
+        let c2 = i64::from(User::c2(salt, &token)?);
         sqlx::query_as::<_, TUser>(
-            r#"UPDATE users SET email = $2, credentials = $3 WHERE id = $1 RETURNING *"#,
+            r#"UPDATE users
+            SET (email, credentials, credentials2) = ($2, $3, $4)
+            WHERE id = $1
+            RETURNING *"#,
         )
         .bind(id)
-        .bind(z_email)
-        .bind(z_credentials)
+        .bind(email)
+        .bind(c1)
+        .bind(c2)
         .fetch_one(conn)
     } else if let Some(z_role) = form.role {
         let z_role = i16::try_from(z_role.0).ok().unwrap();
@@ -242,5 +271,26 @@ pub(crate) async fn batch_update_users(
         }
     } else {
         panic!("Unexpected batch_update_users(..., {form:?}) call");
+    }
+}
+
+/// When migrating a User it's safe to assume their `credentials` is already
+/// correct --otherwise we would've not been able to ascertain their identity.
+/// In addition, their `ready` flag should be FALSE. Only their new `credentials2`
+/// value is out-of-sync.
+pub(crate) async fn migrate_user(
+    conn: &PgPool,
+    id: i32, // user row ID
+    credentials2: u32,
+) -> Result<User, MyError> {
+    let q = sqlx::query_as::<_, TUser>(
+        r#"UPDATE users SET (credentials2, ready) = ($2, TRUE) WHERE id = $1 RETURNING *"#,
+    )
+    .bind(id)
+    .bind(i64::from(credentials2))
+    .fetch_one(conn);
+    match q.await {
+        Ok(x) => Ok(User::from(x)),
+        Err(x) => emit_db_error!(x, "Failed migrate_user(..., {}, ...)", id),
     }
 }

@@ -2,10 +2,9 @@
 
 #![allow(dead_code)]
 
-use base64::{prelude::BASE64_STANDARD, Engine};
-use rocket::http::{hyper::header, ContentType, Header};
+use rocket::http::{ContentType, Header, hyper::header};
 use std::{fs, path::PathBuf};
-use xapi_rs::{TEST_USER_PLAIN_TOKEN, V200, VERSION_HDR};
+use xapi_rs::{TEST_USER_EMAIL, V200, VERSION_HDR, to_token};
 
 pub(crate) const BOUNDARY: &str = "MP_/xq.2QWbNf.dRrz_w=FAz9Dd";
 pub(crate) const CR_LF: &[u8] = b"\r\n";
@@ -87,27 +86,17 @@ pub(crate) fn content_type(mime: &ContentType) -> Header<'static> {
     Header::new(header::CONTENT_TYPE.as_str(), mime.to_string())
 }
 
-/// Create and return an _Authorization_ HTTP header w/ the _Basic_ scheme
-/// for a 'test' user token. The `user_id` part is a value added in a
-/// conditional migration and is usually 'test@my.xapi.net' while the
-/// `password` part is left empty.
+/// Create + return an _Authorization_ HTTP header w/ the _Basic Authentication_ 
+/// scheme using the test user info.
 pub(crate) fn authorization() -> Header<'static> {
-    // same as in lrs::user and users migration
-    let b64_encoded = BASE64_STANDARD.encode(TEST_USER_PLAIN_TOKEN);
-    Header::new(
-        header::AUTHORIZATION.as_str(),
-        format!("Basic {}", b64_encoded),
-    )
+    let token = to_token(TEST_USER_EMAIL, "");
+    Header::new(header::AUTHORIZATION.as_str(), format!("Basic {}", token))
 }
 
 /// Used in tests to exercise user management with different Roles.
 pub(crate) fn act_as(email: &str, password: &str) -> Header<'static> {
-    let name_password = format!("{}:{}", email, password);
-    let b64_encoded = BASE64_STANDARD.encode(name_password);
-    Header::new(
-        header::AUTHORIZATION.as_str(),
-        format!("Basic {}", b64_encoded),
-    )
+    let token = to_token(email, password);
+    Header::new(header::AUTHORIZATION.as_str(), format!("Basic {}", token))
 }
 
 // given a `boundary` string, generate and return a pair consisting of

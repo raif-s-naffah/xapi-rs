@@ -107,6 +107,22 @@ pub enum MyError {
         /// Text message giving more context to the reason this error was raised.
         info: Cow<'static, str>,
     },
+
+    /// Configuration error.
+    #[error("Configuration (.env var) related error: {0}")]
+    Config(
+        #[doc(hidden)]
+        #[from]
+        dotenvy::Error,
+    ),
+
+    /// Web Assembly runtime error.
+    #[error("WASM error: {0}")]
+    Wasm(
+        #[doc(hidden)]
+        #[from]
+        wasmtime::Error,
+    ),
 }
 
 impl MyError {

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::Mode;
-use base64::{Engine, prelude::BASE64_STANDARD};
+use crate::{
+    Mode, MyError,
+    auth::{AuthMode, AuthPolicy, to_token},
+};
 use chrono::TimeDelta;
 use dotenvy::var;
 use std::{
@@ -11,7 +13,8 @@ use std::{
     sync::OnceLock,
     time::Duration,
 };
-use tracing::{info, warn};
+use tracing::info;
+use uuid::Uuid;
 use xapi_data::MyLanguageTag;
 
 // NOTE (rsn) 20241204 - if these values change make sure the documentation
@@ -21,8 +24,9 @@ const DEFAULT_TTL_SECS: &str = "30";
 const DEFAULT_TTL_INTERVAL_SECS: &str = "60";
 
 const DEFAULT_MFC_INTERVAL_SECS: &str = "10";
-
-const DEPRECATION_MSG1: &str = "LRS_AUTHORITY_IFI is now deprecated and will be removed in future release.\nUse LRS_ROOT_EMAIL instead.";
+const DEPRECATION_MSG: &str = r#"Missing LRS_ROOT_EMAIL :(
+LRS_AUTHORITY_IFI was deprecated since 0.1.5 and is now removed.
+Use LRS_ROOT_EMAIL instead."#;
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
 /// This LRS server configuration Singleton.
@@ -48,8 +52,7 @@ pub struct Config {
     /// Mode of Operations + whether to enforce access authentication to LRS
     /// resources.
     pub mode: Mode,
-    pub(crate) root_email: String,
-    pub(crate) root_credentials: Option<u32>,
+
     pub(crate) user_cache_len: NonZeroUsize,
 
     pub(crate) ttl_batch_len: i32,
@@ -75,10 +78,27 @@ pub struct Config {
     /// 4. The JWS signature correctly matches the same generated using the RSA
     ///    Public Key contained in the 1st certificate.
     pub jws_strict: bool,
+
+    // NOTE (rsn) 20260813 - See Issue #34...
+    pub(crate) auth_mode: AuthMode,
+    pub(crate) root_email: String,
+    pub(crate) root_salt: Uuid,
+    pub(crate) root_c1: u32,
+    pub(crate) root_c2: u32,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        Config::try_from(()).expect("Failed configuring LaRS :(")
+    }
+}
+
+// a way of configuring the server allowing lower layers to propagate any
+// exception they may raise while doing their job.
+impl TryFrom<()> for Config {
+    type Error = MyError;
+
+    fn try_from(_: ()) -> Result<Self, Self::Error> {
         let db_server_url = var("DB_SERVER_URL").expect("Missing DB_SERVERL_URL");
         let db_name = var("DB_NAME").expect("Missing DB_NAME");
 
@@ -132,35 +152,6 @@ impl Default for Config {
             .try_into()
             .unwrap();
         info!("*** LaRS will be running in {:?} mode", mode);
-        let root_email = match var("LRS_ROOT_EMAIL") {
-            Ok(x) => x,
-            Err(_) => match var("LRS_AUTHORITY_IFI") {
-                Ok(x) => {
-                    warn!("{}", DEPRECATION_MSG1);
-                    x
-                }
-                Err(_) => panic!(
-                    "Both LRS_ROOT_EMAIL and LRS_AUTHORITY_IFI are missing or contain invalid Unicode characters"
-                ),
-            },
-        };
-        // NOTE (rsn) 20250114 - raising an error when this env. var is missing
-        // forces admins of deployed instances, wishing to continue using LaRS
-        // in Legacy mode, to alter their setup for no added benefit.
-        // correct the documentation (and issue #5) to clarify this is now
-        // optional which in turn makes `root_credentials` Option<T>.
-        let root_credentials = match var("LRS_ROOT_PASSWORD") {
-            Ok(x) => {
-                let token = format!("{}:{}", root_email.as_str(), &x);
-                let encoded = BASE64_STANDARD.encode(token);
-                let hashed = fxhash::hash32(&encoded);
-                Some(hashed)
-            }
-            Err(_) => {
-                info!("Missing LRS_ROOT_PASSWORD. Will only operate in Legacy mode");
-                None
-            }
-        };
         let user_cache_len = NonZeroUsize::new(
             var("LRS_USER_CACHE_LEN")
                 .unwrap_or("100".to_string())
@@ -168,13 +159,6 @@ impl Default for Config {
                 .expect("Failed parsing LRS_USER_CACHE_LEN"),
         )
         .expect("Failed converting LRS_USER_CACHE_LEN to unsigned integer");
-        // notify sysadmin of LRS_AUTHORITY_IFI's deprecation...
-        if let Ok(x) = var("LRS_AUTHORITY_IFI") {
-            if x != root_email {
-                warn!("LRS_AUTHORITY_IFI is different than LRS_ROOT_EMAIL. Ignore + continue");
-            }
-            warn!("{}", DEPRECATION_MSG1);
-        }
 
         // query filter views cache parameters...
         let ttl_batch_len = i32::try_from(
@@ -214,7 +198,75 @@ impl Default for Config {
             .parse()
             .expect("Failed parsing JWS_STRICT");
 
-        Self {
+        // @since Issue #34 - authentication mode and policies...
+        let auth_mode = match var("LRS_AUTH_MODE")
+            .expect("Missing LRS_AUTH_MODE")
+            .trim()
+            .to_lowercase()
+            .chars()
+            .nth(0)
+            .expect("LRS_AUTH_MODE must not be empty :(")
+        {
+            'm' => {
+                let pap = AuthPolicy::primary_from_env()?;
+                let sap = AuthPolicy::secondary_from_env()?;
+                // it's an error if same policy is used for migration...
+                if pap == sap {
+                    let msg = "Cannot migrate authentication using same policy :(";
+                    return Err(MyError::Runtime(msg.into()));
+                }
+                AuthMode::Migrate(pap, sap)
+            }
+            'c' => {
+                let p = AuthPolicy::primary_from_env()?;
+                AuthMode::Cruise(p)
+            }
+            _ => {
+                let msg = "Invalid LRS_AUTH_MODE :(";
+                return Err(MyError::Runtime(msg.into()));
+            }
+        };
+
+        let root_email = var("LRS_ROOT_EMAIL")
+            .expect(DEPRECATION_MSG)
+            .trim()
+            .to_owned();
+
+        let root_salt: Uuid = var("LRS_ROOT_SALT")
+            .expect("Missing LRS_ROOT_SALT")
+            .parse()
+            .expect("Invalid LRS_ROOT_SALT");
+        if root_salt.get_version_num() != 7 {
+            let msg = "LRS_ROOT_SALT must be a v7 UUID :(";
+            return Err(MyError::Runtime(msg.into()));
+        }
+        if root_salt.is_nil() {
+            let msg = "LRS_ROOT_SALT must NOT be a NIL v7 UUID :(";
+            return Err(MyError::Runtime(msg.into()));
+        }
+
+        // compute root credentials
+        //
+        // NOTE (rsn) 20260822 - since the fix to issue #34, the credentials of
+        // 'root', who also acts as the sole xAPI Authority when operating in
+        // LEGACY user mode, (a) must be computed, (b) after authentication mode
+        // and policies are known!
+        //
+        // NOTE (rsn) 20250114 - raising an error when this env. var is missing
+        // forces admins of deployed instances, wishing to continue using LaRS
+        // in Legacy mode, to alter their setup for no added benefit.
+        // correct the documentation (and issue #5) to clarify this is now
+        // optional which in turn makes `root_credentials` Option<T>.
+        //
+        let password = var("LRS_ROOT_PASSWORD").expect("Missing LRS_ROOT_PASSWORD");
+        let token = to_token(&root_email, &password);
+        let root_c1 = auth_mode.primary_policy().credentials(&root_salt, &token)?;
+        let root_c2 = match auth_mode.secondary_policy() {
+            Some(sap) => sap.credentials(&root_salt, &token)?,
+            None => 0,
+        };
+
+        Ok(Self {
             db_server_url,
             db_name,
             db_max_connections,
@@ -226,8 +278,6 @@ impl Default for Config {
             external_url,
             static_dir,
             mode,
-            root_email,
-            root_credentials,
             user_cache_len,
             ttl_batch_len,
             ttl,
@@ -235,7 +285,12 @@ impl Default for Config {
             mfc_interval,
             default_language,
             jws_strict,
-        }
+            auth_mode,
+            root_email,
+            root_salt,
+            root_c1,
+            root_c2,
+        })
     }
 }
 
@@ -253,6 +308,25 @@ impl Config {
     /// Return TRUE when running in legacy mode; FALSE otherwise.
     pub fn is_legacy(&self) -> bool {
         matches!(self.mode, Mode::Legacy)
+    }
+
+    /// Find + return a reference to the Primary Authentication Policy (PAP)
+    /// currently in play.  The PAP is either the _From_ policy when operating
+    /// in MIGRATE mode, or the (only) policy used in CRUISE mode.
+    pub(crate) fn primary_policy(&self) -> &AuthPolicy {
+        match &self.auth_mode {
+            AuthMode::Migrate(x, _) => x,
+            AuthMode::Cruise(x) => x,
+        }
+    }
+
+    /// Find + return a reference to the Secondary Authentication Policy (SAP)
+    /// currently in play.  The SAP is only defined when in MIGRATE mode.
+    pub(crate) fn secondary_policy(&self) -> Option<&AuthPolicy> {
+        match &self.auth_mode {
+            AuthMode::Migrate(_, y) => Some(y),
+            AuthMode::Cruise(_) => None,
+        }
     }
 }
 

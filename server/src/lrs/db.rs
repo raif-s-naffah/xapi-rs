@@ -4,19 +4,19 @@
 //! the real DB when in production.
 
 use crate::{
-    config,
+    Mode, config,
     db::{
-        filter::{drop_all_filters, drop_stale_filters},
         MockDB,
+        filter::{drop_all_filters, drop_stale_filters},
     },
-    Mode,
+    root_user_info, test_user_info,
 };
 use rocket::{
+    Build, Orbit, Rocket,
     fairing::{self, Fairing, Info, Kind},
     tokio::runtime::Runtime,
-    Build, Orbit, Rocket,
 };
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::{thread, time::Duration};
 use tracing::{debug, info};
 
@@ -57,8 +57,9 @@ impl DB {
             .await
             .expect("Failed creating DB pool");
         // when not testing, apply migration(s)...
-        if !testing {
             let z_pool = pool.clone();
+        if !testing {
+            // let z_pool = pool.clone();
             thread::spawn(move || {
                 let rt = Runtime::new().unwrap();
                 rt.block_on(async move {
@@ -80,16 +81,21 @@ impl DB {
                     // table index #2, given the first row is already used by
                     // the test user.
                     if !matches!(config().mode, Mode::Legacy) {
+                        let ru = root_user_info();
                         const UPSERT_ROOT_USER: &str = r#"
-INSERT INTO users (id, role, email, credentials) 
-VALUES (2, 4, $1, $2) ON CONFLICT (id) DO UPDATE
-SET email = EXCLUDED.email, credentials = EXCLUDED.credentials"#;
-                        let email = &config().root_email;
-                        let credentials =
-                            config().root_credentials.expect("Missing root credentials");
+INSERT INTO users (id, role, email, salt, credentials, credentials2, ready) 
+VALUES (2, 4, $1, $2, $3, $4, $5)
+ON CONFLICT (id) DO UPDATE
+SET email = EXCLUDED.email,
+    salt = EXCLUDED.salt,
+    credentials = EXCLUDED.credentials,
+    credentials2 = EXCLUDED.credentials2"#;
                         sqlx::query(UPSERT_ROOT_USER)
-                            .bind(email)
-                            .bind(credentials as i64)
+                            .bind(&ru.email)
+                            .bind(ru.salt)
+                            .bind(ru.c1)
+                            .bind(ru.c2)
+                            .bind(ru.ready)
                             .execute(&z_pool)
                             .await
                             .expect("Failed upsert root user");
@@ -98,6 +104,37 @@ SET email = EXCLUDED.email, credentials = EXCLUDED.credentials"#;
             })
             .join()
             .expect("Failed applying migration(s)");
+        } else {
+            // testing...
+            // let z_pool = pool.clone();
+            thread::spawn(move || {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(async move {
+                    // NOTE (rsn) 20260615 - w/ the fix to Issue #34 we need to update
+                    // the credentials of the test user (w/ id 1).
+                    let tu = test_user_info();
+                    const UPDATE_TEST_USER: &str = r#"
+UPDATE users
+SET enabled = TRUE,
+    email = $1,
+    salt = $2,
+    credentials = $3,
+    credentials2 = $4,
+    ready = $5
+WHERE id = 1"#;
+                    sqlx::query(UPDATE_TEST_USER)
+                        .bind(&tu.email)
+                        .bind(tu.salt)
+                        .bind(tu.c1)
+                        .bind(tu.c2)
+                        .bind(tu.ready)
+                        .execute(&z_pool)
+                        .await
+                        .expect("Failed update test user");
+                });
+            })
+            .join()
+            .expect("Failed updating test user :(");
         }
 
         info!("DB ready!");

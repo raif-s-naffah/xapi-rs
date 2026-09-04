@@ -2,13 +2,13 @@
 
 //! A Mock DB struct to use in Unit Tests.
 
-use crate::config::config;
+use crate::{config::config, db::user::TUser, test_user_info};
 use core::fmt;
 use rand::RngExt;
 use sqlx::{AssertSqlSafe, Connection, Executor, PgConnection, migrate::Migrator};
 use std::{path::Path, thread};
 use tokio::runtime::Runtime;
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// An ephemeral mock database object that is created and dropped w/in a
 /// short span for unit and integration testing purposes.
@@ -62,6 +62,24 @@ impl MockDB {
                 m.run(&mut conn)
                     .await
                     .expect("Failed applying migrations to mock DB");
+
+                // NOTE (rsn) 20260826 - time to update test user...
+                let tu = test_user_info();
+                let it = sqlx::query_as::<_, TUser>(
+                    r#"UPDATE users
+SET (email, salt, credentials, credentials2, role, ready) = ($1, $2, $3, $4, $5, TRUE)
+WHERE id = 1
+RETURNING *"#,
+                )
+                .bind(&tu.email)
+                .bind(tu.salt)
+                .bind(tu.c1)
+                .bind(tu.c2)
+                .bind(tu.role)
+                .fetch_one(&mut conn)
+                .await
+                .expect("Failed adding test user :(");
+                debug!("Added test user: {:?}", it);
             });
         })
         .join()
@@ -91,8 +109,8 @@ impl Drop for MockDB {
                 // terminate existing connections
                 // see https://stackoverflow.com/questions/35319597/how-to-stop-kill-a-query-in-postgresql
                 let sql = format!(
-                    r#"SELECT pg_terminate_backend(pid, 500) 
-                        FROM pg_catalog.pg_stat_activity 
+                    r#"SELECT pg_terminate_backend(pid, 500)
+                        FROM pg_catalog.pg_stat_activity
                         WHERE pid <> pg_backend_pid() AND datname = '{db_name}'"#
                 );
                 let safe_sql = AssertSqlSafe(sql);

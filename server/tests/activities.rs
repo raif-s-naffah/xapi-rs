@@ -7,14 +7,13 @@ mod utils;
 use rocket::http::{ContentType, Status};
 use std::str::FromStr;
 use test_context::test_context;
-use tracing_test::traced_test;
 use utils::{MyTestContext, accept_json, authorization, read_to_string, v2};
 use uuid::Uuid;
 use xapi_data::{Activity, MyLanguageTag, Statement, Vocabulary, adl_verb};
 use xapi_rs::MyError;
 
 #[test_context(MyTestContext)]
-#[traced_test]
+#[tracing_test::traced_test]
 #[test]
 fn test_merge_lmaps(ctx: &mut MyTestContext) -> Result<(), MyError> {
     const S: &str = r#"[

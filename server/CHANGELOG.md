@@ -1,3 +1,12 @@
+# Version 0.3.0 (2026-09-04)
+
+* Use Rust 1.98.1.
+* Fixed Issue #34 - **IMPORTANT** See the comments
+  [here](https://github.com/raif-s-naffah/xapi-rs/issues/34).
+* LRS_AUTHORITY_IFI env. variable is now ignored.  It was deprecated + replaced
+  by LRS_ROOT_EMAIL since 0.1.5.
+* Upgrade dependencies to latest versions.
+
 # Version 0.2.0 (2026-05-31)
 
 * Partially address Issue #33: Re-organized as a Workspace w/ 2

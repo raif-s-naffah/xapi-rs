@@ -42,9 +42,10 @@ fn test_stmt_object_w_null_err(ctx: &mut MyTestContext) -> Result<(), MyError> {
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -133,9 +134,10 @@ fn test_substmt_w_authority_err(ctx: &mut MyTestContext) -> Result<(), MyError> 
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())
@@ -162,9 +164,10 @@ fn test_substmt_w_version_should_fail(ctx: &mut MyTestContext) -> Result<(), MyE
         .body(S)
         .header(ContentType::JSON)
         .header(accept_json())
-        .header(v2());
-    let resp = req.dispatch();
+        .header(v2())
+        .header(authorization());
 
+    let resp = req.dispatch();
     assert_eq!(resp.status(), Status::BadRequest);
 
     Ok(())

@@ -74,9 +74,10 @@ async fn find_ifi(conn: &PgPool, id: i32) -> Result<TIfi, MyError> {
     }
 }
 
-const INSERT_IFI: &str = r#"INSERT INTO ifi (kind, value) VALUES ($1, $2) 
-ON CONFLICT (kind, value) DO UPDATE SET kind = $1
-RETURNING id"#;
+const INSERT_IFI: &str = r#"INSERT INTO ifi (kind, value) VALUES ($1, $2)
+  ON CONFLICT (kind, value)
+  DO UPDATE SET kind = $1
+  RETURNING id"#;
 
 /// Insert + return the row ID of an IFI record given a `kind` and a `value`
 /// unless this value-pair already exists. If it does, effectively do nothing

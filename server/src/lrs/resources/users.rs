@@ -294,7 +294,11 @@ async fn update_one(
                 info: "Failed pre-condition(s)".into(),
             }),
             _ => {
-                let x = update_user(db.pool(), id, form.into_inner()).await?;
+                // NOTE (rsn) 20260826 - after the fix to issue #34, we need to
+                // pass the user's salt as well so we can correctly compute the
+                // user's credentials...
+                // let x = update_user(db.pool(), id, form.into_inner()).await?;
+                let x = update_user(db.pool(), id, old_user.salt(), form.into_inner()).await?;
                 emit_user_response(x, true).await
             }
         }

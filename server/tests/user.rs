@@ -2,11 +2,11 @@
 
 mod utils;
 
-use rocket::http::{hyper::header, ContentType, Status};
+use rocket::http::{ContentType, Status, hyper::header};
 use test_context::test_context;
 use tracing::debug;
 use tracing_test::traced_test;
-use utils::{accept_json, act_as, authorization, if_match, v2, MyTestContext};
+use utils::{MyTestContext, accept_json, act_as, authorization, if_match, v2};
 use xapi_rs::{MyError, Role, User};
 
 const S: &str = r#"{
@@ -234,7 +234,7 @@ fn test_stmt_w_admin(ctx: &mut MyTestContext) -> Result<(), MyError> {
 }
 
 #[test_context(MyTestContext)]
-#[traced_test]
+// #[traced_test]
 #[test]
 fn test_get_one(ctx: &mut MyTestContext) -> Result<(), MyError> {
     skip_if_legacy!();
@@ -650,7 +650,10 @@ fn test_batch_update(ctx: &mut MyTestContext) -> Result<(), MyError> {
     // 5. root can re-assign Admin #1 as manager of first 2 users of team #2...
     let req = client
         .put("/extensions/users")
-        .body(format!("ids[]={}&ids[]={}&managerId={}", team2_ids[0], team2_ids[1], admin_ids[0]))
+        .body(format!(
+            "ids[]={}&ids[]={}&managerId={}",
+            team2_ids[0], team2_ids[1], admin_ids[0]
+        ))
         .header(ContentType::Form)
         .header(v2())
         .header(authorization());

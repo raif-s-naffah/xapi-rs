@@ -4,12 +4,15 @@
 //! as well as enforcing access authentication, when enabled, to its resources.
 
 use crate::{
+    Mode,
     MyError,
+    UserInfo,
+    auth::user_id_from_token,
     config::config,
-    db::user::{TUser, find_active_user},
+    db::user::{TUser, find_active_user, migrate_user},
     lrs::{DB, role::Role},
+    // root_user,
 };
-use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::{DateTime, Utc};
 use core::fmt;
 use lru::LruCache;
@@ -23,6 +26,7 @@ use serde_with::{FromInto, serde_as};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
+use uuid::Uuid;
 use xapi_data::Agent;
 
 /// Representation of a user that is subject to authentication and authorization.
@@ -44,35 +48,44 @@ pub struct User {
     pub created: DateTime<Utc>,
     /// When this was last updated.
     pub updated: DateTime<Utc>,
+    // User's _Salt_.
+    salt: Uuid,
+    // PAP credentials
+    c1: u32,
+    // SAP credentials
+    c2: u32,
+    // TRUE if both credentials are up-to-date
+    ready: bool,
 }
 
 impl Default for User {
-    /// Return the hard-wired single User who will also act as the Authority
-    /// Agent for submitted Statements in LEGACY and AUTH modes.
     fn default() -> Self {
         Self {
-            id: 0,
-            email: config().root_email.clone(),
-            enabled: true,
-            role: Role::Root,
-            manager_id: 0,
+            id: i32::default(),
+            enabled: false,
+            email: "none@nowhere.net".to_owned(),
+            role: Role::Guest,
+            manager_id: 1, // managed by 'test' user
             created: Utc::now(),
             updated: Utc::now(),
+            salt: Uuid::now_v7(),
+            c1: u32::default(),
+            c2: u32::default(),
+            ready: false,
         }
     }
 }
 
 impl fmt::Display for User {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match (&self.role, &self.enabled) {
-            (Role::Guest, _) => write!(f, "guest <{}>", self.email),
-            (Role::User, true) => write!(f, "xapi+ <{}>", self.email),
-            (Role::User, false) => write!(f, "xapi- <{}>", self.email),
-            (Role::AuthUser, true) => write!(f, "auth+ <{}>", self.email),
-            (Role::AuthUser, false) => write!(f, "auth- <{}>", self.email),
-            (Role::Admin, true) => write!(f, "admin+ <{}>", self.email),
-            (Role::Admin, false) => write!(f, "admin- <{}>", self.email),
-            (Role::Root, _) => write!(f, "root"),
+        let enabled = if self.enabled { '+' } else { '-' };
+        let ready = if self.ready { '🟢' } else { '⛔' };
+        match &self.role {
+            Role::Guest => write!(f, "guest<{}>{}", self.email, ready),
+            Role::User => write!(f, "xapi{}<{}>{}", enabled, self.email, ready),
+            Role::AuthUser => write!(f, "auth{}<{}>{}", enabled, self.email, ready),
+            Role::Admin => write!(f, "admin{}<{}>{}", enabled, self.email, ready),
+            Role::Root => write!(f, "root<{}>{}", self.email, ready),
         }
     }
 }
@@ -88,6 +101,11 @@ impl From<TUser> for User {
             manager_id: row.manager_id,
             created: row.created,
             updated: row.updated,
+
+            salt: row.salt,
+            c1: row.credentials,
+            c2: row.credentials2,
+            ready: row.ready,
         }
     }
 }
@@ -96,8 +114,8 @@ impl From<TUser> for User {
 #[derive(Debug)]
 struct CachedUser {
     id: i32,
-    email: String,
     enabled: bool,
+    email: String,
     role: Role,
     manager_id: i32,
 }
@@ -107,8 +125,8 @@ impl From<&CachedUser> for User {
     fn from(value: &CachedUser) -> Self {
         User {
             id: value.id,
-            email: value.email.to_owned(),
             enabled: value.enabled,
+            email: value.email.to_owned(),
             role: value.role,
             manager_id: value.manager_id,
             ..Default::default()
@@ -121,23 +139,209 @@ impl From<&User> for CachedUser {
     fn from(user: &User) -> Self {
         CachedUser {
             id: user.id,
-            email: user.email.clone(),
             enabled: user.enabled,
+            email: user.email.clone(),
             role: user.role,
             manager_id: user.manager_id,
         }
     }
 }
 
+impl From<UserInfo> for User {
+    fn from(value: UserInfo) -> Self {
+        Self {
+            id: i32::default(),
+            enabled: true,
+            email: value.email,
+            role: value.role.into(),
+            manager_id: value.mgr_id,
+            created: Utc::now(),
+            updated: Utc::now(),
+            salt: value.salt,
+            c1: u32::try_from(value.c1).expect("Failed reconstituting PAP credentials :("),
+            c2: u32::try_from(value.c2).expect("Failed reconstituting SAP credentials :("),
+            ready: true,
+        }
+    }
+}
+
 impl User {
-    /// Compute Basic Authentication credentials from given email and password.
-    pub(crate) fn credentials_from(email: &str, password: &str) -> u32 {
-        let basic = format!("{email}:{password}");
-        let encoded = BASE64_STANDARD.encode(basic);
-        fxhash::hash32(&encoded)
+    fn root() -> Self {
+        Self::from(UserInfo::as_root())
     }
 
-    /// Clears the cache forcing user DB lookup upon receiving future requests.
+    // impl FromRequest workhorse.  Useful for handling errors raised in the
+    // process in a uniform way and interface easily w/ Rocket API.
+    async fn authenticate(req: &Request<'_>) -> Result<User, MyError> {
+        // NOTE (rsn) 20260825 - since fix to issue #5.  in LEGACY user-mode
+        // one hard-wired user implicitly acts as the xAPI Authority.
+        let user_mode = &config().mode;
+        debug!("[authenticate] user-mode = {}", user_mode);
+        if matches!(user_mode, Mode::Legacy) {
+            // NOTE (rsn) 20260829 - the User::default() used to be the Root;
+            // not anymore...
+            // return Ok(User::default());
+            return Ok(Self::root());
+        }
+
+        // user-mode is AUTH or USER, meaning we enforce Basic Authentication access.
+        //
+        // in addition, since the fix to issue #34, we must ensure Authentication Mode requirements
+        // are satisfied...
+        let auth_mode = &config().auth_mode;
+        if let Some(auth_header) = req.headers().get_one(header::AUTHORIZATION.as_str()) {
+            let trimmed = auth_header.trim();
+            if trimmed[..6].to_lowercase() != *"basic " {
+                let msg = "Bad authorization header, or unsupported authentication scheme";
+                error!("{} :(", msg);
+                return Err(MyError::HTTP {
+                    status: Status::BadRequest,
+                    info: msg.into(),
+                });
+            }
+            let token = &trimmed[6..];
+
+            // 1. check if token belongs to a user present in our cache.  if yes, return Ok.
+            // 2. find out who they are from their `user_id` which we need to extract from `token`.
+            //    if we cannot find a User w/ that ID return Err.
+            // 3. hash `token` and compare the result to their stored credentials.  if they do not
+            //    match return Err.
+            // 4. at this point, we're confident they are who they claim to be.  check their `ready`
+            //    flag.  if it's TRUE, cache them and return Ok.
+            // 5. `ready` is FALSE.  if we're in CRUISE authentication mode, return Err --all users
+            //    MUST have their `ready` flag set to TRUE to operate in this mode.
+            // 6. compute `credentials2` and update their DB record, cache it and return Ok.
+
+            // 1...
+            let pap = auth_mode.primary_policy();
+            // NOTE (rsn) 20260815 - Store `user` in our LRU cache keyed by `key`.  `key` used to
+            // be the user's credentials.  after the fix to issue #34, it's now a hash computed by
+            // the current PAP (Primary Authentication Policy) but always unsalted.
+            let uc_key = pap.user_cache_key(token)?;
+            let mut cache = cached_users().lock().await;
+            if let Some(x) = cache.get(&uc_key).map(User::from) {
+                return Ok(x);
+            }
+
+            // TODO (rsn) 20250106 - store that in an atomic counter and
+            // include it in the server metrics...
+            debug!("[authenticate] Cache miss...");
+
+            // 2...
+            let email = user_id_from_token(token)?;
+            debug!("[authenticate] email = '{}'", email);
+            let db = match req.guard::<&State<DB>>().await {
+                Outcome::Success(x) => x,
+                _ => {
+                    let msg = "Unable to acquire DB connections pool";
+                    error!("{} :(", msg);
+                    return Err(MyError::HTTP {
+                        status: Status::BadRequest,
+                        info: msg.into(),
+                    });
+                }
+            };
+
+            let conn = db.pool();
+            let user = match find_active_user(conn, &email).await {
+                Ok(Some(x)) => x,
+                Ok(None) => {
+                    let msg = format!("Unknown ({}) email", email);
+                    error!("{} :(", msg);
+                    return Err(MyError::HTTP {
+                        status: Status::Unauthorized,
+                        info: msg.into(),
+                    });
+                }
+                Err(x) => {
+                    let msg = "Failed finding active User";
+                    error!("{} :( {}", msg, x);
+                    return Err(MyError::HTTP {
+                        status: Status::Unauthorized,
+                        info: msg.into(),
+                    });
+                }
+            };
+            debug!("[authenticate] user = {}", user);
+
+            // 3...(always w/ the PAP)
+            debug!("[authenticate] About to check PAP credentials...");
+            let c1 = pap.credentials(&user.salt, token)?;
+            if c1 != user.c1 {
+                let msg = format!("User #{} PAP credentials mismatch", user.id);
+                error!("{} :(", msg);
+                return Err(MyError::HTTP {
+                    status: Status::Forbidden,
+                    info: msg.into(),
+                });
+            }
+            debug!("[authenticate] PAP credentials OK...");
+            if user.ready {
+                // 3... (w/ the SAP) if thre's one...
+                if let Some(sap) = auth_mode.secondary_policy() {
+                    debug!("[authenticate] User is ready. About to check SAP credentials...");
+                    let c2 = sap.credentials(&user.salt, token)?;
+                    if c2 != user.c2 {
+                        let msg = format!("User #{} SAP credentials mismatch", user.id);
+                        error!("{} :(", msg);
+                        return Err(MyError::HTTP {
+                            status: Status::Forbidden,
+                            info: msg.into(),
+                        });
+                    }
+                }
+
+                // 4...
+                debug!("[authenticate] User is ready. About to cache them...");
+                cache.put(uc_key, CachedUser::from(&user));
+                return Ok(user);
+            }
+
+            // 5...
+            debug!("[authenticate] User is NOT ready...");
+            if auth_mode.is_cruising() {
+                let msg = format!("Cruising but User #{} is NOT ready :(", user.id);
+                error!("{} :(", msg);
+                Err(MyError::HTTP {
+                    status: Status::Forbidden,
+                    info: msg.into(),
+                })
+            } else {
+                // 6...
+                let sap = auth_mode
+                    .secondary_policy()
+                    .expect("Migrating but no SAP found :(");
+                debug!("[authenticate] Migrating. About to compute SAP credentials...");
+                let c2 = sap.credentials(&user.salt, token)?;
+                let migrated = migrate_user(conn, user.id, c2).await?;
+                info!("Migrated {} w/ ID #{}", migrated, migrated.id);
+                cache.put(uc_key, CachedUser::from(&migrated));
+                Ok(user)
+            }
+        } else {
+            let msg = "Missing HTTP Authorization Header";
+            error!("{}", msg);
+            Err(MyError::HTTP {
+                status: Status::Unauthorized,
+                info: msg.into(),
+            })
+        }
+    }
+
+    /// Compute + return the PAP credentials for given `salt` and BA token.
+    pub(crate) fn c1(salt: &Uuid, token: &str) -> Result<u32, MyError> {
+        config().primary_policy().credentials(salt, token)
+    }
+
+    /// Compute + return the SAP credentials for given `salt` and BA token
+    pub(crate) fn c2(salt: &Uuid, token: &str) -> Result<u32, MyError> {
+        match config().secondary_policy() {
+            Some(x) => x.credentials(salt, token),
+            None => Ok(0),
+        }
+    }
+
+    /// Clear the cache forcing user DB lookup upon receiving future requests.
     pub(crate) async fn clear_cache() {
         let mut cache = cached_users().lock().await;
         cache.clear();
@@ -149,8 +353,14 @@ impl User {
     pub(crate) fn with_email(email: &str) -> Self {
         Self {
             email: email.to_owned(),
+            enabled: true,
             ..Default::default()
         }
+    }
+
+    /// Return a reference to this User's `salt`.
+    pub(crate) fn salt(&self) -> &Uuid {
+        &self.salt
     }
 
     /// Return an [Agent] representing this user.
@@ -262,86 +472,17 @@ fn cached_users() -> &'static Mutex<LruCache<u32, CachedUser>> {
     CACHED_USERS.get_or_init(|| Mutex::new(LruCache::new(config().user_cache_len)))
 }
 
-async fn find_cached_user(key: &u32) -> Option<User> {
-    let mut cache = cached_users().lock().await;
-    cache.get(key).map(User::from)
-}
-
-async fn cache_user(key: u32, user: &User) {
-    let mut cache = cached_users().lock().await;
-    cache.put(key, CachedUser::from(user));
-}
-
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for User {
     type Error = MyError;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        // which mode are we running?
-        match config().mode {
-            crate::Mode::Legacy => Outcome::Success(User::default()),
-            _ => {
-                // enforce BA access but...
-                // only use authenticated User as Authority if mode is "user"
-                match req.headers().get_one(header::AUTHORIZATION.as_str()) {
-                    Some(basic_auth) => {
-                        let trimmed = basic_auth.trim();
-                        if trimmed[..6].to_lowercase() != *"basic " {
-                            let msg = "Invalid Authorization header";
-                            error!("Failed: {}", msg);
-                            Outcome::Error((Status::BadRequest, MyError::Runtime(msg.into())))
-                        } else {
-                            // NOTE (rsn) 20250103 - i don't store clear passwords.
-                            // instead i compute a 32-bit hash from their BA token.
-                            let token = trimmed[6..].trim();
-                            let credentials = fxhash::hash32(token);
-                            // check first if we have this in our LRU cache...
-                            match find_cached_user(&credentials).await {
-                                Some(x) => Outcome::Success(x),
-                                None => {
-                                    // TODO (rsn) 20250106 - store that in an atomic
-                                    // counter and include it in the server metrics...
-                                    debug!("Cache miss...");
-                                    match req.guard::<&State<DB>>().await {
-                                        Outcome::Success(db) => {
-                                            let conn = db.pool();
-                                            match find_active_user(conn, credentials).await {
-                                                Ok(None) => {
-                                                    error!("Unknown user");
-                                                    Outcome::Forward(Status::Unauthorized)
-                                                }
-                                                Ok(Some(x)) => {
-                                                    debug!("User = {}", x);
-                                                    cache_user(credentials, &x).await;
-                                                    Outcome::Success(x)
-                                                }
-                                                Err(x) => {
-                                                    error!("Failed: {}", x);
-                                                    Outcome::Forward(Status::Unauthorized)
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            let msg =
-                                                "Unable to get DB pool to check user credentials";
-                                            error!("Failed: {}", msg);
-                                            return Outcome::Error((
-                                                Status::BadRequest,
-                                                MyError::Runtime(msg.into()),
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    None => {
-                        let msg = "Unauthorized access";
-                        error!("Failed: {}", msg);
-                        Outcome::Forward(Status::Unauthorized)
-                    }
-                }
+        match Self::authenticate(req).await {
+            Ok(x) => {
+                debug!("[from_request]; {}", x);
+                Outcome::Success(x)
             }
+            Err(x) => Outcome::Error((Status::Unauthorized, x)),
         }
     }
 }
@@ -349,23 +490,21 @@ impl<'r> FromRequest<'r> for User {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lrs::TEST_USER_PLAIN_TOKEN;
+    use crate::auth::{to_token, user_id_from_token};
     use tracing_test::traced_test;
 
     #[test]
-    fn test_test_user_credentials() {
-        let plain = BASE64_STANDARD.encode(TEST_USER_PLAIN_TOKEN);
-        assert_eq!(plain, "dGVzdEBteS54YXBpLm5ldDo=");
-        let credentials = fxhash::hash32(plain.as_bytes());
-        assert_eq!(credentials, 3793911390);
-        let credentials = fxhash::hash32(&plain);
-        assert_eq!(credentials, 2175704399);
-    }
+    fn test_email_from_ba_token() -> Result<(), MyError> {
+        let user_id = "someone@somewhere";
 
-    #[test]
-    fn test_class_methods() {
-        let credentials = User::credentials_from("test@my.xapi.net", "");
-        assert_eq!(credentials, 2175704399);
+        let token = to_token(user_id, "");
+        // assert_eq!(token, "dGVzdEBteS54YXBpLm5ldDo=");
+        assert_eq!(token, "c29tZW9uZUBzb21ld2hlcmU6");
+
+        let it = user_id_from_token(&token)?;
+        assert_eq!(it, user_id);
+
+        Ok(())
     }
 
     #[traced_test]
@@ -386,22 +525,27 @@ mod tests {
             ..Default::default()
         };
 
-        cache_user(10, &u1).await;
-        cache_user(20, &u2).await;
-
         // wrap in a block to drop+unlock `c` on exist...
+        {
+            let mut c = cached_users().lock().await;
+            c.put(10, CachedUser::from(&u1));
+            c.put(20, CachedUser::from(&u2));
+        }
         {
             let c = cached_users().lock().await;
             assert_eq!(c.len(), 2);
         }
-
-        u1.uncache().await;
         {
+            u1.uncache().await;
             let c = cached_users().lock().await;
             assert_eq!(c.len(), 1);
         }
+        {
+            u2.uncache().await;
+            let c = cached_users().lock().await;
+            assert_eq!(c.len(), 0);
+        }
 
-        u2.uncache().await;
         let c = cached_users().lock().await;
         assert!(c.is_empty())
     }
@@ -424,8 +568,12 @@ mod tests {
             ..Default::default()
         };
 
-        cache_user(10, &u1).await;
-        cache_user(20, &u2).await;
+        // wrap in a block to drop+unlock `c` on exist...
+        {
+            let mut c = cached_users().lock().await;
+            c.put(10, CachedUser::from(&u1));
+            c.put(20, CachedUser::from(&u2));
+        }
 
         User::clear_cache().await;
 

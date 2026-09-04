@@ -278,7 +278,7 @@ async fn put_mixed(
     // to locally store included attachments' data if any.
     let mut statements = ingest_multipart(data, false).await?;
 
-    let statement = statements.iter_mut().next().unwrap();
+    let statement = statements.first_mut().unwrap();
     if statement.id().is_none() {
         statement.set_id(uuid)
     } else if *statement.id().unwrap() != uuid {
