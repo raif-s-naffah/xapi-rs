@@ -1,3 +1,8 @@
+# UNPUBLISHED | Version 0.3.1 (2026-xx-xx)
+
+* Update diagrams.
+* Upgrade dependencies to latest versions.
+
 # Version 0.3.0 (2026-09-04)
 
 * Use Rust 1.98.1.
