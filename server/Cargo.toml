@@ -8,7 +8,19 @@ edition.workspace = true
 repository.workspace = true
 keywords = ["xAPI", "LRS", "web", "server"]
 categories = ["web-programming::http-server", "data-structures", "api-bindings", "wasm"]
-include = ["/plugins"]
+include = [
+    "/doc/**",
+    "/migrations/**",
+    "/plugins/**",
+    "/src/**",
+    "/tests/**",
+    ".env.template",
+    "Cargo.toml",
+    "CHANGELOG.md",
+    "LICENSE.txt",
+    "README.md",
+    "Rocket.toml.template"
+]
 
 [dependencies]
 # xapi-data = { path = "../data" }
