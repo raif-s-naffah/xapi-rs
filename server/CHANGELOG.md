@@ -1,5 +1,7 @@
 # UNPUBLISHED | Version 0.3.1 (2026-xx-xx)
 
+* Add SPDX license header to bash script.
+* Link to CTS results rather than in-line them.
 * Update diagrams.
 * Upgrade dependencies to latest versions.
 

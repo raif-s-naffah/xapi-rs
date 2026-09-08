@@ -2,7 +2,7 @@
 name = "xapi-rs"
 description = "A conformant LRS implementation of xAPI 2.0.0"
 license.workspace = true
-version = "0.3.0"
+version = "0.3.1"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true

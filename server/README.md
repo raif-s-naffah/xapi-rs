@@ -62,34 +62,9 @@ The `logs` folder will contain log files that capture the tracing output of the 
 
 ## Conformance Tests
 
-This project passes the LRS Conformance Tests Suite (CTS) found [here][4] w/ caveats. Here's the output of the first time it did:
+This project passes the LRS Conformance Tests Suite (CTS) found [here][4] w/ caveats. The output of the first time it did is [here](doc/cts-first.log) and of the last is [here](doc/cts-latest.log).
 
-```json
-{
-    "name": "console",
-    "owner": null,
-    "flags": {
-        "endpoint": "http://localhost:9000"
-    },
-    "options": {},
-    "rollupRule": "mustPassAll",
-    "uuid": "101cae0f-785d-4cbe-9de0-30b29f973647",
-    "startTime": 1732158267726,
-    "endTime": 1732158306773,
-    "duration": 39047,
-    "state": "finished",
-    "summary": {
-        "total": 1442,
-        "passed": 1442,
-        "failed": 0,
-        "version": "2.0.0"
-    }
-}
-```
-
-The result of the last run is [here](doc/cts-latest.log)
-
-The latest CTS, when run locally, requires the [following patch](doc/helper_js-20260528.patch) (to the `helper.js` file) and adjustment to the server's configuration. The patch for the `helper.js` eliminates the `TIME_MARGIN` constraint+check.
+The CTS, when run locally, requires the [following patch](doc/helper_js-20260528.patch) (to the `helper.js` file) and adjustment to the server's configuration. The patch for the `helper.js` eliminates the `TIME_MARGIN` constraint+check.
 
 The server configuration adjustments deal with modifying the `.env` parameters to run the server locally. These modifications are:
 

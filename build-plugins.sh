@@ -1,5 +1,7 @@
 #!/usr/bin/bash
 
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 echo "🔔 Build fx-plugin wasm..."
 cargo b -p fx-plugin -r --target wasm32-wasip1
 

@@ -1,0 +1,20 @@
+{
+    "name": "console",
+    "owner": null,
+    "flags": {
+        "endpoint": "http://localhost:9000"
+    },
+    "options": {},
+    "rollupRule": "mustPassAll",
+    "uuid": "101cae0f-785d-4cbe-9de0-30b29f973647",
+    "startTime": 1732158267726,
+    "endTime": 1732158306773,
+    "duration": 39047,
+    "state": "finished",
+    "summary": {
+        "total": 1442,
+        "passed": 1442,
+        "failed": 0,
+        "version": "2.0.0"
+    }
+}
