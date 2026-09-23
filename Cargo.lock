@@ -1147,7 +1147,7 @@ name = "fx-plugin"
 version = "0.1.0"
 dependencies = [
  "fxhash",
- "xapi-interfaces 0.1.0",
+ "xapi-interfaces 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4743,30 +4743,6 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xapi-data"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa0d240e45501e6e36581fa84b73fd8b85a510ac5fbe46380335b4f983a5eff8"
-dependencies = [
- "chrono",
- "email_address",
- "iri-string",
- "language-tags",
- "mime",
- "semver",
- "serde",
- "serde_json",
- "serde_with",
- "speedate",
- "take_mut",
- "thiserror 2.0.20",
- "tracing",
- "unicase",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "xapi-data"
 version = "1.0.1"
 dependencies = [
  "chrono",
@@ -4789,14 +4765,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "xapi-interfaces"
-version = "0.1.0"
+name = "xapi-data"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0ba32c3ab5c69226154881681dafb9b885aaed18f654f9b3f8da93a789681cf"
+checksum = "325ee52f2a26ad42460b85562d1d05f44d8a36961067108eaf082774a0029b24"
+dependencies = [
+ "chrono",
+ "email_address",
+ "iri-string",
+ "language-tags",
+ "mime",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "speedate",
+ "take_mut",
+ "thiserror 2.0.20",
+ "tracing",
+ "unicase",
+ "url",
+ "uuid",
+]
 
 [[package]]
 name = "xapi-interfaces"
 version = "0.1.1"
+
+[[package]]
+name = "xapi-interfaces"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "953cc3e3689fd5213d5ee67b04aa9ef02cabfe0c7201c3ab6aa582406372f822"
 
 [[package]]
 name = "xapi-rs"
@@ -4830,8 +4830,8 @@ dependencies = [
  "uuid",
  "wasmtime",
  "wasmtime-wasi",
- "xapi-data 1.0.0",
- "xapi-interfaces 0.1.0",
+ "xapi-data 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xapi-interfaces 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4839,7 +4839,7 @@ name = "xx-plugin"
 version = "0.1.0"
 dependencies = [
  "twox-hash",
- "xapi-interfaces 0.1.0",
+ "xapi-interfaces 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
