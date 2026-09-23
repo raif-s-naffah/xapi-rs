@@ -24,9 +24,9 @@ include = [
 
 [dependencies]
 # xapi-data = { path = "../data" }
-xapi-data = "1.0.0"
+xapi-data = "1.0.1"
 # xapi-interfaces = { path = "../interfaces" }
-xapi-interfaces = "0.1.0"
+xapi-interfaces = "0.1.1"
 
 # ----- common / workspace -----
 tracing = { workspace = true }
