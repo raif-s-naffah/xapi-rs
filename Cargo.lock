@@ -1147,7 +1147,7 @@ name = "fx-plugin"
 version = "0.1.0"
 dependencies = [
  "fxhash",
- "xapi-interfaces 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xapi-interfaces 0.1.0",
 ]
 
 [[package]]
@@ -4791,12 +4791,12 @@ dependencies = [
 [[package]]
 name = "xapi-interfaces"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0ba32c3ab5c69226154881681dafb9b885aaed18f654f9b3f8da93a789681cf"
 
 [[package]]
 name = "xapi-interfaces"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0ba32c3ab5c69226154881681dafb9b885aaed18f654f9b3f8da93a789681cf"
+version = "0.1.1"
 
 [[package]]
 name = "xapi-rs"
@@ -4831,7 +4831,7 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "xapi-data 1.0.0",
- "xapi-interfaces 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xapi-interfaces 0.1.0",
 ]
 
 [[package]]
@@ -4839,7 +4839,7 @@ name = "xx-plugin"
 version = "0.1.0"
 dependencies = [
  "twox-hash",
- "xapi-interfaces 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xapi-interfaces 0.1.0",
 ]
 
 [[package]]
