@@ -23,7 +23,7 @@ language-tags = "0.3.2"
 lru = "0.18.4"
 mime = "0.3.17"
 openssl = "0.10.81"
-rand = { version = "0.10.2", features = ["thread_rng"] }
+rand = { version = "0.10.3", features = ["thread_rng"] }
 rocket = { version = "0.5.1", features = ["json", "secrets", "tls"] }
 rocket-multipart = { version = "0.2.1", features = ["json"] }
 semver = "1.0.28"
@@ -53,5 +53,5 @@ tracing-test = "0.2.6"
 unicase = "2.9.0"
 url = { version = "2.5.8", features = ["serde"] }
 uuid = { version = "1.24.1", features = ["serde", "v7"] }
-wasmtime = "48.0.1"
-wasmtime-wasi = "48.0.1"
+wasmtime = "49.0.0"
+wasmtime-wasi = "49.0.0"
