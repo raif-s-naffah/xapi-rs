@@ -2,7 +2,7 @@
 name = "xapi-data"
 description = "Rust bindings for the Experience API (xAPI) data structures"
 license.workspace = true
-version = "1.0.0"
+version = "1.0.1"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true

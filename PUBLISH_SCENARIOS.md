@@ -73,13 +73,13 @@ xapi-interfaces = { path = "../interfaces" }
 After working on one or more members of this workspace and before publishing
 any crate, starting at the root of the project do...
 
-1.  `c upgrade ↵`
-2.  `c update -v ↵`
-3.  update `Cargo.toml` bumping dependencies to latest versions if needed.
-4.  `c b -r --workspace ↵`
-5.  `c clippy --workspace ↵`
-6.  `./build-plugins.sh ↵`
-7.  `c t --workspace ↵`
+1. `c upgrade ↵`
+2. `c update -v ↵`
+3. update `Cargo.toml` bumping dependencies to latest versions if needed.
+4. `c b -r --workspace ↵`
+5. `c clippy --workspace ↵`
+6. `./build-plugins.sh ↵`
+7. `c t --workspace ↵`
 8. `c d --no-deps --workspace ↵`
 9. review generated docs in `target/doc`.
 
@@ -97,19 +97,15 @@ xapi-data = { path = "../data" }
 
 Assuming we're publishing `xapi-data` as version `1.0.0`...
 
-1.  update `/data/Cargo.toml`. Set `version` in [package] section to `1.0.0`.
-2.  `c semver-checks -p xapi-data ↵` (skip if first release).
-3.  `c c -p xapi-data ↵`
-
-4.  `git commit -m "data: bump to 1.0.0" ↵`
-5.  `git tag data-1.0.0 ↵`
-
-6.  `c publish -p xapi-data --dry-run ↵`
-7.  `c publish -p xapi-data ↵`
-
-8.  `c search xapi-data --limit 1 ↵` + check the result.
-
-9.  update `server/Cargo.toml`. Change `xapi-data` dependency from `{path="../data"}` to `"1.0.0"`.
+ 1. update `/data/Cargo.toml`. Set `version` in [package] section to `1.0.0`.
+ 2. `c semver-checks -p xapi-data ↵` (skip if first release).
+ 3. `c c -p xapi-data ↵`
+ 4. `git commit -m "data: bump to 1.0.0" ↵`
+ 5. `git tag data-1.0.0 ↵`
+ 6. `c publish -p xapi-data --dry-run ↵`
+ 7. `c publish -p xapi-data ↵`
+ 8. `c search xapi-data --limit 1 ↵` + check the result.
+ 9. update `server/Cargo.toml`. Change `xapi-data` dependency from `{path="../data"}` to `"1.0.0"`.
 10. `c update -v ↵`
 11. `c check -p xapi-rs ↵`
 

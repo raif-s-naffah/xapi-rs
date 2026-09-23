@@ -1,4 +1,4 @@
-# UNPUBLISHED | Version 0.3.1 (2026-xx-xx)
+# Version 0.3.1 (2026-09-23)
 
 * Add SPDX license header to bash script.
 * Link to CTS results rather than in-line them.
