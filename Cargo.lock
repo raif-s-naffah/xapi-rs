@@ -4601,6 +4601,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "xapi-data"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9989640215ae113b7b1edd4e480a81c6afd62e00058da14e722208cae0d21129"
+dependencies = [
+ "chrono",
+ "email_address",
+ "iri-string",
+ "language-tags",
+ "mime",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "speedate",
+ "take_mut",
+ "thiserror 2.0.21",
+ "tracing",
+ "unicase",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "xapi-interfaces"
 version = "0.1.2"
 
@@ -4636,7 +4660,7 @@ dependencies = [
  "uuid",
  "wasmtime",
  "wasmtime-wasi",
- "xapi-data",
+ "xapi-data 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "xapi-interfaces",
 ]
 
