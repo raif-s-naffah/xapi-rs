@@ -1,3 +1,7 @@
+# Version 1.0.2 (2026-10-24)
+
+* Upgrade dependencies to latest versions.
+
 # Version 1.0.1 (2026-09-23)
 
 * Add README.
