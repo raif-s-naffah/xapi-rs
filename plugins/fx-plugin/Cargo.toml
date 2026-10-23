@@ -11,8 +11,8 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-# xapi-interfaces = { path = "../../interfaces" }
-xapi-interfaces = "0.1.1"
+xapi-interfaces = { path = "../../interfaces" }
+# xapi-interfaces = "0.1.2"
 fxhash = "0.2.1"
 
 [lib]

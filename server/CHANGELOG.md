@@ -1,3 +1,10 @@
+# Version 0.3.2 (2026-10-24)
+
+* Use Rocket 5.2 to address RUSTSEC-2026-0382.
+* Use Rust 1.99.1.
+* Fix some documentation spellings.
+* Upgrade dependencies to latest stable versions.
+
 # Version 0.3.1 (2026-09-23)
 
 * Add SPDX license header to bash script.

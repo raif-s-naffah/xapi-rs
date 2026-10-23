@@ -2,7 +2,7 @@
 name = "xapi-rs"
 description = "A conformant LRS implementation of xAPI 2.0.0"
 license.workspace = true
-version = "0.3.1"
+version = "0.3.2"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -23,10 +23,10 @@ include = [
 ]
 
 [dependencies]
-# xapi-data = { path = "../data" }
-xapi-data = "1.0.1"
-# xapi-interfaces = { path = "../interfaces" }
-xapi-interfaces = "0.1.1"
+xapi-data = { path = "../data" }
+# xapi-data = "1.0.2"
+xapi-interfaces = { path = "../interfaces" }
+# xapi-interfaces = "0.1.2"
 
 # ----- common / workspace -----
 tracing = { workspace = true }

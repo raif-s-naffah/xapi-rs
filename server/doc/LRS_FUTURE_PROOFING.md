@@ -86,7 +86,7 @@ Or `AuthMode` for short. I'm thinking of 2 variants:
     }
 ```
 
-To clarify, when **migrating** it's always _from_ the Primary Auth Policy (PAP) _to_ the Seconday one (SAP), and when cruising, the only policy will be the Primary Auth Policy (PAP) one. Worth noting at this point also that in _**CRUISE**_ mode, the `ready` flag is expected to be set to TRUE. Finally, when assessing if user login credentials are legit or not, `credentials` when dealing w/ PAP, and `credentials2` when dealing with SAP, will be our sources of truth.
+To clarify, when **migrating** it's always _from_ the Primary Auth Policy (PAP) _to_ the Secondary one (SAP), and when cruising, the only policy will be the Primary Auth Policy (PAP) one. Worth noting at this point also that in _**CRUISE**_ mode, the `ready` flag is expected to be set to TRUE. Finally, when assessing if user login credentials are legit or not, `credentials` when dealing w/ PAP, and `credentials2` when dealing with SAP, will be our sources of truth.
 
 ## Configuration parameters
 

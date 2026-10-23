@@ -57,7 +57,7 @@
 //! The xAPI describes (and relies) on a concept of _Equivalence_ that determines if two instances
 //! of the same Data Type (say [Statement]s) are equal. That _Equivalence_ is **different** from
 //! _Equality_ introduced earlier. So it's possible to have two [Statement]s that have different
-//! `hash`[^12] values yet are _equivalent_. Note though that if two [Statement]s (and more
+//! `hash`[^11] values yet are _equivalent_. Note though that if two [Statement]s (and more
 //! generally two instances of the same Data Type) are **equal** then they're also **equivalent**.
 //! In other words, _Equality_ implies _Equivalence_ but not the other way around.
 //!
@@ -157,8 +157,7 @@
 //! [^102]: REST: Representational State Transfer.
 //! [^103]: API: Application Programming Interface.
 //! [^104]: LRS: Learning Record Store.
-//! [^10]: Durations in [ISO 8601:2004(E)][106] sections 4.4.3.2 and 4.4.3.3.
-//! [^12]: Just to be clear, `hash` here means the result of computing a message digest over the non-null values of an object's field(s).
+//! [^11]: Just to be clear, `hash` here means the result of computing a message digest over the non-null values of an object's field(s).
 //!
 
 mod about;

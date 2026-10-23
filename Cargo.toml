@@ -20,16 +20,16 @@ hex = "0.4.3"
 iri-string = { version = "0.7.14", features = ["serde"] }
 josekit = "0.10.3"
 language-tags = "0.3.2"
-lru = "0.18.4"
+lru = "0.19.0"
 mime = "0.3.17"
 openssl = "0.10.81"
 rand = { version = "0.10.3", features = ["thread_rng"] }
-rocket = { version = "0.5.1", features = ["json", "secrets", "tls"] }
+rocket = { version = "0.5.2", features = ["json", "secrets", "tls"] }
 rocket-multipart = { version = "0.2.1", features = ["json"] }
 semver = "1.0.28"
 serde = "1.0.229"
-serde_json = "1.0.151"
-serde_with = { version = "3.23.0", features = ["macros"] }
+serde_json = "1.0.154"
+serde_with = { version = "3.24.0", features = ["macros"] }
 speedate = "0.17.0"
 sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
@@ -40,8 +40,8 @@ sqlx = { version = "0.9.0", features = [
 ] }
 take_mut = "0.2.2"
 test-context = "0.5.8"
-thiserror = "2.0.20"
-tokio = { version = "1.53.1", features = ["full"] }
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["full"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = [
     "chrono",
@@ -50,8 +50,8 @@ tracing-subscriber = { version = "0.3.23", features = [
     "parking_lot",
 ] }
 tracing-test = "0.2.6"
-unicase = "2.9.0"
+unicase = "2.10.0"
 url = { version = "2.5.8", features = ["serde"] }
-uuid = { version = "1.24.1", features = ["serde", "v7"] }
-wasmtime = "49.0.0"
-wasmtime-wasi = "49.0.0"
+uuid = { version = "1.29.0", features = ["serde", "v7"] }
+wasmtime = "50.0.0"
+wasmtime-wasi = "50.0.0"
